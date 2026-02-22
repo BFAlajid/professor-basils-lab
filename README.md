@@ -10,13 +10,13 @@ A Pokemon team builder that got out of hand. What started as a team builder turn
 
 ## What's in here
 
-**Team Builder** — Search the full National Pokedex, customize EVs/IVs/natures/abilities/items/moves/Tera types, swap between alternate formes. Import and export teams in Pokemon Showdown format. Share teams via URL.
+**Team Builder** — Search the full National Pokedex (Gens 1–9, 1025 Pokemon), customize EVs/IVs/natures/abilities/items/moves/Tera types, swap between alternate formes. Import and export teams in Pokemon Showdown format. Share teams via URL.
 
 **Battle Simulator** — Turn-based fights against an AI or a friend (local PvP). Full Gen V+ damage formula with STAB, crits, stat stages, status conditions, weather, terrain, held items. Pick one generational mechanic per battle: Mega Evolution, Terastallization, or Dynamax. The AI isn't brilliant but it'll punish bad type matchups.
 
 **Wild Encounters** — Pick a region (Kanto/Johto/Hoenn/Sinnoh), pick an area, walk through grass. The catch system uses the real Gen V+ formula with all 14 ball types and their context-sensitive modifiers. Shiny odds are 1/4096. Caught Pokemon go into a PC box.
 
-**GBA Emulator** — Embedded mGBA compiled to WebAssembly. Drop in a ROM you legally own and play it in the browser. Save states, speed controls, auto-save to IndexedDB. The "Import Pokemon" button reads the emulator's save data and pulls your party/box Pokemon into the app.
+**GBA Emulator** — Embedded mGBA compiled to WebAssembly. Drop in a GBA, GBC, or GB ROM you legally own and play it in the browser. Save states, speed controls, auto-save to IndexedDB. The "Import Pokemon" button reads the emulator's save data, decrypts the Gen 3 binary format, and pulls your party/box Pokemon into the app's PC box alongside anything caught in-app.
 
 **Analysis Tools** — Type coverage matrix, stat radar chart, damage calculator, and a team weakness panel that scores your defensive holes and suggests types to patch them.
 
