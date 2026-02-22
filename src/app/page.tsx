@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useTeam, encodeTeam, decodeTeam, type DecodedTeamData } from "@/hooks/useTeam";
 import { fetchPokemon } from "@/hooks/usePokemon";
 import { usePokedexContext } from "@/contexts/PokedexContext";
@@ -9,18 +9,35 @@ import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { NATURES } from "@/data/natures";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
 import type { Pokemon, TeamSlot } from "@/types";
+import dynamic from "next/dynamic";
+import SkeletonLoader from "@/components/SkeletonLoader";
+
+// Lightweight — keep eager
 import TeamRoster from "@/components/TeamRoster";
 import TypeCoverage from "@/components/TypeCoverage";
-import StatRadar from "@/components/StatRadar";
-import DamageCalculator from "@/components/DamageCalculator";
-import TeamSummary from "@/components/TeamSummary";
-import BattleTab from "@/components/battle/BattleTab";
-import WildTab from "@/components/wild/WildTab";
-import AudioPlayer from "@/components/AudioPlayer";
 import TeamWeaknessPanel from "@/components/TeamWeaknessPanel";
-import PokedexTracker from "@/components/PokedexTracker";
-import AchievementPanel from "@/components/AchievementPanel";
-import dynamic from "next/dynamic";
+import TeamSummary from "@/components/TeamSummary";
+import AudioPlayer from "@/components/AudioPlayer";
+
+// Heavy — lazy load
+const StatRadar = dynamic(() => import("@/components/StatRadar"), {
+  loading: () => <SkeletonLoader label="Loading stats..." lines={2} />,
+});
+const DamageCalculator = dynamic(() => import("@/components/DamageCalculator"), {
+  loading: () => <SkeletonLoader label="Loading calculator..." lines={3} />,
+});
+const BattleTab = dynamic(() => import("@/components/battle/BattleTab"), {
+  loading: () => <SkeletonLoader label="Loading battle..." lines={4} />,
+});
+const WildTab = dynamic(() => import("@/components/wild/WildTab"), {
+  loading: () => <SkeletonLoader label="Loading wild area..." lines={4} />,
+});
+const PokedexTracker = dynamic(() => import("@/components/PokedexTracker"), {
+  loading: () => <SkeletonLoader label="Loading Pokédex..." lines={4} />,
+});
+const AchievementPanel = dynamic(() => import("@/components/AchievementPanel"), {
+  loading: () => <SkeletonLoader label="Loading achievements..." lines={3} />,
+});
 const GBAEmulatorTab = dynamic(() => import("@/components/gba/GBAEmulatorTab"), {
   ssr: false,
   loading: () => (
@@ -31,6 +48,18 @@ const GBAEmulatorTab = dynamic(() => import("@/components/gba/GBAEmulatorTab"), 
 });
 
 type Tab = "team" | "analysis" | "stats" | "damage" | "battle" | "wild" | "gba" | "pokedex" | "achievements";
+
+const tabs: { id: Tab; label: string; short: string }[] = [
+  { id: "team", label: "Team", short: "TM" },
+  { id: "analysis", label: "Coverage", short: "CV" },
+  { id: "stats", label: "Stats", short: "ST" },
+  { id: "damage", label: "Damage", short: "DM" },
+  { id: "battle", label: "Battle", short: "BT" },
+  { id: "wild", label: "Wild", short: "WD" },
+  { id: "gba", label: "GBA", short: "GBA" },
+  { id: "pokedex", label: "Pokédex", short: "PD" },
+  { id: "achievements", label: "Badges", short: "BD" },
+];
 
 export default function Home() {
   const {
@@ -54,6 +83,7 @@ export default function Home() {
   const { markSeen } = usePokedexContext();
   const { incrementStat } = useAchievementsContext();
   const prevTeamSize = useRef(0);
+  const shouldReduceMotion = useReducedMotion();
 
   // Load team from URL params on mount
   useEffect(() => {
@@ -128,22 +158,38 @@ export default function Home() {
     });
   }, [team]);
 
-  const teamPokemon = team.map((s) => s.pokemon);
+  const handleTabKeyDown = useCallback(
+    (e: React.KeyboardEvent, tabId: Tab) => {
+      const idx = tabs.findIndex((t) => t.id === tabId);
+      let nextIdx = -1;
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        nextIdx = (idx + 1) % tabs.length;
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        nextIdx = (idx - 1 + tabs.length) % tabs.length;
+      }
+      if (nextIdx >= 0) {
+        setActiveTab(tabs[nextIdx].id);
+        document.getElementById(`tab-${tabs[nextIdx].id}`)?.focus();
+      }
+    },
+    []
+  );
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "team", label: "Team" },
-    { id: "analysis", label: "Coverage" },
-    { id: "stats", label: "Stats" },
-    { id: "damage", label: "Damage" },
-    { id: "battle", label: "Battle" },
-    { id: "wild", label: "Wild" },
-    { id: "gba", label: "GBA" },
-    { id: "pokedex", label: "Pokédex" },
-    { id: "achievements", label: "Badges" },
-  ];
+  const teamPokemon = team.map((s) => s.pokemon);
+  const motionDuration = shouldReduceMotion ? 0 : 0.2;
 
   return (
     <div className="min-h-screen bg-[#1a1c2c]">
+      {/* Skip to content */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-[#e8433f] focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:font-pixel focus:text-sm"
+      >
+        Skip to content
+      </a>
+
       {/* Header */}
       <header className="border-b border-[#3a4466] bg-[#262b44]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 gap-2 flex-wrap sm:flex-nowrap">
@@ -161,19 +207,21 @@ export default function Home() {
               <>
                 <button
                   onClick={handleShare}
+                  aria-label="Share team link"
                   className="rounded-lg bg-[#3a4466] px-3 py-1.5 text-sm text-[#f0f0e8] hover:bg-[#4a5577] transition-colors"
                 >
                   {shareMessage || "Share Team"}
                 </button>
                 <button
                   onClick={clearTeam}
+                  aria-label="Clear all team members"
                   className="rounded-lg bg-[#3a4466] px-3 py-1.5 text-sm text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
                 >
                   Clear
                 </button>
               </>
             )}
-            <span className="text-sm text-[#8b9bb4]">
+            <span className="text-sm text-[#8b9bb4]" aria-live="polite">
               {team.length}/6
             </span>
           </div>
@@ -181,19 +229,26 @@ export default function Home() {
       </header>
 
       {/* Tabs */}
-      <nav className="border-b border-[#3a4466]">
-        <div className="mx-auto flex max-w-6xl px-4 overflow-x-auto">
+      <nav className="border-b border-[#3a4466]" aria-label="Main navigation">
+        <div className="mx-auto flex max-w-6xl px-4 overflow-x-auto" role="tablist" aria-label="App sections">
           {tabs.map((tab) => (
             <button
               key={tab.id}
+              id={`tab-${tab.id}`}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`tabpanel-${tab.id}`}
+              tabIndex={activeTab === tab.id ? 0 : -1}
               onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
               className={`relative px-3 py-3 text-sm font-medium font-pixel transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "text-[#f0f0e8]"
                   : "text-[#8b9bb4] hover:text-[#f0f0e8]"
               }`}
             >
-              {tab.label}
+              <span className="hidden md:inline">{tab.label}</span>
+              <span className="md:hidden">{tab.short}</span>
               {activeTab === tab.id && (
                 <motion.div
                   layoutId="activeTab"
@@ -206,7 +261,12 @@ export default function Home() {
       </nav>
 
       {/* Content */}
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <main
+        id="main-content"
+        className="mx-auto max-w-6xl px-4 py-6"
+        role="tabpanel"
+        aria-labelledby={`tab-${activeTab}`}
+      >
         {/* GBA emulator stays mounted to preserve WASM state across tab switches */}
         <div style={{ display: activeTab === "gba" ? "block" : "none" }}>
           <GBAEmulatorTab />
@@ -219,7 +279,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: motionDuration }}
             >
               {activeTab === "team" && (
                 <TeamRoster

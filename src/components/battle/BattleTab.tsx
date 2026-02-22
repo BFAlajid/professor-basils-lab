@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { TeamSlot, BattleReplay } from "@/types";
+import { TeamSlot, BattleReplay, BattleMode, GenerationalMechanic, DifficultyLevel } from "@/types";
 import { useBattle } from "@/hooks/useBattle";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
+import { useTournament } from "@/hooks/useTournament";
+import { useOnlineBattle } from "@/hooks/useOnlineBattle";
 import BattleSetup from "./BattleSetup";
 import BattleArena from "./BattleArena";
 import BattleResult from "./BattleResult";
 import ReplayViewer from "./ReplayViewer";
 import ReplayList from "./ReplayList";
+import TournamentBracket from "./TournamentBracket";
+import OnlineLobby from "./OnlineLobby";
 
 interface BattleTabProps {
   team: TeamSlot[];
@@ -29,10 +33,13 @@ export default function BattleTab({ team }: BattleTabProps) {
   } = useBattle();
 
   const { recordBattleWin, recordBattleLoss, incrementStat } = useAchievementsContext();
+  const tournament = useTournament();
+  const online = useOnlineBattle();
   const hasRecorded = useRef(false);
   const prevLogLen = useRef(0);
   const [viewingReplay, setViewingReplay] = useState<BattleReplay | null>(null);
   const [replaySaved, setReplaySaved] = useState(false);
+  const [activeBattleMode, setActiveBattleMode] = useState<"ai" | "pvp" | "tournament" | "online" | null>(null);
 
   // Record battle result exactly once when battle ends
   useEffect(() => {
@@ -40,15 +47,21 @@ export default function BattleTab({ team }: BattleTabProps) {
       hasRecorded.current = true;
       if (state.winner === "player1") {
         recordBattleWin();
+        if (activeBattleMode === "tournament") {
+          tournament.reportWin();
+        }
       } else {
         recordBattleLoss();
+        if (activeBattleMode === "tournament") {
+          tournament.reportLoss();
+        }
       }
     }
     if (state.phase === "setup") {
       hasRecorded.current = false;
       setReplaySaved(false);
     }
-  }, [state.phase, state.winner, recordBattleWin, recordBattleLoss]);
+  }, [state.phase, state.winner, recordBattleWin, recordBattleLoss, activeBattleMode, tournament]);
 
   // Track critical hits and super effective hits from battle log
   useEffect(() => {
@@ -80,6 +93,42 @@ export default function BattleTab({ team }: BattleTabProps) {
     setViewingReplay(null);
   }, []);
 
+  // Handle tournament match start
+  const handleTournamentBeginMatch = useCallback(async (opponentIndex: number) => {
+    tournament.beginMatch(opponentIndex);
+    const opponent = tournament.state.trainers[opponentIndex];
+    if (!opponent) return;
+    setActiveBattleMode("tournament");
+    startBattle(team, opponent.team, "ai", null, null, opponent.difficulty);
+  }, [tournament, team, startBattle]);
+
+  // Handle starting battle from setup (for ai/pvp modes)
+  const handleStartBattle = useCallback((
+    player1Team: TeamSlot[],
+    player2Team: TeamSlot[],
+    mode: BattleMode,
+    playerMechanic?: GenerationalMechanic,
+    aiMechanic?: GenerationalMechanic,
+    difficulty?: DifficultyLevel
+  ) => {
+    setActiveBattleMode(mode);
+    startBattle(player1Team, player2Team, mode, playerMechanic, aiMechanic, difficulty);
+  }, [startBattle]);
+
+  // Handle online ready to battle
+  const handleOnlineReady = useCallback(() => {
+    online.sendReady();
+    if (online.state.opponentTeam) {
+      setActiveBattleMode("online");
+      startBattle(team, online.state.opponentTeam, "pvp");
+    }
+  }, [online, team, startBattle]);
+
+  const handleResetBattle = useCallback(() => {
+    resetBattle();
+    setActiveBattleMode(null);
+  }, [resetBattle]);
+
   // If viewing a replay, show the replay viewer
   if (viewingReplay) {
     return <ReplayViewer replay={viewingReplay} onClose={handleCloseReplay} />;
@@ -93,14 +142,58 @@ export default function BattleTab({ team }: BattleTabProps) {
     );
   }
 
+  // Setup phase — route to appropriate sub-view
   if (state.phase === "setup") {
+    // Tournament mode active
+    if (activeBattleMode === "tournament" || tournament.state.trainers.length > 0) {
+      return (
+        <div className="space-y-6">
+          <TournamentBracket
+            state={tournament.state}
+            isGenerating={tournament.isGenerating}
+            onStartTournament={tournament.startTournament}
+            onBeginMatch={handleTournamentBeginMatch}
+            onNextRound={tournament.nextRound}
+            onReset={() => {
+              tournament.reset();
+              setActiveBattleMode(null);
+            }}
+          />
+          <ReplayList onViewReplay={handleViewReplay} />
+        </div>
+      );
+    }
+
+    // Online mode active
+    if (activeBattleMode === "online" || online.state.phase !== "idle") {
+      return (
+        <div className="space-y-6">
+          <OnlineLobby
+            state={online.state}
+            playerTeam={team}
+            onCreateLobby={online.createLobby}
+            onJoinLobby={online.joinLobby}
+            onSubmitTeam={online.submitTeam}
+            onReady={handleOnlineReady}
+            onDisconnect={() => {
+              online.disconnect();
+              setActiveBattleMode(null);
+            }}
+          />
+          <ReplayList onViewReplay={handleViewReplay} />
+        </div>
+      );
+    }
+
+    // Default setup view
     return (
       <div className="space-y-6">
         <BattleSetup
           playerTeam={team}
-          onStart={startBattle}
+          onStart={handleStartBattle}
           onGenerateOpponent={generateOpponent}
           isLoadingOpponent={isLoadingOpponent}
+          onModeChange={(mode) => setActiveBattleMode(mode)}
         />
         <ReplayList onViewReplay={handleViewReplay} />
       </div>
@@ -112,9 +205,14 @@ export default function BattleTab({ team }: BattleTabProps) {
       <BattleResult
         state={state}
         onPlayAgain={() => {
-          resetBattle();
+          if (activeBattleMode === "tournament") {
+            // Return to bracket, not setup
+            resetBattle();
+          } else {
+            handleResetBattle();
+          }
         }}
-        onReset={resetBattle}
+        onReset={handleResetBattle}
         onSaveReplay={handleSaveReplay}
         replaySaved={replaySaved}
       />

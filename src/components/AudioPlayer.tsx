@@ -71,6 +71,7 @@ export default function AudioPlayer() {
         onClick={handlePlayPause}
         className="text-[#f0f0e8] hover:text-[#38b764] transition-colors text-sm px-1"
         title={isPlaying ? "Pause" : "Play"}
+        aria-label={isPlaying ? "Pause music" : "Play music"}
       >
         {isPlaying ? "||" : "▶"}
       </button>
@@ -80,6 +81,7 @@ export default function AudioPlayer() {
         onClick={stop}
         className="text-[#f0f0e8] hover:text-[#e8433f] transition-colors text-sm px-1"
         title="Stop"
+        aria-label="Stop music"
       >
         ■
       </button>
@@ -97,6 +99,7 @@ export default function AudioPlayer() {
         }}
         className="w-16 h-1 accent-[#38b764] cursor-pointer"
         title={`Volume: ${Math.round(volume * 100)}%`}
+        aria-label="Volume"
       />
 
       {/* Mute toggle */}
@@ -104,6 +107,7 @@ export default function AudioPlayer() {
         onClick={() => setMuted(!isMuted)}
         className={`text-xs px-1 transition-colors ${isMuted ? "text-[#e8433f]" : "text-[#8b9bb4] hover:text-[#f0f0e8]"}`}
         title={isMuted ? "Unmute" : "Mute"}
+        aria-label={isMuted ? "Unmute music" : "Mute music"}
       >
         {isMuted ? "🔇" : "🔊"}
       </button>

@@ -22,6 +22,8 @@ export interface PlayerStats {
   uniqueTypesOwned: string[];
   kantoSpeciesOwned: number[];
   showdownExports: number;
+  tournamentsWon: number;
+  flawlessTournaments: number;
 }
 
 export type AchievementCategory =
@@ -62,6 +64,8 @@ const DEFAULT_STATS: PlayerStats = {
   uniqueTypesOwned: [],
   kantoSpeciesOwned: [],
   showdownExports: 0,
+  tournamentsWon: 0,
+  flawlessTournaments: 0,
 };
 
 // --- Achievement Definitions ---
@@ -268,6 +272,24 @@ function createAchievementDefinitions(): Omit<Achievement, "unlocked" | "unlocke
       icon: "\u{1F9EC}",
       category: "collection",
       condition: (stats) => stats.uniqueSpeciesCaught >= 50,
+    },
+
+    // Tournament
+    {
+      id: "tournament_champion",
+      name: "Tournament Champion",
+      description: "Win a tournament",
+      icon: "\u{1F3C6}",
+      category: "battle",
+      condition: (stats) => stats.tournamentsWon >= 1,
+    },
+    {
+      id: "flawless_victory",
+      name: "Flawless Victory",
+      description: "Win a tournament without losing a match",
+      icon: "\u{1F48E}",
+      category: "battle",
+      condition: (stats) => stats.flawlessTournaments >= 1,
     },
   ];
 }

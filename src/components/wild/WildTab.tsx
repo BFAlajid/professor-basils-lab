@@ -16,6 +16,7 @@ import CatchResult from "./CatchResult";
 import PCBox from "./PCBox";
 import NuzlockeGraveyard from "./NuzlockeGraveyard";
 import NuzlockeGameOver from "./NuzlockeGameOver";
+import DayCare from "./DayCare";
 import { useNuzlocke } from "@/hooks/useNuzlocke";
 import { LEGENDARY_IDS } from "@/data/legendaries";
 import { generateRandomIVs } from "@/utils/wildBattle";
@@ -66,6 +67,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
   } = useNuzlocke();
 
   const [showPCBox, setShowPCBox] = useState(false);
+  const [showDayCare, setShowDayCare] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [showCatchFailure, setShowCatchFailure] = useState(false);
 
@@ -247,7 +249,17 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                   Lead: {team[0].pokemon.name.charAt(0).toUpperCase() + team[0].pokemon.name.slice(1)}
                 </span>
                 <button
-                  onClick={() => setShowPCBox(!showPCBox)}
+                  onClick={() => { setShowDayCare(!showDayCare); if (!showDayCare) setShowPCBox(false); }}
+                  className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
+                    showDayCare
+                      ? "text-[#f7a838] border-[#f7a838]"
+                      : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"
+                  }`}
+                >
+                  Day Care
+                </button>
+                <button
+                  onClick={() => { setShowPCBox(!showPCBox); if (!showPCBox) setShowDayCare(false); }}
                   className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
                     showPCBox
                       ? "text-[#38b764] border-[#38b764]"
@@ -297,6 +309,19 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                     onRemove={removeFromBox}
                     onSetNickname={setNickname}
                   />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Day Care panel */}
+            <AnimatePresence>
+              {showDayCare && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <DayCare box={box} />
                 </motion.div>
               )}
             </AnimatePresence>

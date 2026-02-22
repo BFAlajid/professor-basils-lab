@@ -82,6 +82,16 @@ export default function PokemonSearch({
     return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
   };
 
+  // Close on Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isOpen, onClose]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -110,6 +120,7 @@ export default function PokemonSearch({
                   setError(null);
                 }}
                 placeholder="Search Pokemon..."
+                aria-label="Search Pokemon by name or ID"
                 className="flex-1 rounded-lg border border-[#3a4466] bg-[#1a1c2c] px-4 py-2.5 text-[#f0f0e8] placeholder-[#8b9bb4] outline-none focus:border-[#e8433f] transition-colors"
               />
               {loading && <LoadingSpinner />}

@@ -54,6 +54,7 @@ export default function PokemonCard({
           e.stopPropagation();
           onRemove(position);
         }}
+        aria-label={`Remove ${pokemon.name} from team`}
         className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#3a4466] text-xs text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
       >
         X

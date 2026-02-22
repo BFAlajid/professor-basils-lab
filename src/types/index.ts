@@ -259,7 +259,7 @@ export interface BattleMoveData {
 }
 
 export type BattlePhase = "setup" | "action_select" | "executing" | "force_switch" | "ended";
-export type BattleMode = "ai" | "pvp";
+export type BattleMode = "ai" | "pvp" | "online" | "tournament";
 export type BattleWinner = "player1" | "player2" | null;
 export type DifficultyLevel = "easy" | "normal" | "hard";
 
@@ -420,4 +420,92 @@ export interface NuzlockeGravePokemon {
   causeOfDeath: string;
   area: string;
   level: number;
+}
+
+// --- Breeding Types ---
+
+export interface BreedingEgg {
+  id: string;
+  parent1: PCBoxPokemon;
+  parent2: PCBoxPokemon;
+  speciesId: number;
+  speciesName: string;
+  stepsRequired: number;
+  stepsCompleted: number;
+  isHatched: boolean;
+  hatchedPokemon: PCBoxPokemon | null;
+  inheritedIVs: { stat: keyof IVSpread; fromParent: 1 | 2 }[];
+  inheritedNature: 1 | 2 | "random";
+  inheritedAbility: string;
+  eggMoves: string[];
+}
+
+export interface BreedingPair {
+  parent1Index: number;
+  parent2Index: number;
+}
+
+export interface DayCareState {
+  currentPair: BreedingPair | null;
+  eggs: BreedingEgg[];
+  isCompatible: boolean;
+  compatibilityMessage: string;
+}
+
+export type DayCareAction =
+  | { type: "SET_PAIR"; pair: BreedingPair }
+  | { type: "CLEAR_PAIR" }
+  | { type: "CREATE_EGG"; egg: BreedingEgg }
+  | { type: "ADVANCE_STEPS"; steps: number }
+  | { type: "HATCH_EGG"; index: number; pokemon: PCBoxPokemon }
+  | { type: "REMOVE_EGG"; index: number }
+  | { type: "LOAD"; pair: BreedingPair | null; eggs: BreedingEgg[] };
+
+// --- Tournament Types ---
+
+export interface TournamentTrainer {
+  name: string;
+  title: string;
+  theme: TypeName | "mixed";
+  team: TeamSlot[];
+  difficulty: DifficultyLevel;
+  defeated: boolean;
+}
+
+export type TournamentPhase = "bracket" | "pre_match" | "battling" | "post_match" | "completed";
+
+export interface TournamentState {
+  phase: TournamentPhase;
+  round: number;
+  trainers: TournamentTrainer[];
+  currentOpponentIndex: number;
+  playerWins: number;
+  isChampion: boolean;
+}
+
+export type TournamentAction =
+  | { type: "START_TOURNAMENT"; trainers: TournamentTrainer[] }
+  | { type: "BEGIN_MATCH"; opponentIndex: number }
+  | { type: "MATCH_WON" }
+  | { type: "MATCH_LOST" }
+  | { type: "NEXT_ROUND" }
+  | { type: "RESET_TOURNAMENT" };
+
+// --- Online Multiplayer Types ---
+
+export type OnlinePhase = "idle" | "creating_lobby" | "waiting" | "joining" | "connected" | "team_preview" | "battling" | "disconnected";
+
+export interface OnlineMessage {
+  type: "TEAM_SUBMIT" | "ACTION" | "FORCE_SWITCH_ACTION" | "READY" | "PING" | "PONG" | "DISCONNECT";
+  payload: unknown;
+  timestamp: number;
+}
+
+export interface OnlineState {
+  phase: OnlinePhase;
+  roomCode: string | null;
+  isHost: boolean;
+  opponentTeam: TeamSlot[] | null;
+  lastPing: number;
+  error: string | null;
 }

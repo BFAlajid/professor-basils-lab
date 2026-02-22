@@ -89,6 +89,7 @@ export default function PCBox({ box, teamSize, onMoveToTeam, onRemove, onSetNick
               {teamSize < 6 && (
                 <button
                   onClick={() => { onMoveToTeam(selectedIndex); setSelectedIndex(null); }}
+                  aria-label="Move Pokemon to team"
                   className="px-3 py-1.5 bg-[#38b764] hover:bg-[#2d9550] text-[#f0f0e8] text-[9px] font-pixel rounded-lg transition-colors"
                 >
                   Move to Team
@@ -96,6 +97,7 @@ export default function PCBox({ box, teamSize, onMoveToTeam, onRemove, onSetNick
               )}
               <button
                 onClick={() => { onRemove(selectedIndex); setSelectedIndex(null); }}
+                aria-label="Release Pokemon"
                 className="px-3 py-1.5 bg-[#e8433f] hover:bg-[#c9342e] text-[#f0f0e8] text-[9px] font-pixel rounded-lg transition-colors"
               >
                 Release

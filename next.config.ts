@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import withBundleAnalyzer from "@next/bundle-analyzer";
 
 const nextConfig: NextConfig = {
   // Exclude mgba-wasm from server bundling (browser-only)
@@ -26,4 +27,8 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+const analyzed = withBundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+})(nextConfig);
+
+export default analyzed;

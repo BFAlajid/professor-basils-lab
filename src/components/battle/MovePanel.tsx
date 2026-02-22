@@ -44,6 +44,7 @@ export default function MovePanel({ pokemon, onSelectMove, disabled, isDynamaxed
             key={moveName}
             onClick={() => onSelectMove(index)}
             disabled={disabled}
+            aria-label={`Use move ${(displayData?.name ?? moveName).replace(/-/g, " ")}`}
             className="rounded-lg border-2 px-3 py-2 text-left text-sm font-medium transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
               borderColor: color,

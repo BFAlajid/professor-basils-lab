@@ -12,6 +12,7 @@ interface BattleSetupProps {
   onStart: (player1Team: TeamSlot[], player2Team: TeamSlot[], mode: BattleMode, playerMechanic?: GenerationalMechanic, aiMechanic?: GenerationalMechanic, difficulty?: DifficultyLevel) => void;
   onGenerateOpponent: () => Promise<TeamSlot[]>;
   isLoadingOpponent: boolean;
+  onModeChange?: (mode: BattleMode) => void;
 }
 
 export default function BattleSetup({
@@ -19,6 +20,7 @@ export default function BattleSetup({
   onStart,
   onGenerateOpponent,
   isLoadingOpponent,
+  onModeChange,
 }: BattleSetupProps) {
   const [mode, setMode] = useState<BattleMode>("ai");
   const [mechanic, setMechanic] = useState<GenerationalMechanic>(null);
@@ -78,6 +80,24 @@ export default function BattleSetup({
             <span className="block text-base font-pixel">Local PvP</span>
             <span className="block text-[10px] mt-1 opacity-70">
               Two players on the same device
+            </span>
+          </button>
+          <button
+            onClick={() => onModeChange?.("tournament")}
+            className="flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-colors bg-[#3a4466] text-[#8b9bb4] hover:bg-[#4a5577]"
+          >
+            <span className="block text-base font-pixel">Tournament</span>
+            <span className="block text-[10px] mt-1 opacity-70">
+              8-trainer bracket challenge
+            </span>
+          </button>
+          <button
+            onClick={() => onModeChange?.("online")}
+            className="flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-colors bg-[#3a4466] text-[#8b9bb4] hover:bg-[#4a5577]"
+          >
+            <span className="block text-base font-pixel">Online</span>
+            <span className="block text-[10px] mt-1 opacity-70">
+              P2P battle via room code
             </span>
           </button>
         </div>
