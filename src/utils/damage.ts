@@ -1,0 +1,206 @@
+import { Pokemon, Move, BaseStats, EVSpread, IVSpread, Nature, StatusCondition, TypeName, WeatherType } from "@/types";
+import { getDefensiveMultiplier } from "@/data/typeChart";
+import { calculateAllStats, CalculatedStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
+import { getHeldItem } from "@/data/heldItems";
+
+export function extractBaseStats(pokemon: Pokemon): BaseStats {
+  const get = (name: string) =>
+    pokemon.stats.find((s) => s.stat.name === name)?.base_stat ?? 0;
+  return {
+    hp: get("hp"),
+    attack: get("attack"),
+    defense: get("defense"),
+    spAtk: get("special-attack"),
+    spDef: get("special-defense"),
+    speed: get("speed"),
+  };
+}
+
+export interface DamageCalcOptions {
+  attackerEvs?: EVSpread;
+  attackerIvs?: IVSpread;
+  attackerNature?: Nature | null;
+  attackerItem?: string | null;
+  attackerStatus?: StatusCondition;
+  defenderEvs?: EVSpread;
+  defenderIvs?: IVSpread;
+  defenderNature?: Nature | null;
+  defenderItem?: string | null;
+  isCritical?: boolean;
+  attackerStatStage?: number;
+  defenderStatStage?: number;
+  // Generational mechanic extensions
+  attackerEffectiveTypes?: TypeName[];
+  defenderEffectiveTypes?: TypeName[];
+  attackerOriginalTypes?: TypeName[];
+  isTerastallized?: boolean;
+  fieldWeather?: WeatherType | null;
+  activeStatOverride?: BaseStats | null;
+}
+
+export interface DamageResult {
+  min: number;
+  max: number;
+  effectiveness: number;
+  stab: boolean;
+  isCritical: boolean;
+}
+
+export function calculateDamage(
+  attacker: Pokemon,
+  defender: Pokemon,
+  move: Move,
+  options?: DamageCalcOptions
+): DamageResult {
+  if (move.power === null || move.damage_class.name === "status") {
+    return { min: 0, max: 0, effectiveness: 1, stab: false, isCritical: false };
+  }
+
+  const isCritical = options?.isCritical ?? false;
+  const isPhysical = move.damage_class.name === "physical";
+
+  let atk: number;
+  let def: number;
+
+  if (options && (options.attackerEvs || options.attackerNature || options.defenderEvs || options.defenderNature)) {
+    // Use calculated stats with EVs/IVs/Nature
+    const attackerBase = extractBaseStats(attacker);
+    const defenderBase = extractBaseStats(defender);
+
+    const attackerCalc = calculateAllStats(
+      attackerBase,
+      options.attackerIvs ?? DEFAULT_IVS,
+      options.attackerEvs ?? DEFAULT_EVS,
+      options.attackerNature ?? null
+    );
+    const defenderCalc = calculateAllStats(
+      defenderBase,
+      options.defenderIvs ?? DEFAULT_IVS,
+      options.defenderEvs ?? DEFAULT_EVS,
+      options.defenderNature ?? null
+    );
+
+    atk = isPhysical ? attackerCalc.attack : attackerCalc.spAtk;
+    def = isPhysical ? defenderCalc.defense : defenderCalc.spDef;
+
+    // Apply stat stages
+    if (options.attackerStatStage) {
+      atk = applyStatStage(atk, isCritical ? Math.max(0, options.attackerStatStage) : options.attackerStatStage);
+    }
+    if (options.defenderStatStage) {
+      def = applyStatStage(def, isCritical ? Math.min(0, options.defenderStatStage) : options.defenderStatStage);
+    }
+
+    // Apply assault vest boost to SpDef
+    if (options.defenderItem && !isPhysical) {
+      const defItem = getHeldItem(options.defenderItem);
+      if (defItem?.battleModifier?.type === "stat_boost" && defItem.battleModifier.condition === "spDef") {
+        def = Math.floor(def * (defItem.battleModifier.value ?? 1));
+      }
+    }
+  } else {
+    // Fallback to raw base stats (backward compatible)
+    const attackerStats = extractBaseStats(attacker);
+    const defenderStats = extractBaseStats(defender);
+    atk = isPhysical ? attackerStats.attack : attackerStats.spAtk;
+    def = isPhysical ? defenderStats.defense : defenderStats.spDef;
+  }
+
+  // Burn halves physical attack
+  if (options?.attackerStatus === "burn" && isPhysical) {
+    atk = Math.floor(atk * 0.5);
+  }
+
+  // Use effective types if provided (for Mega/Tera overrides)
+  const attackerTypes = options?.attackerEffectiveTypes ?? attacker.types.map((t) => t.type.name);
+  const defenderTypes = options?.defenderEffectiveTypes ?? defender.types.map((t) => t.type.name);
+
+  // STAB calculation — Tera STAB stacking
+  let stab = 1;
+  if (attackerTypes.includes(move.type.name as TypeName)) {
+    if (options?.isTerastallized && options?.attackerOriginalTypes?.includes(move.type.name as TypeName)) {
+      stab = 2; // Tera + original type = 2x STAB
+    } else {
+      stab = 1.5;
+    }
+  } else if (options?.isTerastallized && options?.attackerOriginalTypes?.includes(move.type.name as TypeName)) {
+    stab = 1.5; // Original type still gets STAB even after Tera
+  }
+
+  const typeEff = getDefensiveMultiplier(move.type.name, defenderTypes);
+
+  const level = 50;
+  const baseDamage =
+    (((2 * level) / 5 + 2) * move.power * (atk / def)) / 50 + 2;
+
+  let modifiedDamage = baseDamage * stab * typeEff;
+
+  // Weather modifiers
+  if (options?.fieldWeather) {
+    const moveType = move.type.name;
+    if (options.fieldWeather === "sun") {
+      if (moveType === "fire") modifiedDamage *= 1.5;
+      else if (moveType === "water") modifiedDamage *= 0.5;
+    } else if (options.fieldWeather === "rain") {
+      if (moveType === "water") modifiedDamage *= 1.5;
+      else if (moveType === "fire") modifiedDamage *= 0.5;
+    }
+  }
+
+  // Critical hit multiplier
+  if (isCritical) {
+    modifiedDamage *= 1.5;
+  }
+
+  // Item damage modifier
+  if (options?.attackerItem) {
+    const item = getHeldItem(options.attackerItem);
+    if (item?.battleModifier?.type === "damage_boost") {
+      const mod = item.battleModifier;
+      let applies = false;
+
+      if (!mod.condition) {
+        applies = true;
+      } else if (mod.condition === "physical" && isPhysical) {
+        applies = true;
+      } else if (mod.condition === "special" && !isPhysical) {
+        applies = true;
+      } else if (mod.condition === "super_effective" && typeEff > 1) {
+        applies = true;
+      } else if (mod.condition.startsWith("type:")) {
+        const itemType = mod.condition.replace("type:", "");
+        applies = move.type.name === itemType;
+      }
+
+      if (applies && mod.value) {
+        modifiedDamage *= mod.value;
+      }
+    }
+  }
+
+  // Random factor ranges from 0.85 to 1.0
+  const min = Math.floor(modifiedDamage * 0.85);
+  const max = Math.floor(modifiedDamage);
+
+  return {
+    min: Math.max(0, min),
+    max: Math.max(0, max),
+    effectiveness: typeEff,
+    stab: stab > 1,
+    isCritical,
+  };
+}
+
+function applyStatStage(stat: number, stage: number): number {
+  if (stage >= 0) {
+    return Math.floor(stat * (2 + stage) / 2);
+  }
+  return Math.floor(stat * 2 / (2 - stage));
+}
+
+export function getEffectivenessText(effectiveness: number): string {
+  if (effectiveness === 0) return "has no effect";
+  if (effectiveness < 1) return "not very effective";
+  if (effectiveness > 1) return "super effective!";
+  return "neutral";
+}
