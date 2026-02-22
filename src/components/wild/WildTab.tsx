@@ -6,6 +6,8 @@ import { TeamSlot, Pokemon, BallType, PCBoxPokemon } from "@/types";
 import { useWildEncounter } from "@/hooks/useWildEncounter";
 import { usePCBox } from "@/hooks/usePCBox";
 import { NATURES } from "@/data/natures";
+import { usePokedexContext } from "@/contexts/PokedexContext";
+import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import RegionMap from "./RegionMap";
 import AreaDetail from "./AreaDetail";
 import WildBattle from "./WildBattle";
@@ -44,6 +46,9 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
     isAlreadyCaught,
   } = usePCBox();
 
+  const { markSeen, markCaught } = usePokedexContext();
+  const { incrementStat, addUniqueBall, addUniqueType, addKantoSpecies } = useAchievementsContext();
+
   const [showPCBox, setShowPCBox] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
@@ -59,7 +64,8 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
   const handleThrowBall = useCallback((ball: BallType) => {
     if (!useBall(ball)) return;
     throwBall(ball);
-  }, [useBall, throwBall]);
+    incrementStat("ballsThrown");
+  }, [useBall, throwBall, incrementStat]);
 
   const handleAddToBox = useCallback((nickname?: string) => {
     if (!encounter.wildPokemon) return;
@@ -84,8 +90,23 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
     };
 
     addToBox(pcPokemon);
+
+    // Track in Pokedex
+    markCaught(encounter.wildPokemon.id, encounter.wildPokemon.name, "wild");
+
+    // Track achievements
+    incrementStat("totalCaught");
+    addUniqueBall(encounter.selectedBall ?? "poke-ball");
+    encounter.wildPokemon.types.forEach((t: { type: { name: string } }) => addUniqueType(t.type.name));
+    if (encounter.wildPokemon.id <= 151) {
+      addKantoSpecies(encounter.wildPokemon.id);
+    }
+    if (encounter.isShiny) {
+      incrementStat("shinyCaught");
+    }
+
     returnToMap();
-  }, [encounter, addToBox, returnToMap]);
+  }, [encounter, addToBox, returnToMap, markCaught, incrementStat, addUniqueBall, addUniqueType, addKantoSpecies]);
 
   const handleMoveToTeam = useCallback((index: number) => {
     const slot = moveToTeam(index);
@@ -93,6 +114,13 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
       onAddToTeam(slot.pokemon);
     }
   }, [moveToTeam, onAddToTeam]);
+
+  // Mark Pokemon as seen when encounter starts
+  useEffect(() => {
+    if (encounter.phase === "encounter_intro" && encounter.wildPokemon) {
+      markSeen(encounter.wildPokemon.id, encounter.wildPokemon.name, "wild");
+    }
+  }, [encounter.phase, encounter.wildPokemon, markSeen]);
 
   // Auto transition from encounter_intro to battle
   useEffect(() => {

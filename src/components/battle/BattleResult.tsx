@@ -7,9 +7,11 @@ interface BattleResultProps {
   state: BattleState;
   onPlayAgain: () => void;
   onReset: () => void;
+  onSaveReplay?: () => void;
+  replaySaved?: boolean;
 }
 
-export default function BattleResult({ state, onPlayAgain, onReset }: BattleResultProps) {
+export default function BattleResult({ state, onPlayAgain, onReset, onSaveReplay, replaySaved }: BattleResultProps) {
   const isPlayer1Winner = state.winner === "player1";
   const winnerLabel = state.mode === "ai"
     ? (isPlayer1Winner ? "You Win!" : "You Lose!")
@@ -45,13 +47,22 @@ export default function BattleResult({ state, onPlayAgain, onReset }: BattleResu
         </p>
       </div>
 
-      <div className="flex justify-center gap-3">
+      <div className="flex justify-center gap-3 flex-wrap">
         <button
           onClick={onPlayAgain}
           className="rounded-lg bg-[#e8433f] px-6 py-2 text-sm font-medium text-[#f0f0e8] hover:bg-[#c73535] transition-colors"
         >
           Play Again
         </button>
+        {onSaveReplay && (
+          <button
+            onClick={onSaveReplay}
+            disabled={replaySaved}
+            className="rounded-lg bg-[#3a4466] px-6 py-2 text-sm font-medium text-[#f0f0e8] hover:bg-[#4a5577] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {replaySaved ? "Replay Saved" : "Save Replay"}
+          </button>
+        )}
         <button
           onClick={onReset}
           className="rounded-lg bg-[#3a4466] px-6 py-2 text-sm font-medium text-[#8b9bb4] hover:bg-[#4a5577] hover:text-[#f0f0e8] transition-colors"

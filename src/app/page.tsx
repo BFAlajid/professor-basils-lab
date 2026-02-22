@@ -92,16 +92,16 @@ export default function Home() {
     <div className="min-h-screen bg-[#1a1c2c]">
       {/* Header */}
       <header className="border-b border-[#3a4466] bg-[#262b44]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <div>
-            <h1 className="text-xl font-bold text-[#f0f0e8] font-pixel">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 gap-2 flex-wrap sm:flex-nowrap">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-[#f0f0e8] font-pixel truncate">
               Pokemon Team Builder
             </h1>
-            <p className="text-xs text-[#8b9bb4]">
+            <p className="text-xs text-[#8b9bb4] hidden sm:block">
               Build, analyze, and simulate battles
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <AudioPlayer />
             {team.length > 0 && (
               <>

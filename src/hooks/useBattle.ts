@@ -1,14 +1,40 @@
 "use client";
 
-import { useReducer, useCallback, useState, useEffect } from "react";
+import { useReducer, useCallback, useState, useEffect, useRef } from "react";
 import { BattleTurnAction, TeamSlot, BattleMode, GenerationalMechanic, AltFormeData } from "@/types";
 import { isMegaStone, getMegaStone } from "@/data/megaStones";
 import { battleReducer, initialBattleState, cacheBattleMove } from "@/utils/battle";
 import { selectAIAction, generateRandomTeam, getBestSwitchIn } from "@/utils/ai";
+import { useReplayRecorder } from "./useReplayRecorder";
 
 export function useBattle() {
   const [state, dispatch] = useReducer(battleReducer, initialBattleState);
   const [isLoadingOpponent, setIsLoadingOpponent] = useState(false);
+  const recorder = useReplayRecorder();
+  const prevTurnRef = useRef(0);
+
+  // Start recording when battle begins (turn 1, first action_select)
+  useEffect(() => {
+    if (state.phase === "action_select" && state.turn === 1 && prevTurnRef.current === 0) {
+      recorder.startRecording(state);
+      prevTurnRef.current = 1;
+    }
+  }, [state.phase, state.turn, recorder]);
+
+  // Record snapshot on each new turn
+  useEffect(() => {
+    if (state.turn > prevTurnRef.current && state.phase !== "setup") {
+      recorder.recordSnapshot(state);
+      prevTurnRef.current = state.turn;
+    }
+    // Also capture the ended state
+    if (state.phase === "ended" && prevTurnRef.current > 0) {
+      recorder.recordSnapshot(state);
+    }
+    if (state.phase === "setup") {
+      prevTurnRef.current = 0;
+    }
+  }, [state.turn, state.phase, recorder]);
 
   const preloadMoves = useCallback(async (teams: TeamSlot[]) => {
     const allMoves = new Set<string>();
@@ -191,5 +217,8 @@ export function useBattle() {
     forceSwitch,
     autoAISwitch,
     resetBattle,
+    saveReplay: recorder.saveReplay,
+    loadReplays: recorder.loadReplays,
+    deleteReplay: recorder.deleteReplay,
   };
 }

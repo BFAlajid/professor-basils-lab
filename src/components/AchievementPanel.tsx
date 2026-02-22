@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useAchievements, AchievementCategory, Achievement } from "@/hooks/useAchievements";
+import { useAchievementsContext } from "@/contexts/AchievementsContext";
+import type { AchievementCategory, Achievement } from "@/hooks/useAchievements";
 
 type FilterTab = "all" | AchievementCategory;
 
@@ -82,7 +83,7 @@ export default function AchievementPanel() {
     stats,
     getUnlockedCount,
     getTotalCount,
-  } = useAchievements();
+  } = useAchievementsContext();
 
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
 

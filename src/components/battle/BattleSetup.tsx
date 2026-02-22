@@ -33,8 +33,11 @@ export default function BattleSetup({
   const handleStart = async () => {
     if (!opponentTeam) return;
     setIsStarting(true);
-    await onStart(playerTeam, opponentTeam, mode, mechanic, mechanic);
-    setIsStarting(false);
+    try {
+      await onStart(playerTeam, opponentTeam, mode, mechanic, mechanic);
+    } finally {
+      setIsStarting(false);
+    }
   };
 
   // Check if team has moves selected

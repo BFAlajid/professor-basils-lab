@@ -43,7 +43,7 @@ function HealthBar({ current, max, label, level, status }: {
               backgroundColor: status === "burn" ? "#e8433f" : status === "poison" || status === "toxic" ? "#a855f7" : status === "paralyze" ? "#f59e0b" : status === "sleep" ? "#8b9bb4" : status === "freeze" ? "#06b6d4" : "#3a4466",
               color: "#f0f0e8",
             }}>
-              {status.toUpperCase().slice(0, 3)}
+              {({ burn: "BRN", paralyze: "PAR", poison: "PSN", toxic: "TOX", sleep: "SLP", freeze: "FRZ" } as Record<string, string>)[status] ?? status.toUpperCase().slice(0, 3)}
             </span>
           )}
           {level && <span className="text-[8px] text-[#8b9bb4]">Lv.{level}</span>}
@@ -155,7 +155,7 @@ export default function WildBattle({
       {battleLog.length > 0 && (
         <div className="bg-[#262b44] border border-[#3a4466] rounded-xl p-2 max-h-[100px] overflow-y-auto">
           {battleLog.slice(-6).map((msg, i) => (
-            <p key={i} className="text-[9px] text-[#8b9bb4] py-0.5">
+            <p key={`${battleLog.length - 6 + i}-${msg.slice(0, 20)}`} className="text-[9px] text-[#8b9bb4] py-0.5">
               {msg}
             </p>
           ))}

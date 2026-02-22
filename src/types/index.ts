@@ -261,6 +261,24 @@ export type BattleAction =
   | { type: "FORCE_SWITCH"; player: "player1" | "player2"; pokemonIndex: number }
   | { type: "RESET_BATTLE" };
 
+// --- Battle Replay Types ---
+
+export interface ReplaySnapshot {
+  turn: number;
+  state: BattleState;
+}
+
+export interface BattleReplay {
+  id: string;
+  date: string;
+  player1TeamNames: string[];
+  player2TeamNames: string[];
+  winner: BattleWinner;
+  mode: BattleMode;
+  totalTurns: number;
+  snapshots: ReplaySnapshot[];
+}
+
 // --- Wild Encounter Types ---
 
 export type BallType =

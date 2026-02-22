@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import Image from "next/image";
-import { usePokedex } from "@/hooks/usePokedex";
+import { usePokedexContext } from "@/contexts/PokedexContext";
 
 // --- Constants ---
 
@@ -94,7 +94,7 @@ export default function PokedexTracker() {
     totalCaught,
     getCompletionPercent,
     reset,
-  } = usePokedex();
+  } = usePokedexContext();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");

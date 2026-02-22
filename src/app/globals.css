@@ -65,7 +65,7 @@ select,
 input[type="text"],
 input[type="number"] {
   font-family: var(--font-pixel-body), "Courier New", monospace;
-  font-size: 14px;
+  font-size: 16px; /* 16px minimum prevents iOS Safari auto-zoom */
 }
 
 /* Pixel font sizing helpers */
@@ -95,4 +95,13 @@ input[type="number"] {
 
 *::-webkit-scrollbar-thumb:hover {
   background-color: #5a6988;
+}
+
+/* Accessibility: respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

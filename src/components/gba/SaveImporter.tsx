@@ -1,10 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { parseGen3Save, type Gen3SaveData } from "@/utils/gen3SaveParser";
+import { parseGen3SaveWasm, ensureWasmReady } from "@/utils/gen3ParserWasm";
+import type { Gen3SaveData } from "@/utils/gen3SaveParser";
 import { mapGen3PokemonBatch } from "@/utils/gen3ToAppMapper";
 import type { Gen3Pokemon } from "@/utils/gen3PokemonDecryptor";
 import type { PCBoxPokemon } from "@/types";
+import { usePokedexContext } from "@/contexts/PokedexContext";
+import { useAchievementsContext } from "@/contexts/AchievementsContext";
 
 interface SaveImporterProps {
   saveData: Uint8Array;
@@ -21,6 +24,9 @@ interface PokemonPreview {
 }
 
 export default function SaveImporter({ saveData, onImport, onClose }: SaveImporterProps) {
+  const { markCaught } = usePokedexContext();
+  const { incrementStat, addUniqueType, addKantoSpecies } = useAchievementsContext();
+
   const [parsedSave, setParsedSave] = useState<Gen3SaveData | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [previews, setPreviews] = useState<PokemonPreview[]>([]);
@@ -30,43 +36,57 @@ export default function SaveImporter({ saveData, onImport, onClose }: SaveImport
   const [tab, setTab] = useState<"party" | "pc">("party");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Parse save data on mount
+  // Pre-load WASM on mount
   useEffect(() => {
-    const buffer = new ArrayBuffer(saveData.byteLength);
-    new Uint8Array(buffer).set(saveData);
-    const parsed = parseGen3Save(buffer);
+    ensureWasmReady();
+  }, []);
 
-    if (!parsed) {
-      setParseError(
-        "Could not parse save file. Make sure this is a valid Gen 3 (Ruby/Sapphire/Emerald/FireRed/LeafGreen) save file."
-      );
-      return;
-    }
+  // Parse save data on mount (async for WASM)
+  useEffect(() => {
+    let cancelled = false;
 
-    setParsedSave(parsed);
+    async function parse() {
+      const buffer = new ArrayBuffer(saveData.byteLength);
+      new Uint8Array(buffer).set(saveData);
+      const parsed = await parseGen3SaveWasm(buffer);
 
-    // Build preview list
-    const allPreviews: PokemonPreview[] = [];
+      if (cancelled) return;
 
-    // Party
-    parsed.partyPokemon.forEach((p, i) => {
-      allPreviews.push({ gen3: p, selected: true, index: i, source: "party" });
-    });
+      if (!parsed) {
+        setParseError(
+          "Could not parse save file. Make sure this is a valid Gen 3 (Ruby/Sapphire/Emerald/FireRed/LeafGreen) save file."
+        );
+        return;
+      }
 
-    // PC boxes
-    parsed.pcBoxPokemon.forEach((box, boxIdx) => {
-      box.forEach((p, slotIdx) => {
-        allPreviews.push({
-          gen3: p,
-          selected: false,
-          index: allPreviews.length,
-          source: "box",
-          boxIndex: boxIdx,
+      setParsedSave(parsed);
+
+      // Build preview list
+      const allPreviews: PokemonPreview[] = [];
+
+      // Party
+      parsed.partyPokemon.forEach((p, i) => {
+        allPreviews.push({ gen3: p, selected: true, index: i, source: "party" });
+      });
+
+      // PC boxes
+      parsed.pcBoxPokemon.forEach((box, boxIdx) => {
+        box.forEach((p) => {
+          allPreviews.push({
+            gen3: p,
+            selected: false,
+            index: allPreviews.length,
+            source: "box",
+            boxIndex: boxIdx,
+          });
         });
       });
-    });
 
-    setPreviews(allPreviews);
+      setPreviews(allPreviews);
+    }
+
+    parse();
+    return () => { cancelled = true; };
   }, [saveData]);
 
   const toggleSelect = useCallback((index: number) => {
@@ -111,11 +131,22 @@ export default function SaveImporter({ saveData, onImport, onClose }: SaveImport
 
     for (const pokemon of mapped) {
       onImport(pokemon);
+
+      // Track in Pokedex
+      markCaught(pokemon.pokemon.id, pokemon.pokemon.name, "gba-import");
+
+      // Track achievements
+      incrementStat("totalCaught");
+      incrementStat("gbaImports");
+      pokemon.pokemon.types?.forEach((t: { type: { name: string } }) => addUniqueType(t.type.name));
+      if (pokemon.pokemon.id <= 151) {
+        addKantoSpecies(pokemon.pokemon.id);
+      }
     }
 
     setImportedCount(mapped.length);
     setImporting(false);
-  }, [previews, onImport]);
+  }, [previews, onImport, markCaught, incrementStat, addUniqueType, addKantoSpecies]);
 
   // Allow importing from a standalone .sav file
   const handleFileUpload = useCallback(
@@ -124,13 +155,7 @@ export default function SaveImporter({ saveData, onImport, onClose }: SaveImport
       if (!file) return;
 
       const buffer = await file.arrayBuffer();
-      const data = new Uint8Array(buffer);
-
-      const arrBuffer = data.buffer.slice(
-        data.byteOffset,
-        data.byteOffset + data.byteLength
-      );
-      const parsed = parseGen3Save(arrBuffer);
+      const parsed = await parseGen3SaveWasm(buffer);
 
       if (!parsed) {
         setParseError("Could not parse the uploaded save file.");

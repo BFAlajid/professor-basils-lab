@@ -188,7 +188,7 @@ export default function GBAEmulatorTab(_props: GBAEmulatorTabProps) {
       {/* Canvas + ROM loader */}
       <div className="flex flex-col items-center gap-4">
         <div
-          className={`relative rounded-lg overflow-hidden border-4 ${
+          className={`relative w-full rounded-lg overflow-hidden border-4 ${
             dragOver ? "border-[#e8433f]" : "border-[#3a4466]"
           } bg-black transition-colors`}
           onDragOver={(e) => {
@@ -202,8 +202,8 @@ export default function GBAEmulatorTab(_props: GBAEmulatorTabProps) {
             ref={canvasRef}
             width={240}
             height={160}
-            style={{ width: 720, height: 480, imageRendering: "pixelated" }}
-            className="block"
+            style={{ imageRendering: "pixelated" }}
+            className="block w-full aspect-[3/2]"
           />
 
           {/* Overlay when no ROM loaded */}
@@ -285,7 +285,7 @@ export default function GBAEmulatorTab(_props: GBAEmulatorTabProps) {
 
         {/* On-screen controls for mobile */}
         {state.isRunning && (
-          <div className="flex items-center justify-between w-full max-w-[720px] px-4 select-none">
+          <div className="flex items-center justify-between w-full px-4 select-none">
             {/* D-Pad */}
             <div className="grid grid-cols-3 grid-rows-3 w-28 h-28 gap-0.5">
               {DPAD_BUTTONS.map((btn) => (
