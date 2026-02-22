@@ -2,10 +2,25 @@
 
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { useGBAEmulator } from "@/hooks/useGBAEmulator";
+import { useGamepad, type GBAButton } from "@/hooks/useGamepad";
 import { usePCBox } from "@/hooks/usePCBox";
 import EmulatorControls from "./EmulatorControls";
 import SaveImporter from "./SaveImporter";
 import type { PCBoxPokemon } from "@/types";
+
+/** Map uppercase GBA button names from useGamepad to mGBA emulator button names */
+const GBA_TO_EMULATOR: Record<GBAButton, string> = {
+  A: "A",
+  B: "B",
+  L: "L",
+  R: "R",
+  START: "Start",
+  SELECT: "Select",
+  UP: "Up",
+  DOWN: "Down",
+  LEFT: "Left",
+  RIGHT: "Right",
+};
 
 type GBAEmulatorTabProps = Record<string, never>;
 
@@ -54,10 +69,79 @@ export default function GBAEmulatorTab(_props: GBAEmulatorTabProps) {
     takeScreenshot,
   } = useGBAEmulator(canvasRef);
 
+  // Gamepad support — only active when emulator is running
+  const handleGamepadPress = useCallback(
+    (button: GBAButton) => {
+      buttonPress(GBA_TO_EMULATOR[button]);
+    },
+    [buttonPress]
+  );
+
+  const handleGamepadRelease = useCallback(
+    (button: GBAButton) => {
+      buttonUnpress(GBA_TO_EMULATOR[button]);
+    },
+    [buttonUnpress]
+  );
+
+  const { connected: gamepadConnected, controllerName: gamepadName } =
+    useGamepad({
+      onButtonPress: handleGamepadPress,
+      onButtonRelease: handleGamepadRelease,
+      enabled: state.isRunning && !state.isPaused,
+    });
+
   // Initialize on mount
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // Keyboard bindings
+  const pressedKeysRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!state.isRunning || state.isPaused) return;
+
+    const keyMap: Record<string, string> = {
+      arrowup: "Up",
+      arrowdown: "Down",
+      arrowleft: "Left",
+      arrowright: "Right",
+      z: "A",
+      x: "B",
+      enter: "Start",
+      backspace: "Select",
+      a: "L",
+      s: "R",
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const btn = keyMap[e.key.toLowerCase()];
+      if (btn && !pressedKeysRef.current.has(btn)) {
+        e.preventDefault();
+        pressedKeysRef.current.add(btn);
+        buttonPress(btn);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const btn = keyMap[e.key.toLowerCase()];
+      if (btn) {
+        e.preventDefault();
+        pressedKeysRef.current.delete(btn);
+        buttonUnpress(btn);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      // Release all pressed keys on cleanup
+      pressedKeysRef.current.forEach((btn) => buttonUnpress(btn));
+      pressedKeysRef.current.clear();
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [state.isRunning, state.isPaused, buttonPress, buttonUnpress]);
 
   // ROM file handler
   const handleROMFile = useCallback(
@@ -183,6 +267,8 @@ export default function GBAEmulatorTab(_props: GBAEmulatorTabProps) {
         onSetVolume={setVolume}
         onImportPokemon={handleImportPokemon}
         onScreenshot={handleScreenshot}
+        gamepadConnected={gamepadConnected}
+        gamepadName={gamepadName}
       />
 
       {/* Canvas + ROM loader */}

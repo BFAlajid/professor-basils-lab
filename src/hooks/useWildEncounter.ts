@@ -13,9 +13,9 @@ import {
   StatusCondition,
 } from "@/types";
 import { initBattlePokemon, initStatStages } from "@/utils/battle";
-import { createWildBattlePokemon, preloadWildMoves, fetchCaptureRate, executeWildTurn } from "@/utils/wildBattle";
+import { createWildBattlePokemon, preloadWildMoves, fetchCaptureRate, executeWildTurn, randomInt } from "@/utils/wildBattle";
 import { calculateCatchProbability, shouldWildFlee } from "@/utils/catchRate";
-import { DEFAULT_BALL_INVENTORY } from "@/data/pokeBalls";
+import { fetchAndCacheMove } from "@/utils/moveCache";
 
 const initialState: WildEncounterState = {
   phase: "map",
@@ -36,7 +36,6 @@ const initialState: WildEncounterState = {
   isCaught: false,
   isShiny: false,
   selectedBall: null,
-  playerBallInventory: { ...DEFAULT_BALL_INVENTORY },
 };
 
 function wildEncounterReducer(
@@ -136,10 +135,6 @@ export function pickWeightedRandom(pool: WildPokemonData[]): WildPokemonData {
   return pool[pool.length - 1];
 }
 
-export function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
 export function useWildEncounter(playerTeam: TeamSlot[]) {
   const [state, dispatch] = useReducer(wildEncounterReducer, initialState);
   const wildBpRef = useRef<BattlePokemon | null>(null);
@@ -171,26 +166,7 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
     const playerSlot = playerTeam[0];
     if (playerSlot) {
       const playerMoveNames = playerSlot.selectedMoves ?? [];
-      const cached = (await import("@/utils/battle")).getCachedMoves();
-      const toFetch = playerMoveNames.filter((m) => !cached.has(m));
-      await Promise.all(
-        toFetch.map(async (moveName) => {
-          try {
-            const moveRes = await fetch(`https://pokeapi.co/api/v2/move/${moveName.toLowerCase()}`);
-            if (!moveRes.ok) return;
-            const data = await moveRes.json();
-            (await import("@/utils/battle")).cacheBattleMove(moveName, {
-              name: data.name,
-              power: data.power,
-              accuracy: data.accuracy,
-              pp: data.pp,
-              type: data.type,
-              damage_class: data.damage_class,
-              meta: data.meta ? { ailment: data.meta.ailment, ailment_chance: data.meta.ailment_chance } : undefined,
-            });
-          } catch { /* skip */ }
-        })
-      );
+      await Promise.all(playerMoveNames.map(fetchAndCacheMove));
     }
 
     // Create battle Pokemon
@@ -263,7 +239,7 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
     }
   }, [state]);
 
-  const throwBall = useCallback((ball: BallType) => {
+  const throwBall = useCallback((ball: BallType, isRepeatCatch?: boolean) => {
     if (!state.wildPokemon) return;
 
     const area = state.currentArea;
@@ -274,10 +250,10 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
       isWater: area?.theme === "water",
       wildPokemonTypes: state.wildPokemon.types.map((t) => t.type.name),
       wildPokemonLevel: state.wildLevel,
-      playerPokemonLevel: 50, // default
+      playerPokemonLevel: 50,
       wildHpPercent: state.wildCurrentHp / state.wildMaxHp,
       wildStatus: state.wildStatus,
-      isRepeatCatch: false, // will be set by caller
+      isRepeatCatch: isRepeatCatch ?? false,
     };
 
     const result = calculateCatchProbability(

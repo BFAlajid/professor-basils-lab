@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTeam, encodeTeam, decodeTeam } from "@/hooks/useTeam";
+import { useTeam, encodeTeam, decodeTeam, type DecodedTeamData } from "@/hooks/useTeam";
 import { fetchPokemon } from "@/hooks/usePokemon";
+import { usePokedexContext } from "@/contexts/PokedexContext";
+import { useAchievementsContext } from "@/contexts/AchievementsContext";
+import { NATURES } from "@/data/natures";
+import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
+import type { Pokemon, TeamSlot } from "@/types";
 import TeamRoster from "@/components/TeamRoster";
 import TypeCoverage from "@/components/TypeCoverage";
 import StatRadar from "@/components/StatRadar";
@@ -46,23 +51,72 @@ export default function Home() {
   } = useTeam();
   const [activeTab, setActiveTab] = useState<Tab>("team");
   const [shareMessage, setShareMessage] = useState("");
+  const { markSeen } = usePokedexContext();
+  const { incrementStat } = useAchievementsContext();
+  const prevTeamSize = useRef(0);
 
   // Load team from URL params on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const encoded = params.get("team");
     if (encoded) {
-      const ids = decodeTeam(encoded);
-      ids.forEach(async (id) => {
-        try {
-          const pokemon = await fetchPokemon(id);
-          addPokemon(pokemon);
-        } catch {
-          // skip invalid
-        }
-      });
+      const decoded = decodeTeam(encoded);
+      if (decoded.length === 0) return;
+
+      if (typeof decoded[0] === "number") {
+        // Old format — just IDs
+        (decoded as number[]).forEach(async (id) => {
+          try {
+            const pokemon = await fetchPokemon(id);
+            addPokemon(pokemon);
+          } catch {
+            // skip invalid
+          }
+        });
+      } else {
+        // New format — full team data
+        const slots = decoded as DecodedTeamData;
+        Promise.all(
+          slots.map(async (s) => {
+            try {
+              const pokemon = await fetchPokemon(s.id);
+              const nature = s.n ? NATURES.find((n) => n.name === s.n) ?? null : null;
+              return {
+                pokemon,
+                position: 0,
+                nature,
+                evs: s.e ? { hp: s.e[0], attack: s.e[1], defense: s.e[2], spAtk: s.e[3], spDef: s.e[4], speed: s.e[5] } : { ...DEFAULT_EVS },
+                ivs: s.i ? { hp: s.i[0], attack: s.i[1], defense: s.i[2], spAtk: s.i[3], spDef: s.i[4], speed: s.i[5] } : { ...DEFAULT_IVS },
+                ability: s.a ?? pokemon.abilities?.[0]?.ability.name ?? null,
+                heldItem: s.h ?? null,
+                selectedMoves: s.m ?? [],
+                teraConfig: s.t ? { teraType: s.t as any } : undefined,
+                formeOverride: s.f ?? undefined,
+              } as TeamSlot;
+            } catch {
+              return null;
+            }
+          })
+        ).then((results) => {
+          const validSlots = results
+            .filter((s): s is TeamSlot => s !== null)
+            .map((s, i) => ({ ...s, position: i }));
+          if (validSlots.length > 0) setTeam(validSlots);
+        });
+      }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-register team Pokemon in Pokedex + track totalTeamsBuilt
+  useEffect(() => {
+    for (const slot of team) {
+      markSeen(slot.pokemon.id, slot.pokemon.name, "team");
+    }
+    if (team.length === 6 && prevTeamSize.current < 6) {
+      incrementStat("totalTeamsBuilt");
+    }
+    prevTeamSize.current = team.length;
+  }, [team, markSeen, incrementStat]);
 
   const handleShare = useCallback(() => {
     if (team.length === 0) return;
@@ -153,62 +207,66 @@ export default function Home() {
 
       {/* Content */}
       <main className="mx-auto max-w-6xl px-4 py-6">
+        {/* GBA emulator stays mounted to preserve WASM state across tab switches */}
+        <div style={{ display: activeTab === "gba" ? "block" : "none" }}>
+          <GBAEmulatorTab />
+        </div>
+
         <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            {activeTab === "team" && (
-              <TeamRoster
-                team={team}
-                onAdd={addPokemon}
-                onRemove={removePokemon}
-                isFull={isFull}
-                onSetNature={setNature}
-                onSetEvs={setEvs}
-                onSetIvs={setIvs}
-                onSetAbility={setAbility}
-                onSetHeldItem={setHeldItem}
-                onSetMoves={setMoves}
-                onSetTeraType={setTeraType}
-                onSetForme={setForme}
-                onSetTeam={setTeam}
-              />
-            )}
-            {activeTab === "analysis" && (
-              <div className="space-y-6">
-                <TypeCoverage team={teamPokemon} />
-                <TeamWeaknessPanel team={team} />
-              </div>
-            )}
-            {activeTab === "stats" && (
-              <div className="space-y-6">
-                <StatRadar team={team} />
-                <TeamSummary team={teamPokemon} />
-              </div>
-            )}
-            {activeTab === "damage" && (
-              <DamageCalculator team={teamPokemon} />
-            )}
-            {activeTab === "battle" && (
-              <BattleTab team={team} />
-            )}
-            {activeTab === "wild" && (
-              <WildTab team={team} onAddToTeam={addPokemon} />
-            )}
-            {activeTab === "gba" && (
-              <GBAEmulatorTab />
-            )}
-            {activeTab === "pokedex" && (
-              <PokedexTracker />
-            )}
-            {activeTab === "achievements" && (
-              <AchievementPanel />
-            )}
-          </motion.div>
+          {activeTab !== "gba" && (
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              {activeTab === "team" && (
+                <TeamRoster
+                  team={team}
+                  onAdd={addPokemon}
+                  onRemove={removePokemon}
+                  isFull={isFull}
+                  onSetNature={setNature}
+                  onSetEvs={setEvs}
+                  onSetIvs={setIvs}
+                  onSetAbility={setAbility}
+                  onSetHeldItem={setHeldItem}
+                  onSetMoves={setMoves}
+                  onSetTeraType={setTeraType}
+                  onSetForme={setForme}
+                  onSetTeam={setTeam}
+                />
+              )}
+              {activeTab === "analysis" && (
+                <div className="space-y-6">
+                  <TypeCoverage team={teamPokemon} />
+                  <TeamWeaknessPanel team={team} />
+                </div>
+              )}
+              {activeTab === "stats" && (
+                <div className="space-y-6">
+                  <StatRadar team={team} />
+                  <TeamSummary team={teamPokemon} />
+                </div>
+              )}
+              {activeTab === "damage" && (
+                <DamageCalculator team={teamPokemon} />
+              )}
+              {activeTab === "battle" && (
+                <BattleTab team={team} />
+              )}
+              {activeTab === "wild" && (
+                <WildTab team={team} onAddToTeam={addPokemon} />
+              )}
+              {activeTab === "pokedex" && (
+                <PokedexTracker />
+              )}
+              {activeTab === "achievements" && (
+                <AchievementPanel />
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
     </div>

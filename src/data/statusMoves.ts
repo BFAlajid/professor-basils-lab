@@ -5,6 +5,7 @@ export interface StatusMoveEffect {
   selfStatChanges?: Partial<Record<string, number>>;
   targetStatChanges?: Partial<Record<string, number>>;
   healPercent?: number;
+  protect?: boolean;
 }
 
 export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
@@ -46,6 +47,13 @@ export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
   "glare": { targetStatus: "paralyze" },
   "stun-spore": { targetStatus: "paralyze" },
   "nuzzle": { targetStatus: "paralyze" },
+
+  // Protection
+  "protect": { protect: true },
+  "detect": { protect: true },
+  "king-s-shield": { protect: true },
+  "spiky-shield": { protect: true },
+  "baneful-bunker": { protect: true },
 
   // Recovery
   "recover": { healPercent: 50 },

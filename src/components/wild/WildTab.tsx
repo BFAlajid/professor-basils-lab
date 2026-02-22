@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot, Pokemon, BallType, PCBoxPokemon } from "@/types";
 import { useWildEncounter } from "@/hooks/useWildEncounter";
@@ -14,6 +14,11 @@ import WildBattle from "./WildBattle";
 import CatchAnimation from "./CatchAnimation";
 import CatchResult from "./CatchResult";
 import PCBox from "./PCBox";
+import NuzlockeGraveyard from "./NuzlockeGraveyard";
+import NuzlockeGameOver from "./NuzlockeGameOver";
+import { useNuzlocke } from "@/hooks/useNuzlocke";
+import { LEGENDARY_IDS } from "@/data/legendaries";
+import { generateRandomIVs } from "@/utils/wildBattle";
 
 interface WildTabProps {
   team: TeamSlot[];
@@ -49,23 +54,43 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
   const { markSeen, markCaught } = usePokedexContext();
   const { incrementStat, addUniqueBall, addUniqueType, addKantoSpecies } = useAchievementsContext();
 
+  const {
+    state: nuzlocke,
+    enableNuzlocke,
+    disableNuzlocke,
+    markAreaEncountered,
+    isAreaEncountered,
+    addToGraveyard,
+    checkGameOver,
+    resetNuzlocke,
+  } = useNuzlocke();
+
   const [showPCBox, setShowPCBox] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [showCatchFailure, setShowCatchFailure] = useState(false);
 
   const handleStartEncounter = useCallback(async () => {
+    // Nuzlocke: block encounters in already-encountered areas
+    if (nuzlocke.enabled && encounter.currentArea && isAreaEncountered(encounter.currentArea.id)) {
+      return;
+    }
     setIsSearching(true);
     try {
       await startEncounter();
+      // Nuzlocke: mark area as encountered
+      if (nuzlocke.enabled && encounter.currentArea) {
+        markAreaEncountered(encounter.currentArea.id);
+      }
     } finally {
       setIsSearching(false);
     }
-  }, [startEncounter]);
+  }, [startEncounter, nuzlocke.enabled, encounter.currentArea, isAreaEncountered, markAreaEncountered]);
 
   const handleThrowBall = useCallback((ball: BallType) => {
     if (!useBall(ball)) return;
-    throwBall(ball);
+    throwBall(ball, isAlreadyCaught(encounter.wildPokemon?.id ?? 0));
     incrementStat("ballsThrown");
-  }, [useBall, throwBall, incrementStat]);
+  }, [useBall, throwBall, incrementStat, isAlreadyCaught, encounter.wildPokemon]);
 
   const handleAddToBox = useCallback((nickname?: string) => {
     if (!encounter.wildPokemon) return;
@@ -78,14 +103,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
       caughtDate: new Date().toISOString(),
       level: encounter.wildLevel,
       nature: NATURES[Math.floor(Math.random() * NATURES.length)],
-      ivs: {
-        hp: Math.floor(Math.random() * 32),
-        attack: Math.floor(Math.random() * 32),
-        defense: Math.floor(Math.random() * 32),
-        spAtk: Math.floor(Math.random() * 32),
-        spDef: Math.floor(Math.random() * 32),
-        speed: Math.floor(Math.random() * 32),
-      },
+      ivs: generateRandomIVs(),
       ability: encounter.wildPokemon.abilities?.[0]?.ability.name ?? "unknown",
     };
 
@@ -96,6 +114,12 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
 
     // Track achievements
     incrementStat("totalCaught");
+    if (!isAlreadyCaught(encounter.wildPokemon.id)) {
+      incrementStat("uniqueSpeciesCaught");
+    }
+    if (LEGENDARY_IDS.has(encounter.wildPokemon.id)) {
+      incrementStat("legendsCaught");
+    }
     addUniqueBall(encounter.selectedBall ?? "poke-ball");
     encounter.wildPokemon.types.forEach((t: { type: { name: string } }) => addUniqueType(t.type.name));
     if (encounter.wildPokemon.id <= 151) {
@@ -106,7 +130,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
     }
 
     returnToMap();
-  }, [encounter, addToBox, returnToMap, markCaught, incrementStat, addUniqueBall, addUniqueType, addKantoSpecies]);
+  }, [encounter, addToBox, returnToMap, markCaught, incrementStat, addUniqueBall, addUniqueType, addKantoSpecies, isAlreadyCaught]);
 
   const handleMoveToTeam = useCallback((index: number) => {
     const slot = moveToTeam(index);
@@ -129,6 +153,32 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
       return () => clearTimeout(timer);
     }
   }, [encounter.phase, enterBattle]);
+
+  // Nuzlocke: handle player Pokemon faint
+  useEffect(() => {
+    if (nuzlocke.enabled && encounter.phase === "fled" && encounter.playerCurrentHp <= 0) {
+      const leadPokemon = team[0];
+      if (leadPokemon) {
+        addToGraveyard(
+          leadPokemon.pokemon,
+          leadPokemon.pokemon.name,
+          encounter.wildPokemon
+            ? `Defeated by wild ${encounter.wildPokemon.name}`
+            : "Fainted in battle",
+          encounter.currentArea?.name ?? "Unknown",
+          encounter.wildLevel
+        );
+        checkGameOver(team.length - 1, box.length);
+      }
+    }
+  }, [nuzlocke.enabled, encounter.phase, encounter.playerCurrentHp, team, encounter.wildPokemon, encounter.currentArea, encounter.wildLevel, addToGraveyard, checkGameOver, box.length]);
+
+  // Reset catch failure state when phase changes
+  useEffect(() => {
+    if (encounter.phase !== "catching") {
+      setShowCatchFailure(false);
+    }
+  }, [encounter.phase]);
 
   // Audio triggers
   useEffect(() => {
@@ -155,6 +205,17 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
     );
   }
 
+  // Nuzlocke game over screen
+  if (nuzlocke.enabled && nuzlocke.isGameOver) {
+    return (
+      <NuzlockeGameOver
+        graveyard={nuzlocke.graveyard}
+        onReset={resetNuzlocke}
+        onDisable={disableNuzlocke}
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
       <AnimatePresence mode="wait">
@@ -170,6 +231,18 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-pixel text-[#f0f0e8]">Wild Encounters</h2>
               <div className="flex items-center gap-2">
+                {/* Nuzlocke toggle */}
+                <button
+                  onClick={() => nuzlocke.enabled ? disableNuzlocke() : enableNuzlocke()}
+                  className={`px-2 py-1 text-[9px] font-pixel rounded-lg border transition-colors ${
+                    nuzlocke.enabled
+                      ? "text-[#e8433f] border-[#e8433f] bg-[#e8433f]/10"
+                      : "text-[#3a4466] border-[#3a4466] hover:text-[#8b9bb4]"
+                  }`}
+                  title="Nuzlocke: One catch per area, permadeath, game over when all faint"
+                >
+                  {nuzlocke.enabled ? "Nuzlocke ON" : "Nuzlocke"}
+                </button>
                 <span className="text-[9px] text-[#8b9bb4]">
                   Lead: {team[0].pokemon.name.charAt(0).toUpperCase() + team[0].pokemon.name.slice(1)}
                 </span>
@@ -227,6 +300,18 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Nuzlocke graveyard */}
+            {nuzlocke.enabled && nuzlocke.graveyard.length > 0 && (
+              <NuzlockeGraveyard graveyard={nuzlocke.graveyard} />
+            )}
+
+            {/* Nuzlocke area lock indicator */}
+            {nuzlocke.enabled && encounter.currentArea && isAreaEncountered(encounter.currentArea.id) && (
+              <div className="rounded-lg border border-[#e8433f]/30 bg-[#e8433f]/10 p-3 text-xs text-[#e8433f]">
+                You already had an encounter in this area. Nuzlocke rules: one encounter per area.
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -336,10 +421,8 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
               isCaught={encounter.isCaught}
               pokemonName={encounter.wildPokemon.name.charAt(0).toUpperCase() + encounter.wildPokemon.name.slice(1)}
               onComplete={() => {
-                if (encounter.isCaught) {
-                  // Stay in catching phase, show CatchResult
-                } else {
-                  continueAfterCatch();
+                if (!encounter.isCaught) {
+                  setShowCatchFailure(true);
                 }
               }}
             />
@@ -362,6 +445,32 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
               onAddToBox={handleAddToBox}
               onContinueBattle={() => {}}
               onReturnToMap={returnToMap}
+            />
+          </motion.div>
+        )}
+
+        {/* CATCH FAILURE (Keep Fighting / Run Away) */}
+        {encounter.phase === "catching" && !encounter.isCaught && showCatchFailure && encounter.wildPokemon && encounter.selectedBall && (
+          <motion.div
+            key="catch-failure"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <CatchResult
+              pokemon={encounter.wildPokemon}
+              ball={encounter.selectedBall}
+              level={encounter.wildLevel}
+              isCaught={false}
+              onAddToBox={() => {}}
+              onContinueBattle={() => {
+                setShowCatchFailure(false);
+                continueAfterCatch();
+              }}
+              onReturnToMap={() => {
+                setShowCatchFailure(false);
+                returnToMap();
+              }}
             />
           </motion.div>
         )}

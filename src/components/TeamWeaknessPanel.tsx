@@ -4,27 +4,8 @@ import { useMemo } from "react";
 import { TeamSlot, TypeName } from "@/types";
 import { TYPE_LIST } from "@/data/typeChart";
 import { analyzeTeam, TeamWeaknessReport } from "@/utils/teamAnalysis";
-
-const TYPE_COLORS: Record<string, string> = {
-  normal: "#A8A878",
-  fire: "#F08030",
-  water: "#6890F0",
-  electric: "#F8D030",
-  grass: "#78C850",
-  ice: "#98D8D8",
-  fighting: "#C03028",
-  poison: "#A040A0",
-  ground: "#E0C068",
-  flying: "#A890F0",
-  psychic: "#F85888",
-  bug: "#A8B820",
-  rock: "#B8A038",
-  ghost: "#705898",
-  dragon: "#7038F8",
-  dark: "#705848",
-  steel: "#B8B8D0",
-  fairy: "#EE99AC",
-};
+import { typeColors } from "@/data/typeColors";
+import { capitalize } from "@/utils/format";
 
 function getThreatColor(score: number): string {
   if (score <= 30) return "#2a5040";
@@ -38,10 +19,6 @@ function getThreatLabel(score: number): string {
   return "High";
 }
 
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 interface TypeBadgeInlineProps {
   type: TypeName;
   warning?: boolean;
@@ -51,7 +28,7 @@ function TypeBadgeInline({ type, warning }: TypeBadgeInlineProps) {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-[#f0f0e8]"
-      style={{ backgroundColor: TYPE_COLORS[type] ?? "#555" }}
+      style={{ backgroundColor: typeColors[type as TypeName] ?? "#555" }}
     >
       {warning && (
         <span className="text-[10px]" aria-label="warning">
@@ -90,7 +67,7 @@ function DefensiveCell({ type, weakCount, resistCount, immuneCount }: DefensiveC
     >
       <div
         className="mb-0.5 h-1 w-full rounded-full"
-        style={{ backgroundColor: TYPE_COLORS[type] }}
+        style={{ backgroundColor: typeColors[type as TypeName] }}
       />
       <span className="text-[9px] font-bold uppercase text-[#f0f0e8]">
         {type.slice(0, 3)}

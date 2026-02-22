@@ -1,17 +1,4 @@
-import { TypeName } from "@/types";
-
-export interface BattleMoveData {
-  name: string;
-  power: number | null;
-  accuracy: number | null;
-  pp: number | null;
-  type: { name: string };
-  damage_class: { name: "physical" | "special" | "status" };
-  meta?: {
-    ailment?: { name: string };
-    ailment_chance?: number;
-  };
-}
+import { TypeName, BattleMoveData } from "@/types";
 
 // Max Move names by type
 const MAX_MOVE_NAMES: Record<TypeName, string> = {

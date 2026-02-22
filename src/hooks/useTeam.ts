@@ -266,13 +266,37 @@ export function useTeam() {
   };
 }
 
-// Encode/decode for URL sharing
-export function encodeTeam(team: TeamSlot[]): string {
-  const ids = team.map((s) => s.pokemon.id);
-  return btoa(JSON.stringify(ids));
+// Encode/decode for URL sharing (full team data)
+interface ShareableSlot {
+  id: number;
+  n?: string;       // nature name
+  e?: number[];      // EVs [hp,atk,def,spa,spd,spe]
+  i?: number[];      // IVs
+  a?: string | null;  // ability
+  h?: string | null;  // held item
+  m?: string[];      // moves
+  t?: string;        // tera type
+  f?: string | null;  // forme override
 }
 
-export function decodeTeam(encoded: string): number[] {
+export function encodeTeam(team: TeamSlot[]): string {
+  const data: ShareableSlot[] = team.map((s) => ({
+    id: s.pokemon.id,
+    n: s.nature?.name,
+    e: s.evs ? [s.evs.hp, s.evs.attack, s.evs.defense, s.evs.spAtk, s.evs.spDef, s.evs.speed] : undefined,
+    i: s.ivs ? [s.ivs.hp, s.ivs.attack, s.ivs.defense, s.ivs.spAtk, s.ivs.spDef, s.ivs.speed] : undefined,
+    a: s.ability,
+    h: s.heldItem,
+    m: s.selectedMoves?.length ? s.selectedMoves : undefined,
+    t: s.teraConfig?.teraType,
+    f: s.formeOverride,
+  }));
+  return btoa(JSON.stringify(data));
+}
+
+export type DecodedTeamData = ShareableSlot[];
+
+export function decodeTeam(encoded: string): number[] | DecodedTeamData {
   try {
     return JSON.parse(atob(encoded));
   } catch {

@@ -11,11 +11,12 @@ import {
 } from "@/types";
 import { extractBaseStats, calculateDamage } from "./damage";
 import { calculateAllStats, DEFAULT_EVS } from "./stats";
-import { initBattlePokemon, initStatStages, getStatStageMultiplier, cacheBattleMove, getCachedMoves, BattleMoveData } from "./battle";
+import { BattleMoveData } from "@/types";
+import { initBattlePokemon, initStatStages, getStatStageMultiplier, cacheBattleMove, getCachedMoves } from "./battle";
 import { getDefensiveMultiplier } from "@/data/typeChart";
 import { NATURES } from "@/data/natures";
 
-function randomInt(min: number, max: number): number {
+export function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
@@ -23,7 +24,7 @@ function randomChoice<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function generateRandomIVs(): IVSpread {
+export function generateRandomIVs(): IVSpread {
   return {
     hp: randomInt(0, 31),
     attack: randomInt(0, 31),
@@ -96,10 +97,15 @@ export async function preloadWildMoves(pokemon: Pokemon): Promise<void> {
           pp: data.pp,
           type: data.type,
           damage_class: data.damage_class,
+          priority: data.priority ?? 0,
           meta: data.meta
             ? {
                 ailment: data.meta.ailment,
                 ailment_chance: data.meta.ailment_chance,
+                stat_chance: data.meta.stat_chance,
+                min_hits: data.meta.min_hits,
+                max_hits: data.meta.max_hits,
+                drain: data.meta.drain,
               }
             : undefined,
         });
@@ -132,6 +138,7 @@ function getMoveData(moveName: string): Move | null {
     power: cached.power,
     accuracy: cached.accuracy,
     pp: cached.pp,
+    priority: cached.priority ?? 0,
     type: { name: cached.type.name as TypeName },
     damage_class: cached.damage_class,
     meta: cached.meta,

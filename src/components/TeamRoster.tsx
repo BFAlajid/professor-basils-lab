@@ -7,6 +7,7 @@ import PokemonCard from "./PokemonCard";
 import PokemonSearch from "./PokemonSearch";
 import PokemonDetailPanel from "./PokemonDetailPanel";
 import { exportToShowdown, importFromShowdown } from "@/utils/showdownFormat";
+import { useAchievementsContext } from "@/contexts/AchievementsContext";
 
 interface TeamRosterProps {
   team: TeamSlot[];
@@ -46,6 +47,7 @@ export default function TeamRoster({
   const [showdownMessage, setShowdownMessage] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const emptySlots = Math.max(0, 6 - team.length);
+  const { incrementStat } = useAchievementsContext();
 
   const expandedSlot = team.find((s) => s.position === expandedPosition);
 
@@ -55,7 +57,8 @@ export default function TeamRoster({
     setShowdownText(text);
     setShowShowdown(true);
     setShowdownMessage("");
-  }, [team]);
+    incrementStat("showdownExports");
+  }, [team, incrementStat]);
 
   const handleCopyExport = useCallback(() => {
     navigator.clipboard.writeText(showdownText).then(() => {

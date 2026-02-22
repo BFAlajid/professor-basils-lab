@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Press_Start_2P, VT323 } from "next/font/google";
 import { Providers } from "./providers";
+import OfflineIndicator from "@/components/OfflineIndicator";
+import InstallPrompt from "@/components/InstallPrompt";
 import "./globals.css";
 
 const pressStart2P = Press_Start_2P({
@@ -30,10 +32,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1a1c2c" />
+      </head>
       <body
         className={`${pressStart2P.variable} ${vt323.variable}`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          <OfflineIndicator />
+          {children}
+          <InstallPrompt />
+        </Providers>
       </body>
     </html>
   );

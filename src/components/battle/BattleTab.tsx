@@ -28,8 +28,9 @@ export default function BattleTab({ team }: BattleTabProps) {
     saveReplay,
   } = useBattle();
 
-  const { recordBattleWin, recordBattleLoss } = useAchievementsContext();
+  const { recordBattleWin, recordBattleLoss, incrementStat } = useAchievementsContext();
   const hasRecorded = useRef(false);
+  const prevLogLen = useRef(0);
   const [viewingReplay, setViewingReplay] = useState<BattleReplay | null>(null);
   const [replaySaved, setReplaySaved] = useState(false);
 
@@ -48,6 +49,21 @@ export default function BattleTab({ team }: BattleTabProps) {
       setReplaySaved(false);
     }
   }, [state.phase, state.winner, recordBattleWin, recordBattleLoss]);
+
+  // Track critical hits and super effective hits from battle log
+  useEffect(() => {
+    if (state.log.length > prevLogLen.current) {
+      const newEntries = state.log.slice(prevLogLen.current);
+      const crits = newEntries.filter((e) => e.kind === "critical").length;
+      const supers = newEntries.filter((e) => e.message === "It's super effective!").length;
+      if (crits > 0) incrementStat("criticalHits", crits);
+      if (supers > 0) incrementStat("superEffectiveHits", supers);
+      prevLogLen.current = state.log.length;
+    }
+    if (state.phase === "setup") {
+      prevLogLen.current = 0;
+    }
+  }, [state.log, state.phase, incrementStat]);
 
   const handleSaveReplay = useCallback(() => {
     const replay = saveReplay(state);

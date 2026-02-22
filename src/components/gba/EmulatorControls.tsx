@@ -18,6 +18,8 @@ interface EmulatorControlsProps {
   onSetVolume: (v: number) => void;
   onImportPokemon: () => void;
   onScreenshot: () => void;
+  gamepadConnected?: boolean;
+  gamepadName?: string | null;
 }
 
 export default function EmulatorControls({
@@ -36,6 +38,8 @@ export default function EmulatorControls({
   onSetVolume,
   onImportPokemon,
   onScreenshot,
+  gamepadConnected = false,
+  gamepadName = null,
 }: EmulatorControlsProps) {
   if (!isRunning) return null;
 
@@ -153,6 +157,19 @@ export default function EmulatorControls({
       >
         Import Pokémon
       </button>
+
+      {/* Gamepad indicator */}
+      {gamepadConnected && (
+        <>
+          <div className="w-px h-6 bg-[#3a4466]" />
+          <div className="flex items-center gap-1.5" title={gamepadName ?? "Controller connected"}>
+            <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-[10px] text-[#8b9bb4] font-pixel truncate max-w-[120px]">
+              {gamepadName ?? "Controller"}
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }

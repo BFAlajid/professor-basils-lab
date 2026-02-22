@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { TeamSlot, BattleMode, GenerationalMechanic } from "@/types";
+import { TeamSlot, BattleMode, GenerationalMechanic, DifficultyLevel } from "@/types";
 import LoadingSpinner from "../LoadingSpinner";
 import TypeBadge from "../TypeBadge";
 
 interface BattleSetupProps {
   playerTeam: TeamSlot[];
-  onStart: (player1Team: TeamSlot[], player2Team: TeamSlot[], mode: BattleMode, playerMechanic?: GenerationalMechanic, aiMechanic?: GenerationalMechanic) => void;
+  onStart: (player1Team: TeamSlot[], player2Team: TeamSlot[], mode: BattleMode, playerMechanic?: GenerationalMechanic, aiMechanic?: GenerationalMechanic, difficulty?: DifficultyLevel) => void;
   onGenerateOpponent: () => Promise<TeamSlot[]>;
   isLoadingOpponent: boolean;
 }
@@ -22,6 +22,7 @@ export default function BattleSetup({
 }: BattleSetupProps) {
   const [mode, setMode] = useState<BattleMode>("ai");
   const [mechanic, setMechanic] = useState<GenerationalMechanic>(null);
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>("normal");
   const [opponentTeam, setOpponentTeam] = useState<TeamSlot[] | null>(null);
   const [isStarting, setIsStarting] = useState(false);
 
@@ -34,7 +35,7 @@ export default function BattleSetup({
     if (!opponentTeam) return;
     setIsStarting(true);
     try {
-      await onStart(playerTeam, opponentTeam, mode, mechanic, mechanic);
+      await onStart(playerTeam, opponentTeam, mode, mechanic, mechanic, difficulty);
     } finally {
       setIsStarting(false);
     }
@@ -111,6 +112,33 @@ export default function BattleSetup({
           ))}
         </div>
       </div>
+
+      {/* AI Difficulty (only in AI mode) */}
+      {mode === "ai" && (
+        <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
+          <h3 className="mb-3 text-lg font-bold font-pixel">Difficulty</h3>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              { value: "easy" as const, label: "Easy", desc: "Random moves, forgiving" },
+              { value: "normal" as const, label: "Normal", desc: "Smart move selection" },
+              { value: "hard" as const, label: "Hard", desc: "Ability-aware, predicts" },
+            ]).map(({ value, label, desc }) => (
+              <button
+                key={value}
+                onClick={() => setDifficulty(value)}
+                className={`rounded-lg px-3 py-2.5 text-xs font-medium transition-all ${
+                  difficulty === value
+                    ? "bg-[#e8433f] ring-2 ring-[#f0f0e8] text-[#f0f0e8]"
+                    : "bg-[#3a4466] text-[#8b9bb4] hover:bg-[#4a5577] hover:text-[#f0f0e8]"
+                }`}
+              >
+                <span className="block text-sm font-pixel">{label}</span>
+                <span className="block text-[10px] mt-1 opacity-70">{desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Warning if no moves */}
       {!teamHasMoves && playerTeam.length > 0 && (

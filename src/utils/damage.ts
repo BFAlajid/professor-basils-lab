@@ -1,7 +1,8 @@
-import { Pokemon, Move, BaseStats, EVSpread, IVSpread, Nature, StatusCondition, TypeName, WeatherType } from "@/types";
+import { Pokemon, Move, BaseStats, EVSpread, IVSpread, Nature, StatusCondition, TypeName, WeatherType, BattlePokemon } from "@/types";
 import { getDefensiveMultiplier } from "@/data/typeChart";
 import { calculateAllStats, CalculatedStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { getHeldItem } from "@/data/heldItems";
+import { getAbilityHooks } from "@/data/abilities";
 
 export function extractBaseStats(pokemon: Pokemon): BaseStats {
   const get = (name: string) =>
@@ -36,6 +37,8 @@ export interface DamageCalcOptions {
   isTerastallized?: boolean;
   fieldWeather?: WeatherType | null;
   activeStatOverride?: BaseStats | null;
+  attackerAbility?: string | null;
+  attackerBattlePokemon?: BattlePokemon;
 }
 
 export interface DamageResult {
@@ -106,9 +109,25 @@ export function calculateDamage(
     def = isPhysical ? defenderStats.defense : defenderStats.spDef;
   }
 
-  // Burn halves physical attack
-  if (options?.attackerStatus === "burn" && isPhysical) {
+  // Ability: modifyAttackStat (Huge Power, Guts, Technician, etc.)
+  const abilityHooks = options?.attackerAbility ? getAbilityHooks(options.attackerAbility) : null;
+  const gutsActive = abilityHooks?.modifyAttackStat && options?.attackerBattlePokemon?.status && options.attackerAbility?.toLowerCase().replace(/\s+/g, "-") === "guts";
+
+  // Burn halves physical attack (Guts ignores burn penalty)
+  if (options?.attackerStatus === "burn" && isPhysical && !gutsActive) {
     atk = Math.floor(atk * 0.5);
+  }
+
+  // Apply ability attack modifier
+  if (abilityHooks?.modifyAttackStat && options?.attackerBattlePokemon) {
+    const atkMod = abilityHooks.modifyAttackStat({
+      attacker: options.attackerBattlePokemon,
+      movePower: move.power,
+      isPhysical,
+    });
+    if (atkMod !== 1) {
+      atk = Math.floor(atk * atkMod);
+    }
   }
 
   // Use effective types if provided (for Mega/Tera overrides)
@@ -125,6 +144,11 @@ export function calculateDamage(
     }
   } else if (options?.isTerastallized && options?.attackerOriginalTypes?.includes(move.type.name as TypeName)) {
     stab = 1.5; // Original type still gets STAB even after Tera
+  }
+
+  // Ability: modifySTAB (Adaptability: 1.5x → 2x)
+  if (stab > 1 && abilityHooks?.modifySTAB && options?.attackerBattlePokemon) {
+    stab = abilityHooks.modifySTAB({ attacker: options.attackerBattlePokemon, stab });
   }
 
   const typeEff = getDefensiveMultiplier(move.type.name, defenderTypes);

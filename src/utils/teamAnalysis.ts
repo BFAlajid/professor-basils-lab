@@ -1,4 +1,5 @@
 import { TypeName, TeamSlot } from "@/types";
+import { capitalize } from "./format";
 import { TYPE_LIST, getEffectiveness, getDefensiveMultiplier } from "@/data/typeChart";
 
 export interface DefensiveEntry {
@@ -238,11 +239,11 @@ function suggestTypes(
 
     seen.add(c.type);
     const coverList = c.covers
-      .map((t) => t.charAt(0).toUpperCase() + t.slice(1))
+      .map(capitalize)
       .join(", ");
 
     const alreadyOnTeam = teamTypes.has(c.type);
-    const typeName = c.type.charAt(0).toUpperCase() + c.type.slice(1);
+    const typeName = capitalize(c.type);
 
     const reason = alreadyOnTeam
       ? `Another ${typeName} type would further cover ${coverList} weaknesses`

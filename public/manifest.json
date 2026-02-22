@@ -1,0 +1,22 @@
+{
+  "name": "Professor Basil's Lab",
+  "short_name": "PBasil Lab",
+  "description": "Build your Pokemon team with type coverage analysis and battle simulation",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#1a1c2c",
+  "background_color": "#1a1c2c",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/globe.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

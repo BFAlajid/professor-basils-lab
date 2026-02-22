@@ -1,9 +1,10 @@
 "use client";
 
 import { useReducer, useCallback, useState, useEffect, useRef } from "react";
-import { BattleTurnAction, TeamSlot, BattleMode, GenerationalMechanic, AltFormeData } from "@/types";
+import { BattleTurnAction, TeamSlot, BattleMode, GenerationalMechanic, AltFormeData, DifficultyLevel } from "@/types";
 import { isMegaStone, getMegaStone } from "@/data/megaStones";
-import { battleReducer, initialBattleState, cacheBattleMove } from "@/utils/battle";
+import { battleReducer, initialBattleState } from "@/utils/battle";
+import { fetchAndCacheMoves } from "@/utils/moveCache";
 import { selectAIAction, generateRandomTeam, getBestSwitchIn } from "@/utils/ai";
 import { useReplayRecorder } from "./useReplayRecorder";
 
@@ -41,34 +42,7 @@ export function useBattle() {
     teams.forEach((slot) => {
       (slot.selectedMoves ?? []).forEach((m) => allMoves.add(m));
     });
-
-    await Promise.all(
-      Array.from(allMoves).map(async (moveName) => {
-        try {
-          const res = await fetch(
-            `https://pokeapi.co/api/v2/move/${moveName.toLowerCase()}`
-          );
-          if (!res.ok) return;
-          const data = await res.json();
-          cacheBattleMove(moveName, {
-            name: data.name,
-            power: data.power,
-            accuracy: data.accuracy,
-            pp: data.pp,
-            type: data.type,
-            damage_class: data.damage_class,
-            meta: data.meta
-              ? {
-                  ailment: data.meta.ailment,
-                  ailment_chance: data.meta.ailment_chance,
-                }
-              : undefined,
-          });
-        } catch {
-          // skip
-        }
-      })
-    );
+    await fetchAndCacheMoves(Array.from(allMoves));
   }, []);
 
   const preloadFormeData = useCallback(async (teams: TeamSlot[]): Promise<Map<string, AltFormeData>> => {
@@ -109,7 +83,8 @@ export function useBattle() {
       player2Team: TeamSlot[],
       mode: BattleMode,
       player1Mechanic: GenerationalMechanic = null,
-      player2Mechanic: GenerationalMechanic = null
+      player2Mechanic: GenerationalMechanic = null,
+      difficulty: DifficultyLevel = "normal"
     ) => {
       const allTeams = [...player1Team, ...player2Team];
       await preloadMoves(allTeams);
@@ -122,6 +97,7 @@ export function useBattle() {
         player1Mechanic,
         player2Mechanic,
         megaFormeCache,
+        difficulty,
       });
     },
     [preloadMoves, preloadFormeData]
@@ -160,15 +136,6 @@ export function useBattle() {
       }
     },
     [state]
-  );
-
-  const submitPvPAction = useCallback(
-    (player: "player1" | "player2", action: BattleTurnAction) => {
-      // In PvP, we collect both actions then execute
-      // This is handled by the component managing turn state
-      return action;
-    },
-    []
   );
 
   const forceSwitch = useCallback(

@@ -1,6 +1,8 @@
 import { TeamSlot, EVSpread, IVSpread, Nature, TypeName } from "@/types";
 import { NATURES } from "@/data/natures";
 import { fetchPokemon } from "@/hooks/usePokemon";
+import { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
+import { capitalize } from "./format";
 
 // ── Stat key ↔ Showdown abbreviation mapping ──────────────────────────
 
@@ -28,11 +30,6 @@ const STAT_KEYS: SpreadKey[] = ["hp", "attack", "defense", "spAtk", "spDef", "sp
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-/** Capitalize the first letter of a string. */
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 /**
  * Convert a Pokemon API name (e.g. "iron-bundle") into a Showdown-style
  * display name (e.g. "Iron Bundle").
@@ -47,16 +44,6 @@ function toDisplayName(apiName: string): string {
  */
 function toApiName(displayName: string): string {
   return displayName.trim().toLowerCase().replace(/\s+/g, "-");
-}
-
-/** Default EV spread (all zeros). */
-function defaultEvs(): EVSpread {
-  return { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 };
-}
-
-/** Default IV spread (all 31s). */
-function defaultIvs(): IVSpread {
-  return { hp: 31, attack: 31, defense: 31, spAtk: 31, spDef: 31, speed: 31 };
 }
 
 // ── Export ──────────────────────────────────────────────────────────────
@@ -105,7 +92,7 @@ function exportSlot(slot: TeamSlot): string {
   }
 
   // ── EVs ──────────────────────────────────────────────────────────────
-  const evs = slot.evs ?? defaultEvs();
+  const evs = slot.evs ?? { ...DEFAULT_EVS };
   const evParts: string[] = [];
   for (const key of STAT_KEYS) {
     if (evs[key] !== 0) {
@@ -122,7 +109,7 @@ function exportSlot(slot: TeamSlot): string {
   }
 
   // ── IVs ──────────────────────────────────────────────────────────────
-  const ivs = slot.ivs ?? defaultIvs();
+  const ivs = slot.ivs ?? { ...DEFAULT_IVS };
   const hasNonMaxIv = STAT_KEYS.some((key) => ivs[key] !== 31);
   if (hasNonMaxIv) {
     const ivParts = STAT_KEYS.map(
@@ -208,8 +195,8 @@ async function parseBlock(
   // ── Parse remaining lines ───────────────────────────────────────────
   let ability: string | null = null;
   let nature: Nature | null = null;
-  let evs: EVSpread = defaultEvs();
-  let ivs: IVSpread = defaultIvs();
+  let evs: EVSpread = { ...DEFAULT_EVS };
+  let ivs: IVSpread = { ...DEFAULT_IVS };
   let teraConfig: { teraType: TypeName } | undefined = undefined;
   const selectedMoves: string[] = [];
   let hasIvLine = false;
@@ -226,9 +213,9 @@ async function parseBlock(
         .toLowerCase() as TypeName;
       teraConfig = { teraType };
     } else if (line.startsWith("EVs:")) {
-      evs = parseSpread(line.slice("EVs:".length).trim(), defaultEvs());
+      evs = parseSpread(line.slice("EVs:".length).trim(), { ...DEFAULT_EVS });
     } else if (line.startsWith("IVs:")) {
-      ivs = parseSpread(line.slice("IVs:".length).trim(), defaultIvs());
+      ivs = parseSpread(line.slice("IVs:".length).trim(), { ...DEFAULT_IVS });
       hasIvLine = true;
     } else if (line.endsWith("Nature")) {
       const natureName = line.replace("Nature", "").trim().toLowerCase();
@@ -244,7 +231,7 @@ async function parseBlock(
     position,
     nature,
     evs,
-    ivs: hasIvLine ? ivs : defaultIvs(),
+    ivs: hasIvLine ? ivs : { ...DEFAULT_IVS },
     ability,
     heldItem,
     selectedMoves: selectedMoves.length > 0 ? selectedMoves : undefined,

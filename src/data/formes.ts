@@ -1,3 +1,5 @@
+import { capitalize } from "@/utils/format";
+
 // Curated regional variants and alternate formes
 // Maps base Pokemon name → array of PokeAPI slugs for their alternate formes
 
@@ -105,6 +107,3 @@ export function formatFormeName(apiSlug: string): string {
   return `${baseName} (${formeParts.join(" ")})`;
 }
 
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}

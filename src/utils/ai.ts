@@ -1,7 +1,8 @@
-import { BattleState, BattleTurnAction, TeamSlot, Pokemon, BattlePokemon, BattleTeam, GenerationalMechanic, TypeName } from "@/types";
+import { BattleState, BattleTurnAction, TeamSlot, Pokemon, BattlePokemon, BattleTeam, GenerationalMechanic, TypeName, DifficultyLevel } from "@/types";
 import { extractBaseStats, calculateDamage } from "./damage";
 import { getActivePokemon, getCachedMoves, getEffectiveTypes } from "./battle";
 import { getDefensiveMultiplier } from "@/data/typeChart";
+import { getAbilityHooks } from "@/data/abilities";
 import { NATURES } from "@/data/natures";
 import { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { isMegaStone, MEGA_STONES } from "@/data/megaStones";
@@ -105,6 +106,7 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
   const aiTeam = state.player2;
   const aiActive = getActivePokemon(aiTeam);
   const opponentActive = getActivePokemon(state.player1);
+  const difficulty: DifficultyLevel = state.difficulty ?? "normal";
 
   if (aiActive.isFainted) {
     // Pick best switch-in
@@ -117,9 +119,41 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
     return { type: "MOVE", moveIndex: 0 };
   }
 
+  // Easy: 30% chance to pick a random move
+  if (difficulty === "easy" && Math.random() < 0.3) {
+    const randomIdx = Math.floor(Math.random() * moves.length);
+    return { type: "MOVE", moveIndex: randomIdx };
+  }
+
   // Score each move
   const moveScores = moves.map((moveName, index) => {
-    return { index, score: scoreMoveAgainstTarget(aiActive, opponentActive, moveName) };
+    let score = scoreMoveAgainstTarget(aiActive, opponentActive, moveName);
+
+    // Hard: penalize moves that hit into immunity abilities
+    if (difficulty === "hard") {
+      const cachedMoves = getCachedMoves();
+      const moveData = cachedMoves.get(moveName);
+      if (moveData) {
+        const oppAbility = getAbilityHooks(opponentActive.slot.ability);
+        if (oppAbility?.modifyIncomingDamage) {
+          const result = oppAbility.modifyIncomingDamage({
+            defender: opponentActive,
+            attacker: aiActive,
+            moveType: moveData.type.name as TypeName,
+            movePower: moveData.power ?? 0,
+          });
+          if (result && result.multiplier === 0) {
+            score = 0; // Don't use moves that get absorbed/nullified
+          }
+        }
+        // Boost priority move score when opponent is low HP
+        if (moveData.priority && moveData.priority > 0 && opponentActive.currentHp / opponentActive.maxHp < 0.25) {
+          score *= 1.5;
+        }
+      }
+    }
+
+    return { index, score };
   });
 
   // Consider switching: if best move score is very low, consider switch
@@ -129,15 +163,17 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
     .map((p, i) => ({ pokemon: p, index: i }))
     .filter((p) => !p.pokemon.isFainted && p.index !== aiTeam.activePokemonIndex);
 
-  if (bestMoveScore < 30 && aliveSwitchIns.length > 0) {
-    // Check if a switch-in has a better matchup
+  // Switch threshold: harder AI is more willing to switch
+  const switchThreshold = difficulty === "hard" ? 40 : 30;
+  if (bestMoveScore < switchThreshold && aliveSwitchIns.length > 0) {
     const switchScores = aliveSwitchIns.map((s) => ({
       index: s.index,
       score: scoreMatchup(s.pokemon, opponentActive),
     }));
     const bestSwitch = switchScores.sort((a, b) => b.score - a.score)[0];
 
-    if (bestSwitch.score > bestMoveScore * 1.5) {
+    const switchMultiplier = difficulty === "hard" ? 1.3 : 1.5;
+    if (bestSwitch.score > bestMoveScore * switchMultiplier) {
       return { type: "SWITCH", pokemonIndex: bestSwitch.index };
     }
   }
@@ -163,7 +199,7 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
 
     // Terastallization: use when type matchup is bad or for offensive boost
     if (mechanic === "tera" && !aiActive.hasTerastallized && aiActive.teraType) {
-      const shouldTera = shouldTerastallize(aiActive, opponentActive);
+      const shouldTera = shouldTerastallize(aiActive, opponentActive, difficulty);
       if (shouldTera) {
         return { type: "TERASTALLIZE", moveIndex: bestMoveIndex };
       }
@@ -171,7 +207,7 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
 
     // Dynamax: use when it's the last Pokemon or for big damage
     if (mechanic === "dynamax" && !aiActive.hasDynamaxed) {
-      const shouldDmax = shouldDynamax(aiActive, aiTeam);
+      const shouldDmax = shouldDynamax(aiActive, aiTeam, difficulty);
       if (shouldDmax) {
         return { type: "DYNAMAX", moveIndex: bestMoveIndex };
       }
@@ -254,7 +290,7 @@ export function getBestSwitchIn(state: BattleState, player: "player1" | "player2
   return scored.sort((a, b) => b.score - a.score)[0].index;
 }
 
-function shouldTerastallize(ai: BattlePokemon, opponent: BattlePokemon): boolean {
+function shouldTerastallize(ai: BattlePokemon, opponent: BattlePokemon, difficulty: DifficultyLevel = "normal"): boolean {
   if (!ai.teraType) return false;
   const aiTypes = ai.slot.pokemon.types.map(t => t.type.name);
   const oppTypes = opponent.slot.pokemon.types.map(t => t.type.name);
@@ -269,23 +305,51 @@ function shouldTerastallize(ai: BattlePokemon, opponent: BattlePokemon): boolean
     }
   }
 
-  // Tera if HP is above 60% (save it for when healthy)
+  // Hard: only Tera when it provides a clear benefit, save for key moments
+  if (difficulty === "hard") {
+    // Tera if it provides STAB on our best move
+    if (ai.currentHp / ai.maxHp > 0.5) {
+      return Math.random() < 0.25; // More conservative
+    }
+    return false;
+  }
+
+  // Easy: rarely Tera
+  if (difficulty === "easy") {
+    return Math.random() < 0.15;
+  }
+
+  // Normal: Tera if HP is above 60%
   if (ai.currentHp / ai.maxHp > 0.6) {
-    return Math.random() < 0.4; // 40% chance to tera when healthy
+    return Math.random() < 0.4;
   }
 
   return false;
 }
 
-function shouldDynamax(ai: BattlePokemon, team: BattleTeam): boolean {
+function shouldDynamax(ai: BattlePokemon, team: BattleTeam, difficulty: DifficultyLevel = "normal"): boolean {
   const aliveCount = team.pokemon.filter(p => !p.isFainted).length;
 
   // Always Dynamax if it's the last Pokemon
   if (aliveCount <= 1) return true;
 
-  // Dynamax if HP is high (to maximize doubled HP benefit)
+  // Hard: Dynamax strategically — when HP is high and can get key KOs
+  if (difficulty === "hard") {
+    if (ai.currentHp / ai.maxHp > 0.8) {
+      return Math.random() < 0.6;
+    }
+    return false;
+  }
+
+  // Easy: rarely Dynamax early
+  if (difficulty === "easy") {
+    if (aliveCount <= 2) return Math.random() < 0.5;
+    return Math.random() < 0.15;
+  }
+
+  // Normal: Dynamax if HP is high
   if (ai.currentHp / ai.maxHp > 0.7) {
-    return Math.random() < 0.5; // 50% chance when healthy
+    return Math.random() < 0.5;
   }
 
   return false;
