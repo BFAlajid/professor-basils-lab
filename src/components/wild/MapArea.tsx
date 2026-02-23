@@ -21,8 +21,8 @@ interface MapAreaProps {
 
 export default function MapArea({ area, isSelected, onClick }: MapAreaProps) {
   const theme = THEME_COLORS[area.theme] ?? THEME_COLORS.grass;
-  const minLevel = Math.min(...area.encounterPool.map((p) => p.minLevel));
-  const maxLevel = Math.max(...area.encounterPool.map((p) => p.maxLevel));
+  const minLevel = area.encounterPool.length > 0 ? Math.min(...area.encounterPool.map((p) => p.minLevel)) : 1;
+  const maxLevel = area.encounterPool.length > 0 ? Math.max(...area.encounterPool.map((p) => p.maxLevel)) : 1;
 
   return (
     <motion.button

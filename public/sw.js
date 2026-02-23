@@ -1,6 +1,6 @@
 // Service Worker for Professor Basil's Lab
 // Cache versioning — bump these to invalidate old caches on update
-const APP_SHELL_CACHE = "app-shell-v1";
+const APP_SHELL_CACHE = "app-shell-v2";
 const POKEAPI_CACHE = "pokeapi-v1";
 const SPRITE_CACHE = "sprites-v1";
 
@@ -62,10 +62,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Strategy 3: App shell / static assets — cache-first
-  // Next.js static chunks, CSS, HTML, fonts, local assets
-  if (url.origin === self.location.origin) {
+  // Strategy 3: Next.js hashed assets — cache-first (immutable, content-hashed)
+  if (url.origin === self.location.origin && url.pathname.startsWith("/_next/static/")) {
     event.respondWith(cacheFirst(event.request, APP_SHELL_CACHE));
+    return;
+  }
+
+  // Strategy 4: HTML pages and other same-origin requests — network-first
+  // Ensures users always get the latest deployment
+  if (url.origin === self.location.origin) {
+    event.respondWith(networkFirst(event.request, APP_SHELL_CACHE));
     return;
   }
 });
