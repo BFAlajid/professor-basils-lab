@@ -1,0 +1,15 @@
+{
+  "name": "gen3-parser",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "gen3_parser_bg.wasm",
+    "gen3_parser.js",
+    "gen3_parser.d.ts"
+  ],
+  "main": "gen3_parser.js",
+  "types": "gen3_parser.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

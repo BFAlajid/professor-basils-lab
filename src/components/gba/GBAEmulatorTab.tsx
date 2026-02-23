@@ -114,7 +114,13 @@ export default function GBAEmulatorTab(_props: GBAEmulatorTabProps) {
       s: "R",
     };
 
+    const isTyping = () => {
+      const tag = document.activeElement?.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTyping()) return;
       const btn = keyMap[e.key.toLowerCase()];
       if (btn && !pressedKeysRef.current.has(btn)) {
         e.preventDefault();
@@ -124,6 +130,7 @@ export default function GBAEmulatorTab(_props: GBAEmulatorTabProps) {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (isTyping()) return;
       const btn = keyMap[e.key.toLowerCase()];
       if (btn) {
         e.preventDefault();
