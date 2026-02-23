@@ -1,15 +1,15 @@
 import { RouteArea } from "@/types";
 
 export const REGIONS = [
-  { id: "kanto", name: "Kanto", color: "#e8433f" },
-  { id: "johto", name: "Johto", color: "#3b82f6" },
-  { id: "hoenn", name: "Hoenn", color: "#22c55e" },
-  { id: "sinnoh", name: "Sinnoh", color: "#a855f7" },
-  { id: "unova", name: "Unova", color: "#6366f1" },
-  { id: "kalos", name: "Kalos", color: "#ec4899" },
-  { id: "alola", name: "Alola", color: "#f59e0b" },
-  { id: "galar", name: "Galar", color: "#14b8a6" },
-  { id: "paldea", name: "Paldea", color: "#f97316" },
+  { id: "kanto", name: "Kanto", color: "#e8433f", mapUrl: "/maps/kanto.png" },
+  { id: "johto", name: "Johto", color: "#3b82f6", mapUrl: "/maps/johto.png" },
+  { id: "hoenn", name: "Hoenn", color: "#22c55e", mapUrl: "/maps/hoenn.png" },
+  { id: "sinnoh", name: "Sinnoh", color: "#a855f7", mapUrl: "/maps/sinnoh.png" },
+  { id: "unova", name: "Unova", color: "#6366f1", mapUrl: "/maps/unova.png" },
+  { id: "kalos", name: "Kalos", color: "#ec4899", mapUrl: "/maps/kalos.png" },
+  { id: "alola", name: "Alola", color: "#f59e0b", mapUrl: "/maps/alola.png" },
+  { id: "galar", name: "Galar", color: "#14b8a6", mapUrl: "/maps/galar.png" },
+  { id: "paldea", name: "Paldea", color: "#f97316", mapUrl: "/maps/paldea.png" },
 ] as const;
 
 export type RegionId = (typeof REGIONS)[number]["id"];
@@ -22,7 +22,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A quiet path between Pallet Town and Viridian City.",
     theme: "grass",
     region: "kanto",
-    position: { x: 55, y: 72, width: 12, height: 14 },
+    position: { x: 38, y: 72, width: 8, height: 10 },
     encounterPool: [
       { pokemonId: 16, minLevel: 2, maxLevel: 5, encounterRate: 50 },  // Pidgey
       { pokemonId: 19, minLevel: 2, maxLevel: 4, encounterRate: 50 },  // Rattata
@@ -34,7 +34,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A short route leading to Viridian Forest.",
     theme: "grass",
     region: "kanto",
-    position: { x: 45, y: 60, width: 10, height: 10 },
+    position: { x: 28, y: 50, width: 7, height: 10 },
     encounterPool: [
       { pokemonId: 16, minLevel: 3, maxLevel: 5, encounterRate: 40 },  // Pidgey
       { pokemonId: 19, minLevel: 3, maxLevel: 5, encounterRate: 30 },  // Rattata
@@ -48,7 +48,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A dense forest full of Bug-type Pokemon.",
     theme: "forest",
     region: "kanto",
-    position: { x: 30, y: 50, width: 14, height: 16 },
+    position: { x: 26, y: 38, width: 9, height: 10 },
     encounterPool: [
       { pokemonId: 10, minLevel: 3, maxLevel: 5, encounterRate: 35 },  // Caterpie
       { pokemonId: 13, minLevel: 3, maxLevel: 5, encounterRate: 35 },  // Weedle
@@ -64,7 +64,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A mysterious cave where Clefairy dance under moonlight.",
     theme: "cave",
     region: "kanto",
-    position: { x: 60, y: 38, width: 14, height: 14 },
+    position: { x: 45, y: 22, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 41, minLevel: 7, maxLevel: 11, encounterRate: 40 }, // Zubat
       { pokemonId: 46, minLevel: 8, maxLevel: 10, encounterRate: 20 }, // Paras
@@ -79,7 +79,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A dangerous cave rumored to house extremely powerful Pokemon.",
     theme: "cave",
     region: "kanto",
-    position: { x: 75, y: 25, width: 13, height: 13 },
+    position: { x: 62, y: 12, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 42, minLevel: 46, maxLevel: 50, encounterRate: 25 },  // Golbat
       { pokemonId: 64, minLevel: 46, maxLevel: 48, encounterRate: 15 },  // Kadabra
@@ -95,7 +95,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A nature preserve with rare and exotic Pokemon.",
     theme: "grass",
     region: "kanto",
-    position: { x: 15, y: 30, width: 16, height: 16 },
+    position: { x: 38, y: 68, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 111, minLevel: 25, maxLevel: 28, encounterRate: 20 }, // Rhyhorn
       { pokemonId: 115, minLevel: 25, maxLevel: 28, encounterRate: 10 }, // Kangaskhan
@@ -113,7 +113,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A winding path leading to Mt. Moon, alive with early trainers.",
     theme: "grass",
     region: "kanto",
-    position: { x: 68, y: 58, width: 12, height: 10 },
+    position: { x: 34, y: 25, width: 10, height: 7 },
     encounterPool: [
       { pokemonId: 21, minLevel: 6, maxLevel: 8, encounterRate: 55 },
       { pokemonId: 32, minLevel: 7, maxLevel: 9, encounterRate: 20 },
@@ -127,7 +127,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "East of Mt. Moon, leading toward Cerulean City.",
     theme: "grass",
     region: "kanto",
-    position: { x: 78, y: 48, width: 12, height: 10 },
+    position: { x: 55, y: 22, width: 10, height: 7 },
     encounterPool: [
       { pokemonId: 21, minLevel: 13, maxLevel: 15, encounterRate: 40 },
       { pokemonId: 19, minLevel: 13, maxLevel: 15, encounterRate: 35 },
@@ -141,7 +141,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Connects Cerulean to Saffron and Vermilion, with tall grass along the banks.",
     theme: "grass",
     region: "kanto",
-    position: { x: 60, y: 52, width: 12, height: 10 },
+    position: { x: 65, y: 38, width: 7, height: 14 },
     encounterPool: [
       { pokemonId: 16, minLevel: 14, maxLevel: 16, encounterRate: 30 },
       { pokemonId: 52, minLevel: 14, maxLevel: 17, encounterRate: 25 },
@@ -156,7 +156,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Runs between Saffron, Celadon and Lavender, rich with Fire and Grass types.",
     theme: "grass",
     region: "kanto",
-    position: { x: 38, y: 45, width: 12, height: 10 },
+    position: { x: 45, y: 40, width: 14, height: 7 },
     encounterPool: [
       { pokemonId: 16, minLevel: 18, maxLevel: 22, encounterRate: 25 },
       { pokemonId: 37, minLevel: 18, maxLevel: 22, encounterRate: 20 },
@@ -171,7 +171,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Rocky routes east of Cerulean, flanking the entrance to Rock Tunnel.",
     theme: "grass",
     region: "kanto",
-    position: { x: 80, y: 38, width: 12, height: 10 },
+    position: { x: 72, y: 25, width: 10, height: 8 },
     encounterPool: [
       { pokemonId: 19, minLevel: 18, maxLevel: 22, encounterRate: 30 },
       { pokemonId: 21, minLevel: 18, maxLevel: 22, encounterRate: 30 },
@@ -185,7 +185,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Coastal routes stretching east from Vermilion, home to rare Bug types.",
     theme: "grass",
     region: "kanto",
-    position: { x: 80, y: 58, width: 12, height: 10 },
+    position: { x: 72, y: 50, width: 10, height: 8 },
     encounterPool: [
       { pokemonId: 21, minLevel: 20, maxLevel: 24, encounterRate: 30 },
       { pokemonId: 23, minLevel: 20, maxLevel: 23, encounterRate: 20 },
@@ -201,7 +201,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Southern routes connecting Lavender to Fuchsia through tall grass.",
     theme: "grass",
     region: "kanto",
-    position: { x: 68, y: 48, width: 12, height: 10 },
+    position: { x: 60, y: 55, width: 7, height: 12 },
     encounterPool: [
       { pokemonId: 43, minLevel: 22, maxLevel: 26, encounterRate: 30 },
       { pokemonId: 69, minLevel: 22, maxLevel: 26, encounterRate: 30 },
@@ -215,7 +215,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The Cycling Road and surrounding routes west of Celadon.",
     theme: "grass",
     region: "kanto",
-    position: { x: 28, y: 55, width: 12, height: 10 },
+    position: { x: 30, y: 45, width: 8, height: 14 },
     encounterPool: [
       { pokemonId: 21, minLevel: 20, maxLevel: 25, encounterRate: 35 },
       { pokemonId: 84, minLevel: 22, maxLevel: 26, encounterRate: 35 },
@@ -228,7 +228,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Water routes south of Fuchsia, connecting to Seafoam Islands and Cinnabar.",
     theme: "water",
     region: "kanto",
-    position: { x: 18, y: 68, width: 14, height: 10 },
+    position: { x: 20, y: 80, width: 18, height: 8 },
     encounterPool: [
       { pokemonId: 72, minLevel: 25, maxLevel: 35, encounterRate: 60 },
       { pokemonId: 116, minLevel: 20, maxLevel: 30, encounterRate: 20 },
@@ -242,7 +242,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The route west of Viridian leading to Victory Road.",
     theme: "grass",
     region: "kanto",
-    position: { x: 42, y: 22, width: 12, height: 10 },
+    position: { x: 14, y: 42, width: 10, height: 8 },
     encounterPool: [
       { pokemonId: 21, minLevel: 3, maxLevel: 5, encounterRate: 40 },
       { pokemonId: 32, minLevel: 3, maxLevel: 5, encounterRate: 25 },
@@ -256,7 +256,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Nugget Bridge and Bill's cottage, north of Cerulean City.",
     theme: "grass",
     region: "kanto",
-    position: { x: 82, y: 32, width: 12, height: 10 },
+    position: { x: 65, y: 15, width: 8, height: 10 },
     encounterPool: [
       { pokemonId: 63, minLevel: 13, maxLevel: 15, encounterRate: 30 },
       { pokemonId: 17, minLevel: 13, maxLevel: 15, encounterRate: 20 },
@@ -271,7 +271,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A pitch-dark cave connecting Cerulean to Lavender.",
     theme: "cave",
     region: "kanto",
-    position: { x: 80, y: 28, width: 12, height: 12 },
+    position: { x: 74, y: 32, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 41, minLevel: 17, maxLevel: 22, encounterRate: 40 },
       { pokemonId: 74, minLevel: 17, maxLevel: 22, encounterRate: 30 },
@@ -285,7 +285,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A tunnel riddled with Diglett and their evolved forms.",
     theme: "cave",
     region: "kanto",
-    position: { x: 52, y: 58, width: 12, height: 10 },
+    position: { x: 32, y: 58, width: 7, height: 7 },
     encounterPool: [
       { pokemonId: 50, minLevel: 15, maxLevel: 22, encounterRate: 75 },
       { pokemonId: 51, minLevel: 26, maxLevel: 29, encounterRate: 25 },
@@ -297,7 +297,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A haunted tower in Lavender Town where Pokemon are laid to rest.",
     theme: "cave",
     region: "kanto",
-    position: { x: 78, y: 62, width: 12, height: 12 },
+    position: { x: 68, y: 38, width: 7, height: 8 },
     encounterPool: [
       { pokemonId: 92, minLevel: 20, maxLevel: 28, encounterRate: 55 },
       { pokemonId: 93, minLevel: 26, maxLevel: 30, encounterRate: 25 },
@@ -310,7 +310,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "An abandoned facility crackling with Electric-type Pokemon.",
     theme: "urban",
     region: "kanto",
-    position: { x: 85, y: 45, width: 12, height: 12 },
+    position: { x: 84, y: 30, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 81, minLevel: 22, maxLevel: 28, encounterRate: 35 },
       { pokemonId: 100, minLevel: 22, maxLevel: 26, encounterRate: 35 },
@@ -325,7 +325,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Icy caverns off the southern coast, home to the Freeze Pokemon.",
     theme: "cave",
     region: "kanto",
-    position: { x: 22, y: 58, width: 14, height: 14 },
+    position: { x: 28, y: 78, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 86, minLevel: 32, maxLevel: 38, encounterRate: 30 },
       { pokemonId: 79, minLevel: 30, maxLevel: 35, encounterRate: 25 },
@@ -341,7 +341,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The final gauntlet before the Pokemon League, full of powerful Pokemon.",
     theme: "cave",
     region: "kanto",
-    position: { x: 30, y: 15, width: 16, height: 16 },
+    position: { x: 10, y: 12, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 67, minLevel: 42, maxLevel: 46, encounterRate: 25 },
       { pokemonId: 95, minLevel: 40, maxLevel: 44, encounterRate: 20 },
@@ -357,7 +357,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A crumbling mansion on Cinnabar Island hiding dark secrets.",
     theme: "urban",
     region: "kanto",
-    position: { x: 10, y: 50, width: 14, height: 12 },
+    position: { x: 12, y: 78, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 109, minLevel: 36, maxLevel: 40, encounterRate: 30 },
       { pokemonId: 88, minLevel: 36, maxLevel: 40, encounterRate: 30 },
@@ -374,7 +374,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The first route in Johto, west of New Bark Town.",
     theme: "grass",
     region: "johto",
-    position: { x: 70, y: 65, width: 12, height: 12 },
+    position: { x: 78, y: 55, width: 10, height: 7 },
     encounterPool: [
       { pokemonId: 161, minLevel: 2, maxLevel: 4, encounterRate: 40 }, // Sentret
       { pokemonId: 163, minLevel: 2, maxLevel: 4, encounterRate: 25 }, // Hoothoot
@@ -387,7 +387,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A sacred forest protected by its guardian Pokemon.",
     theme: "forest",
     region: "johto",
-    position: { x: 35, y: 55, width: 14, height: 16 },
+    position: { x: 42, y: 68, width: 9, height: 10 },
     encounterPool: [
       { pokemonId: 46, minLevel: 5, maxLevel: 7, encounterRate: 25 },   // Paras
       { pokemonId: 43, minLevel: 5, maxLevel: 7, encounterRate: 25 },   // Oddish
@@ -402,7 +402,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A lake famous for its Red Gyarados sightings.",
     theme: "water",
     region: "johto",
-    position: { x: 50, y: 20, width: 15, height: 15 },
+    position: { x: 62, y: 12, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 129, minLevel: 10, maxLevel: 20, encounterRate: 60 }, // Magikarp
       { pokemonId: 130, minLevel: 30, maxLevel: 30, encounterRate: 5 },  // Gyarados
@@ -416,7 +416,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "An ancient tower said to be where Ho-Oh roosts.",
     theme: "mountain",
     region: "johto",
-    position: { x: 20, y: 35, width: 12, height: 16 },
+    position: { x: 38, y: 25, width: 8, height: 10 },
     encounterPool: [
       { pokemonId: 92, minLevel: 20, maxLevel: 25, encounterRate: 30 },  // Gastly
       { pokemonId: 93, minLevel: 22, maxLevel: 27, encounterRate: 20 },  // Haunter
@@ -432,7 +432,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A quiet path north of Cherrygrove City leading to Mr. Pokemon's house.",
     theme: "grass",
     region: "johto",
-    position: { x: 60, y: 60, width: 12, height: 10 },
+    position: { x: 78, y: 42, width: 7, height: 10 },
     encounterPool: [
       { pokemonId: 16, minLevel: 3, maxLevel: 5, encounterRate: 35 },
       { pokemonId: 10, minLevel: 3, maxLevel: 5, encounterRate: 25 },
@@ -446,7 +446,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A short road connecting Cherrygrove City and Violet City.",
     theme: "grass",
     region: "johto",
-    position: { x: 55, y: 55, width: 12, height: 10 },
+    position: { x: 68, y: 42, width: 10, height: 7 },
     encounterPool: [
       { pokemonId: 69, minLevel: 4, maxLevel: 6, encounterRate: 30 },
       { pokemonId: 10, minLevel: 4, maxLevel: 6, encounterRate: 25 },
@@ -461,7 +461,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A long route south from Violet City leading to Union Cave.",
     theme: "grass",
     region: "johto",
-    position: { x: 48, y: 50, width: 12, height: 14 },
+    position: { x: 60, y: 50, width: 7, height: 14 },
     encounterPool: [
       { pokemonId: 69, minLevel: 6, maxLevel: 8, encounterRate: 25 },
       { pokemonId: 23, minLevel: 5, maxLevel: 7, encounterRate: 20 },
@@ -476,7 +476,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A rainy route between Union Cave and Azalea Town.",
     theme: "grass",
     region: "johto",
-    position: { x: 42, y: 48, width: 10, height: 10 },
+    position: { x: 48, y: 62, width: 8, height: 7 },
     encounterPool: [
       { pokemonId: 187, minLevel: 6, maxLevel: 8, encounterRate: 35 },
       { pokemonId: 19, minLevel: 6, maxLevel: 8, encounterRate: 30 },
@@ -490,7 +490,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "South of Goldenrod City, where the Daycare is located.",
     theme: "grass",
     region: "johto",
-    position: { x: 38, y: 42, width: 12, height: 10 },
+    position: { x: 44, y: 50, width: 7, height: 10 },
     encounterPool: [
       { pokemonId: 96, minLevel: 10, maxLevel: 14, encounterRate: 30 },
       { pokemonId: 63, minLevel: 10, maxLevel: 13, encounterRate: 20 },
@@ -505,7 +505,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Northern routes from Goldenrod, passing the National Park to Ecruteak.",
     theme: "grass",
     region: "johto",
-    position: { x: 32, y: 38, width: 12, height: 10 },
+    position: { x: 42, y: 32, width: 10, height: 8 },
     encounterPool: [
       { pokemonId: 29, minLevel: 12, maxLevel: 16, encounterRate: 25 },
       { pokemonId: 32, minLevel: 12, maxLevel: 16, encounterRate: 25 },
@@ -520,7 +520,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Farmland routes west of Ecruteak leading to Olivine City.",
     theme: "grass",
     region: "johto",
-    position: { x: 28, y: 32, width: 14, height: 10 },
+    position: { x: 22, y: 35, width: 14, height: 7 },
     encounterPool: [
       { pokemonId: 19, minLevel: 16, maxLevel: 18, encounterRate: 25 },
       { pokemonId: 20, minLevel: 16, maxLevel: 18, encounterRate: 15 },
@@ -536,7 +536,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Ocean routes between Olivine and Cianwood City.",
     theme: "water",
     region: "johto",
-    position: { x: 22, y: 45, width: 14, height: 12 },
+    position: { x: 8, y: 45, width: 10, height: 14 },
     encounterPool: [
       { pokemonId: 72, minLevel: 20, maxLevel: 24, encounterRate: 40 },
       { pokemonId: 73, minLevel: 22, maxLevel: 25, encounterRate: 15 },
@@ -550,7 +550,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Mountain routes east of Ecruteak, leading to the Lake of Rage.",
     theme: "grass",
     region: "johto",
-    position: { x: 55, y: 28, width: 12, height: 12 },
+    position: { x: 50, y: 25, width: 12, height: 7 },
     encounterPool: [
       { pokemonId: 56, minLevel: 20, maxLevel: 24, encounterRate: 25 },
       { pokemonId: 179, minLevel: 20, maxLevel: 23, encounterRate: 20 },
@@ -565,7 +565,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A route east of Mahogany Town on the way to the Ice Path.",
     theme: "grass",
     region: "johto",
-    position: { x: 62, y: 25, width: 12, height: 10 },
+    position: { x: 68, y: 22, width: 10, height: 7 },
     encounterPool: [
       { pokemonId: 60, minLevel: 22, maxLevel: 26, encounterRate: 25 },
       { pokemonId: 61, minLevel: 24, maxLevel: 26, encounterRate: 15 },
@@ -580,7 +580,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Steep mountain routes south of Blackthorn with rare Pokemon.",
     theme: "mountain",
     region: "johto",
-    position: { x: 72, y: 22, width: 12, height: 14 },
+    position: { x: 78, y: 28, width: 7, height: 14 },
     encounterPool: [
       { pokemonId: 74, minLevel: 24, maxLevel: 28, encounterRate: 25 },
       { pokemonId: 75, minLevel: 26, maxLevel: 30, encounterRate: 15 },
@@ -596,7 +596,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A swaying tower in Violet City built around a massive Bellsprout pillar.",
     theme: "urban",
     region: "johto",
-    position: { x: 65, y: 52, width: 10, height: 10 },
+    position: { x: 68, y: 35, width: 7, height: 8 },
     encounterPool: [
       { pokemonId: 19, minLevel: 3, maxLevel: 5, encounterRate: 40 },
       { pokemonId: 92, minLevel: 3, maxLevel: 6, encounterRate: 35 },
@@ -609,7 +609,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A cave connecting Route 32 and Azalea Town, home to rock dwellers.",
     theme: "cave",
     region: "johto",
-    position: { x: 45, y: 45, width: 12, height: 12 },
+    position: { x: 55, y: 60, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 41, minLevel: 6, maxLevel: 8, encounterRate: 30 },
       { pokemonId: 74, minLevel: 6, maxLevel: 8, encounterRate: 25 },
@@ -624,7 +624,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A cave beneath Azalea Town where Slowpoke gather to drink.",
     theme: "cave",
     region: "johto",
-    position: { x: 38, y: 50, width: 10, height: 10 },
+    position: { x: 42, y: 60, width: 7, height: 7 },
     encounterPool: [
       { pokemonId: 79, minLevel: 6, maxLevel: 10, encounterRate: 55 },
       { pokemonId: 41, minLevel: 5, maxLevel: 8, encounterRate: 30 },
@@ -637,7 +637,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A sprawling park north of Goldenrod famous for its Bug-Catching Contest.",
     theme: "grass",
     region: "johto",
-    position: { x: 40, y: 35, width: 14, height: 12 },
+    position: { x: 42, y: 38, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 10, minLevel: 10, maxLevel: 13, encounterRate: 20 },
       { pokemonId: 11, minLevel: 10, maxLevel: 13, encounterRate: 15 },
@@ -653,7 +653,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The charred ruins of a tower in Ecruteak where legendary beasts awakened.",
     theme: "cave",
     region: "johto",
-    position: { x: 30, y: 28, width: 12, height: 12 },
+    position: { x: 35, y: 22, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 19, minLevel: 14, maxLevel: 16, encounterRate: 25 },
       { pokemonId: 109, minLevel: 14, maxLevel: 16, encounterRate: 25 },
@@ -669,7 +669,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A pitch-black cave between Routes 31 and 46 hiding rare Pokemon.",
     theme: "cave",
     region: "johto",
-    position: { x: 68, y: 48, width: 12, height: 12 },
+    position: { x: 76, y: 42, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 41, minLevel: 4, maxLevel: 8, encounterRate: 30 },
       { pokemonId: 74, minLevel: 4, maxLevel: 8, encounterRate: 25 },
@@ -684,7 +684,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A chain of island caves in the sea, where the guardian of the seas resides.",
     theme: "water",
     region: "johto",
-    position: { x: 18, y: 40, width: 14, height: 14 },
+    position: { x: 15, y: 52, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 116, minLevel: 20, maxLevel: 25, encounterRate: 30 },
       { pokemonId: 98, minLevel: 20, maxLevel: 24, encounterRate: 25 },
@@ -699,7 +699,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A sprawling cave between Ecruteak and Mahogany, rumored to hold Tyrogue.",
     theme: "cave",
     region: "johto",
-    position: { x: 50, y: 30, width: 14, height: 14 },
+    position: { x: 52, y: 30, width: 8, height: 9 },
     encounterPool: [
       { pokemonId: 41, minLevel: 14, maxLevel: 20, encounterRate: 30 },
       { pokemonId: 66, minLevel: 14, maxLevel: 18, encounterRate: 25 },
@@ -715,7 +715,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A frozen cavern between Mahogany and Blackthorn, treacherous with sliding ice.",
     theme: "cave",
     region: "johto",
-    position: { x: 65, y: 20, width: 12, height: 12 },
+    position: { x: 72, y: 18, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 220, minLevel: 22, maxLevel: 26, encounterRate: 30 },
       { pokemonId: 124, minLevel: 24, maxLevel: 28, encounterRate: 20 },
@@ -730,7 +730,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The ultimate challenge — a harsh mountain where only the strongest dare climb.",
     theme: "mountain",
     region: "johto",
-    position: { x: 15, y: 15, width: 16, height: 16 },
+    position: { x: 5, y: 10, width: 10, height: 10 },
     encounterPool: [
       { pokemonId: 217, minLevel: 42, maxLevel: 46, encounterRate: 20 },
       { pokemonId: 232, minLevel: 42, maxLevel: 46, encounterRate: 20 },
@@ -748,7 +748,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A short grassy route in southern Hoenn.",
     theme: "grass",
     region: "hoenn",
-    position: { x: 45, y: 75, width: 12, height: 10 },
+    position: { x: 42, y: 78, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 263, minLevel: 2, maxLevel: 4, encounterRate: 45 }, // Zigzagoon
       { pokemonId: 265, minLevel: 2, maxLevel: 4, encounterRate: 45 }, // Wurmple
@@ -761,7 +761,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A forest filled with Bug-type Pokemon and mushroom hunters.",
     theme: "forest",
     region: "hoenn",
-    position: { x: 25, y: 55, width: 15, height: 16 },
+    position: { x: 18, y: 55, width: 9, height: 10 },
     encounterPool: [
       { pokemonId: 265, minLevel: 5, maxLevel: 6, encounterRate: 25 },  // Wurmple
       { pokemonId: 285, minLevel: 5, maxLevel: 6, encounterRate: 20 },  // Shroomish
@@ -777,7 +777,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A beautiful cave with waterfalls and rare Dragon-type Pokemon.",
     theme: "cave",
     region: "hoenn",
-    position: { x: 55, y: 30, width: 14, height: 14 },
+    position: { x: 22, y: 28, width: 8, height: 9 },
     encounterPool: [
       { pokemonId: 41, minLevel: 14, maxLevel: 18, encounterRate: 35 },  // Zubat
       { pokemonId: 337, minLevel: 14, maxLevel: 18, encounterRate: 20 }, // Lunatone
@@ -792,7 +792,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A long rainy route with tall grass and the Weather Institute.",
     theme: "grass",
     region: "hoenn",
-    position: { x: 70, y: 40, width: 12, height: 18 },
+    position: { x: 52, y: 22, width: 7, height: 16 },
     encounterPool: [
       { pokemonId: 43, minLevel: 25, maxLevel: 28, encounterRate: 25 },  // Oddish
       { pokemonId: 264, minLevel: 25, maxLevel: 27, encounterRate: 20 }, // Linoone
@@ -809,7 +809,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A grassy path west of Oldale Town where beginning trainers hone their skills.",
     theme: "grass",
     region: "hoenn",
-    position: { x: 38, y: 70, width: 12, height: 10 },
+    position: { x: 30, y: 72, width: 10, height: 7 },
     encounterPool: [
       { pokemonId: 263, minLevel: 3, maxLevel: 5, encounterRate: 30 },
       { pokemonId: 280, minLevel: 4, maxLevel: 5, encounterRate: 20 },
@@ -823,7 +823,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Coastal routes north and south of Petalburg, linking to Petalburg Woods.",
     theme: "grass",
     region: "hoenn",
-    position: { x: 30, y: 65, width: 12, height: 10 },
+    position: { x: 20, y: 62, width: 10, height: 8 },
     encounterPool: [
       { pokemonId: 263, minLevel: 3, maxLevel: 5, encounterRate: 30 },
       { pokemonId: 278, minLevel: 4, maxLevel: 6, encounterRate: 25 },
@@ -837,7 +837,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A long route with the Cycling Road between Mauville and Slateport.",
     theme: "grass",
     region: "hoenn",
-    position: { x: 52, y: 58, width: 12, height: 14 },
+    position: { x: 42, y: 52, width: 7, height: 14 },
     encounterPool: [
       { pokemonId: 309, minLevel: 12, maxLevel: 14, encounterRate: 25 },
       { pokemonId: 81, minLevel: 12, maxLevel: 14, encounterRate: 20 },
@@ -853,7 +853,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A sandstorm-swept desert north of Mauville hiding Ground-type Pokemon.",
     theme: "desert",
     region: "hoenn",
-    position: { x: 60, y: 50, width: 12, height: 14 },
+    position: { x: 40, y: 30, width: 8, height: 12 },
     encounterPool: [
       { pokemonId: 27, minLevel: 20, maxLevel: 23, encounterRate: 30 },
       { pokemonId: 328, minLevel: 20, maxLevel: 23, encounterRate: 25 },
@@ -868,7 +868,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A route blanketed in volcanic ash from Mt. Chimney.",
     theme: "mountain",
     region: "hoenn",
-    position: { x: 48, y: 38, width: 12, height: 10 },
+    position: { x: 22, y: 18, width: 10, height: 7 },
     encounterPool: [
       { pokemonId: 327, minLevel: 15, maxLevel: 17, encounterRate: 35 },
       { pokemonId: 218, minLevel: 15, maxLevel: 17, encounterRate: 30 },
@@ -882,7 +882,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Northern routes past Meteor Falls, home to Fighting and Rock types.",
     theme: "grass",
     region: "hoenn",
-    position: { x: 42, y: 30, width: 14, height: 12 },
+    position: { x: 14, y: 28, width: 8, height: 14 },
     encounterPool: [
       { pokemonId: 264, minLevel: 16, maxLevel: 18, encounterRate: 25 },
       { pokemonId: 271, minLevel: 16, maxLevel: 18, encounterRate: 20 },
@@ -897,7 +897,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Routes near Rustboro and the Pokemon Daycare on Route 117.",
     theme: "grass",
     region: "hoenn",
-    position: { x: 32, y: 48, width: 12, height: 10 },
+    position: { x: 22, y: 42, width: 14, height: 7 },
     encounterPool: [
       { pokemonId: 276, minLevel: 7, maxLevel: 10, encounterRate: 25 },
       { pokemonId: 290, minLevel: 7, maxLevel: 10, encounterRate: 20 },
@@ -913,7 +913,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Eastern routes where strong trainers battle amid tall grass and rain.",
     theme: "grass",
     region: "hoenn",
-    position: { x: 62, y: 44, width: 14, height: 12 },
+    position: { x: 52, y: 40, width: 10, height: 8 },
     encounterPool: [
       { pokemonId: 264, minLevel: 25, maxLevel: 28, encounterRate: 25 },
       { pokemonId: 43, minLevel: 25, maxLevel: 28, encounterRate: 20 },
@@ -929,7 +929,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Western routes near Lilycove and the Safari Zone, with diverse Pokemon.",
     theme: "grass",
     region: "hoenn",
-    position: { x: 72, y: 50, width: 14, height: 10 },
+    position: { x: 64, y: 35, width: 10, height: 7 },
     encounterPool: [
       { pokemonId: 264, minLevel: 26, maxLevel: 28, encounterRate: 25 },
       { pokemonId: 42, minLevel: 26, maxLevel: 28, encounterRate: 20 },
@@ -945,7 +945,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Vast seas spanning eastern Hoenn, rich with aquatic life.",
     theme: "water",
     region: "hoenn",
-    position: { x: 78, y: 60, width: 16, height: 12 },
+    position: { x: 65, y: 60, width: 18, height: 10 },
     encounterPool: [
       { pokemonId: 72, minLevel: 25, maxLevel: 30, encounterRate: 40 },
       { pokemonId: 278, minLevel: 25, maxLevel: 30, encounterRate: 20 },
@@ -961,7 +961,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A partially-dug tunnel connecting Rustboro and Verdanturf.",
     theme: "cave",
     region: "hoenn",
-    position: { x: 35, y: 52, width: 10, height: 10 },
+    position: { x: 28, y: 42, width: 7, height: 7 },
     encounterPool: [
       { pokemonId: 293, minLevel: 6, maxLevel: 10, encounterRate: 50 },
       { pokemonId: 41, minLevel: 6, maxLevel: 10, encounterRate: 30 },
@@ -974,7 +974,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A cave near Dewford where rare Pokemon and ancient paintings hide.",
     theme: "cave",
     region: "hoenn",
-    position: { x: 20, y: 62, width: 12, height: 12 },
+    position: { x: 12, y: 78, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 41, minLevel: 8, maxLevel: 12, encounterRate: 30 },
       { pokemonId: 296, minLevel: 8, maxLevel: 12, encounterRate: 25 },
@@ -989,7 +989,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A scorching tunnel through Mt. Chimney, home to Fire and Poison types.",
     theme: "cave",
     region: "hoenn",
-    position: { x: 50, y: 42, width: 12, height: 10 },
+    position: { x: 35, y: 22, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 322, minLevel: 15, maxLevel: 18, encounterRate: 30 },
       { pokemonId: 218, minLevel: 15, maxLevel: 18, encounterRate: 30 },
@@ -1004,7 +1004,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A sacred mountain cemetery where Ghost-type Pokemon dwell.",
     theme: "cave",
     region: "hoenn",
-    position: { x: 68, y: 35, width: 12, height: 14 },
+    position: { x: 68, y: 45, width: 8, height: 9 },
     encounterPool: [
       { pokemonId: 353, minLevel: 27, maxLevel: 30, encounterRate: 30 },
       { pokemonId: 355, minLevel: 27, maxLevel: 30, encounterRate: 25 },
@@ -1019,7 +1019,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A tidal cave near Mossdeep that shifts between ice and water.",
     theme: "cave",
     region: "hoenn",
-    position: { x: 80, y: 35, width: 12, height: 12 },
+    position: { x: 78, y: 32, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 41, minLevel: 28, maxLevel: 32, encounterRate: 25 },
       { pokemonId: 42, minLevel: 30, maxLevel: 34, encounterRate: 15 },
@@ -1034,7 +1034,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A crumbling tower rising from the sea where the sky dragon sleeps.",
     theme: "mountain",
     region: "hoenn",
-    position: { x: 82, y: 25, width: 12, height: 14 },
+    position: { x: 82, y: 55, width: 8, height: 9 },
     encounterPool: [
       { pokemonId: 42, minLevel: 40, maxLevel: 44, encounterRate: 30 },
       { pokemonId: 344, minLevel: 40, maxLevel: 44, encounterRate: 25 },
@@ -1049,7 +1049,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Hoenn's ultimate gauntlet before the Pokemon League at Ever Grande City.",
     theme: "cave",
     region: "hoenn",
-    position: { x: 85, y: 18, width: 14, height: 14 },
+    position: { x: 85, y: 18, width: 8, height: 9 },
     encounterPool: [
       { pokemonId: 42, minLevel: 38, maxLevel: 42, encounterRate: 25 },
       { pokemonId: 305, minLevel: 38, maxLevel: 42, encounterRate: 20 },
@@ -1067,7 +1067,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The first route in Sinnoh, connecting Twinleaf and Sandgem Towns.",
     theme: "grass",
     region: "sinnoh",
-    position: { x: 50, y: 75, width: 12, height: 10 },
+    position: { x: 46, y: 85, width: 10, height: 8 },
     encounterPool: [
       { pokemonId: 396, minLevel: 2, maxLevel: 4, encounterRate: 50 }, // Starly
       { pokemonId: 399, minLevel: 2, maxLevel: 4, encounterRate: 50 }, // Bidoof
@@ -1079,7 +1079,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A dark, mossy forest on the way to Eterna City.",
     theme: "forest",
     region: "sinnoh",
-    position: { x: 30, y: 50, width: 15, height: 16 },
+    position: { x: 25, y: 30, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 406, minLevel: 10, maxLevel: 13, encounterRate: 20 }, // Budew
       { pokemonId: 415, minLevel: 10, maxLevel: 12, encounterRate: 15 }, // Combee
@@ -1096,7 +1096,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The massive mountain at the heart of Sinnoh, home to ancient legends.",
     theme: "cave",
     region: "sinnoh",
-    position: { x: 55, y: 30, width: 16, height: 18 },
+    position: { x: 44, y: 25, width: 8, height: 40 },
     encounterPool: [
       { pokemonId: 41, minLevel: 14, maxLevel: 18, encounterRate: 25 },  // Zubat
       { pokemonId: 74, minLevel: 15, maxLevel: 18, encounterRate: 20 },  // Geodude
@@ -1112,7 +1112,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A serene lake near Twinleaf Town, said to be home to a Legendary Pokemon.",
     theme: "water",
     region: "sinnoh",
-    position: { x: 20, y: 65, width: 14, height: 14 },
+    position: { x: 18, y: 82, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 54, minLevel: 20, maxLevel: 30, encounterRate: 30 },  // Psyduck
       { pokemonId: 129, minLevel: 10, maxLevel: 25, encounterRate: 35 }, // Magikarp
@@ -1127,7 +1127,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "An island mine rich in iron ore and Steel-type Pokemon.",
     theme: "cave",
     region: "sinnoh",
-    position: { x: 75, y: 35, width: 13, height: 13 },
+    position: { x: 8, y: 38, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 75, minLevel: 29, maxLevel: 33, encounterRate: 20 },  // Graveler
       { pokemonId: 95, minLevel: 30, maxLevel: 33, encounterRate: 20 },  // Onix
@@ -1144,7 +1144,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Early routes near Sandgem and Jubilife with common Sinnoh Pokemon.",
     theme: "grass",
     region: "sinnoh",
-    position: { x: 42, y: 70, width: 12, height: 10 },
+    position: { x: 32, y: 78, width: 10, height: 8 },
     encounterPool: [
       { pokemonId: 396, minLevel: 3, maxLevel: 5, encounterRate: 30 },
       { pokemonId: 399, minLevel: 3, maxLevel: 5, encounterRate: 30 },
@@ -1159,7 +1159,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Routes through Ravaged Path and Eterna Forest's outskirts.",
     theme: "grass",
     region: "sinnoh",
-    position: { x: 35, y: 60, width: 12, height: 12 },
+    position: { x: 26, y: 48, width: 8, height: 28 },
     encounterPool: [
       { pokemonId: 399, minLevel: 5, maxLevel: 8, encounterRate: 25 },
       { pokemonId: 401, minLevel: 5, maxLevel: 8, encounterRate: 20 },
@@ -1174,7 +1174,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The Cycling Road and Oreburgh Gate area south of Eterna.",
     theme: "grass",
     region: "sinnoh",
-    position: { x: 48, y: 55, width: 12, height: 12 },
+    position: { x: 38, y: 48, width: 8, height: 22 },
     encounterPool: [
       { pokemonId: 74, minLevel: 14, maxLevel: 17, encounterRate: 25 },
       { pokemonId: 66, minLevel: 14, maxLevel: 16, encounterRate: 20 },
@@ -1189,7 +1189,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Mountainous routes between Hearthome and the foggy Route 210.",
     theme: "grass",
     region: "sinnoh",
-    position: { x: 60, y: 48, width: 14, height: 12 },
+    position: { x: 56, y: 42, width: 10, height: 18 },
     encounterPool: [
       { pokemonId: 307, minLevel: 17, maxLevel: 20, encounterRate: 25 },
       { pokemonId: 406, minLevel: 17, maxLevel: 19, encounterRate: 20 },
@@ -1205,7 +1205,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Routes flanking Mt. Coronet and the rainy marsh south of Hearthome.",
     theme: "grass",
     region: "sinnoh",
-    position: { x: 52, y: 42, width: 14, height: 10 },
+    position: { x: 52, y: 55, width: 10, height: 18 },
     encounterPool: [
       { pokemonId: 307, minLevel: 22, maxLevel: 25, encounterRate: 25 },
       { pokemonId: 315, minLevel: 22, maxLevel: 24, encounterRate: 20 },
@@ -1221,7 +1221,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Coastal and woodland routes around Veilstone and Pastoria City.",
     theme: "grass",
     region: "sinnoh",
-    position: { x: 68, y: 55, width: 14, height: 10 },
+    position: { x: 66, y: 62, width: 10, height: 16 },
     encounterPool: [
       { pokemonId: 397, minLevel: 22, maxLevel: 25, encounterRate: 25 },
       { pokemonId: 418, minLevel: 22, maxLevel: 25, encounterRate: 25 },
@@ -1237,7 +1237,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Snow-covered routes leading to Snowpoint City through blizzards.",
     theme: "mountain",
     region: "sinnoh",
-    position: { x: 45, y: 22, width: 14, height: 12 },
+    position: { x: 48, y: 12, width: 9, height: 18 },
     encounterPool: [
       { pokemonId: 215, minLevel: 32, maxLevel: 36, encounterRate: 25 },
       { pokemonId: 220, minLevel: 32, maxLevel: 35, encounterRate: 25 },
@@ -1252,7 +1252,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Water routes west of Jubilife connecting to Canalave City.",
     theme: "water",
     region: "sinnoh",
-    position: { x: 25, y: 58, width: 14, height: 10 },
+    position: { x: 10, y: 58, width: 10, height: 8 },
     encounterPool: [
       { pokemonId: 72, minLevel: 20, maxLevel: 30, encounterRate: 30 },
       { pokemonId: 278, minLevel: 20, maxLevel: 28, encounterRate: 25 },
@@ -1267,7 +1267,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Sunny beach routes approaching Sunyshore and beyond.",
     theme: "grass",
     region: "sinnoh",
-    position: { x: 78, y: 45, width: 14, height: 10 },
+    position: { x: 78, y: 52, width: 10, height: 10 },
     encounterPool: [
       { pokemonId: 81, minLevel: 38, maxLevel: 42, encounterRate: 20 },
       { pokemonId: 82, minLevel: 40, maxLevel: 42, encounterRate: 10 },
@@ -1284,7 +1284,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Post-game routes in the Battle Zone with high-level encounters.",
     theme: "grass",
     region: "sinnoh",
-    position: { x: 80, y: 25, width: 14, height: 14 },
+    position: { x: 82, y: 10, width: 10, height: 10 },
     encounterPool: [
       { pokemonId: 22, minLevel: 50, maxLevel: 54, encounterRate: 20 },
       { pokemonId: 207, minLevel: 50, maxLevel: 52, encounterRate: 15 },
@@ -1301,7 +1301,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A working coal mine where Rock-type Pokemon abound.",
     theme: "cave",
     region: "sinnoh",
-    position: { x: 40, y: 65, width: 10, height: 10 },
+    position: { x: 35, y: 68, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 74, minLevel: 6, maxLevel: 10, encounterRate: 35 },
       { pokemonId: 41, minLevel: 6, maxLevel: 10, encounterRate: 30 },
@@ -1315,7 +1315,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A dark cave beneath the Cycling Road where Gible can be found.",
     theme: "cave",
     region: "sinnoh",
-    position: { x: 50, y: 50, width: 10, height: 10 },
+    position: { x: 40, y: 50, width: 7, height: 7 },
     encounterPool: [
       { pokemonId: 41, minLevel: 16, maxLevel: 20, encounterRate: 30 },
       { pokemonId: 74, minLevel: 16, maxLevel: 20, encounterRate: 25 },
@@ -1330,7 +1330,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A haunted mansion in Eterna Forest filled with ghostly apparitions.",
     theme: "urban",
     region: "sinnoh",
-    position: { x: 28, y: 45, width: 12, height: 12 },
+    position: { x: 22, y: 28, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 92, minLevel: 14, maxLevel: 18, encounterRate: 40 },
       { pokemonId: 93, minLevel: 16, maxLevel: 20, encounterRate: 30 },
@@ -1344,7 +1344,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A tower for mourning lost Pokemon on Route 209, full of Ghost types.",
     theme: "cave",
     region: "sinnoh",
-    position: { x: 62, y: 52, width: 10, height: 12 },
+    position: { x: 60, y: 52, width: 7, height: 8 },
     encounterPool: [
       { pokemonId: 92, minLevel: 17, maxLevel: 22, encounterRate: 35 },
       { pokemonId: 93, minLevel: 20, maxLevel: 24, encounterRate: 25 },
@@ -1358,7 +1358,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A frozen lake near Snowpoint City, guarded by the Being of Willpower.",
     theme: "water",
     region: "sinnoh",
-    position: { x: 40, y: 18, width: 14, height: 12 },
+    position: { x: 62, y: 8, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 54, minLevel: 34, maxLevel: 38, encounterRate: 30 },
       { pokemonId: 55, minLevel: 36, maxLevel: 40, encounterRate: 15 },
@@ -1373,7 +1373,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Sinnoh's grueling final cave before the Pokemon League.",
     theme: "cave",
     region: "sinnoh",
-    position: { x: 65, y: 18, width: 14, height: 14 },
+    position: { x: 68, y: 5, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 42, minLevel: 40, maxLevel: 44, encounterRate: 20 },
       { pokemonId: 75, minLevel: 40, maxLevel: 44, encounterRate: 20 },
@@ -1389,7 +1389,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A volcanic mountain in the Battle Zone, home to the legendary Heatran.",
     theme: "mountain",
     region: "sinnoh",
-    position: { x: 85, y: 20, width: 12, height: 12 },
+    position: { x: 88, y: 5, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 323, minLevel: 52, maxLevel: 56, encounterRate: 25 },
       { pokemonId: 75, minLevel: 52, maxLevel: 56, encounterRate: 20 },
@@ -1405,7 +1405,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A disorienting cave where dimensions blur and Giratina lurks.",
     theme: "cave",
     region: "sinnoh",
-    position: { x: 72, y: 28, width: 12, height: 12 },
+    position: { x: 58, y: 35, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 42, minLevel: 45, maxLevel: 55, encounterRate: 30 },
       { pokemonId: 356, minLevel: 45, maxLevel: 55, encounterRate: 25 },
@@ -1422,7 +1422,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A peaceful path stretching from Nuvema Town through rolling hills.",
     theme: "grass",
     region: "unova",
-    position: { x: 50, y: 75, width: 12, height: 10 },
+    position: { x: 75, y: 80, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 504, minLevel: 2, maxLevel: 4, encounterRate: 40 },  // Patrat
       { pokemonId: 506, minLevel: 2, maxLevel: 4, encounterRate: 40 },  // Lillipup
@@ -1435,7 +1435,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A vast woodland teeming with Bug and Grass-type Pokemon.",
     theme: "forest",
     region: "unova",
-    position: { x: 25, y: 55, width: 15, height: 16 },
+    position: { x: 42, y: 28, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 540, minLevel: 12, maxLevel: 15, encounterRate: 30 }, // Sewaddle
       { pokemonId: 543, minLevel: 12, maxLevel: 15, encounterRate: 25 }, // Venipede
@@ -1450,7 +1450,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "An electrifying cave filled with levitating charged stones and Electric-type Pokemon.",
     theme: "cave",
     region: "unova",
-    position: { x: 55, y: 35, width: 14, height: 14 },
+    position: { x: 22, y: 30, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 595, minLevel: 24, maxLevel: 27, encounterRate: 30 }, // Joltik
       { pokemonId: 597, minLevel: 24, maxLevel: 27, encounterRate: 25 }, // Ferroseed
@@ -1465,7 +1465,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "An ancient tower steeped in legend, said to be the oldest structure in Unova.",
     theme: "mountain",
     region: "unova",
-    position: { x: 70, y: 20, width: 13, height: 16 },
+    position: { x: 25, y: 15, width: 8, height: 10 },
     encounterPool: [
       { pokemonId: 622, minLevel: 30, maxLevel: 33, encounterRate: 30 }, // Golett
       { pokemonId: 619, minLevel: 30, maxLevel: 33, encounterRate: 30 }, // Mienfoo
@@ -1480,7 +1480,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A frigid crater at the edge of Unova, radiating an otherworldly chill.",
     theme: "cave",
     region: "unova",
-    position: { x: 15, y: 25, width: 14, height: 14 },
+    position: { x: 68, y: 18, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 35, minLevel: 45, maxLevel: 48, encounterRate: 25 },  // Clefairy
       { pokemonId: 221, minLevel: 46, maxLevel: 49, encounterRate: 25 }, // Piloswine
@@ -1497,7 +1497,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Early routes near Striaton City with common Unova Pokemon.",
     theme: "grass",
     region: "unova",
-    position: { x: 42, y: 68, width: 12, height: 10 },
+    position: { x: 68, y: 65, width: 10, height: 15 },
     encounterPool: [
       { pokemonId: 504, minLevel: 4, maxLevel: 7, encounterRate: 30 },
       { pokemonId: 506, minLevel: 4, maxLevel: 7, encounterRate: 30 },
@@ -1511,7 +1511,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Desert sands of Route 4 and the bustling bridge approach of Route 5.",
     theme: "desert",
     region: "unova",
-    position: { x: 38, y: 60, width: 12, height: 10 },
+    position: { x: 48, y: 68, width: 10, height: 14 },
     encounterPool: [
       { pokemonId: 551, minLevel: 15, maxLevel: 18, encounterRate: 25 },
       { pokemonId: 559, minLevel: 15, maxLevel: 18, encounterRate: 20 },
@@ -1527,7 +1527,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Seasonal routes with tall grass near Driftveil and Mistralton.",
     theme: "grass",
     region: "unova",
-    position: { x: 34, y: 52, width: 12, height: 10 },
+    position: { x: 30, y: 42, width: 10, height: 14 },
     encounterPool: [
       { pokemonId: 585, minLevel: 22, maxLevel: 25, encounterRate: 25 },
       { pokemonId: 531, minLevel: 22, maxLevel: 25, encounterRate: 20 },
@@ -1543,7 +1543,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Marshy wetlands and shopping district routes in central Unova.",
     theme: "grass",
     region: "unova",
-    position: { x: 46, y: 48, width: 12, height: 10 },
+    position: { x: 20, y: 22, width: 10, height: 12 },
     encounterPool: [
       { pokemonId: 536, minLevel: 28, maxLevel: 32, encounterRate: 25 },
       { pokemonId: 618, minLevel: 28, maxLevel: 31, encounterRate: 20 },
@@ -1558,7 +1558,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A stretch of varied terrain from Badge Check Gates to giant bridges.",
     theme: "grass",
     region: "unova",
-    position: { x: 56, y: 42, width: 14, height: 12 },
+    position: { x: 48, y: 15, width: 14, height: 10 },
     encounterPool: [
       { pokemonId: 587, minLevel: 30, maxLevel: 34, encounterRate: 20 },
       { pokemonId: 531, minLevel: 30, maxLevel: 33, encounterRate: 20 },
@@ -1574,7 +1574,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Waterfalls and forests in Unova's western wilderness.",
     theme: "forest",
     region: "unova",
-    position: { x: 30, y: 38, width: 14, height: 12 },
+    position: { x: 78, y: 48, width: 12, height: 14 },
     encounterPool: [
       { pokemonId: 587, minLevel: 34, maxLevel: 38, encounterRate: 20 },
       { pokemonId: 575, minLevel: 34, maxLevel: 37, encounterRate: 15 },
@@ -1591,7 +1591,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Rough seas and a remote island with powerful wild Pokemon.",
     theme: "water",
     region: "unova",
-    position: { x: 20, y: 45, width: 14, height: 10 },
+    position: { x: 15, y: 70, width: 10, height: 10 },
     encounterPool: [
       { pokemonId: 592, minLevel: 30, maxLevel: 40, encounterRate: 30 },
       { pokemonId: 593, minLevel: 35, maxLevel: 40, encounterRate: 15 },
@@ -1606,7 +1606,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A cave near Nacrene City with underground rivers.",
     theme: "cave",
     region: "unova",
-    position: { x: 42, y: 62, width: 10, height: 10 },
+    position: { x: 48, y: 35, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 527, minLevel: 10, maxLevel: 13, encounterRate: 35 },
       { pokemonId: 524, minLevel: 10, maxLevel: 13, encounterRate: 35 },
@@ -1620,7 +1620,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Ancient desert ruins buried in sand, hiding Ghost and Ground types.",
     theme: "desert",
     region: "unova",
-    position: { x: 35, y: 55, width: 12, height: 12 },
+    position: { x: 42, y: 62, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 551, minLevel: 19, maxLevel: 22, encounterRate: 25 },
       { pokemonId: 562, minLevel: 19, maxLevel: 22, encounterRate: 25 },
@@ -1636,7 +1636,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A cave of guidance where the legendary Cobalion rests.",
     theme: "cave",
     region: "unova",
-    position: { x: 48, y: 38, width: 12, height: 10 },
+    position: { x: 28, y: 38, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 525, minLevel: 28, maxLevel: 32, encounterRate: 30 },
       { pokemonId: 611, minLevel: 28, maxLevel: 32, encounterRate: 25 },
@@ -1651,7 +1651,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A winding mountain with seasonal changes and Ice-type Pokemon.",
     theme: "cave",
     region: "unova",
-    position: { x: 40, y: 30, width: 14, height: 12 },
+    position: { x: 22, y: 24, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 525, minLevel: 28, maxLevel: 32, encounterRate: 25 },
       { pokemonId: 527, minLevel: 28, maxLevel: 32, encounterRate: 20 },
@@ -1667,7 +1667,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A tower dedicated to departed Pokemon where their spirits linger.",
     theme: "urban",
     region: "unova",
-    position: { x: 55, y: 30, width: 10, height: 12 },
+    position: { x: 18, y: 30, width: 7, height: 9 },
     encounterPool: [
       { pokemonId: 607, minLevel: 26, maxLevel: 30, encounterRate: 35 },
       { pokemonId: 592, minLevel: 26, maxLevel: 30, encounterRate: 25 },
@@ -1681,7 +1681,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Unova's final trial — a treacherous cave before the Pokemon League.",
     theme: "cave",
     region: "unova",
-    position: { x: 60, y: 18, width: 14, height: 14 },
+    position: { x: 44, y: 5, width: 10, height: 9 },
     encounterPool: [
       { pokemonId: 525, minLevel: 38, maxLevel: 42, encounterRate: 20 },
       { pokemonId: 611, minLevel: 38, maxLevel: 42, encounterRate: 20 },
@@ -1700,7 +1700,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A sunlit trail winding through the outskirts of Aquacorde Town.",
     theme: "grass",
     region: "kalos",
-    position: { x: 50, y: 75, width: 12, height: 10 },
+    position: { x: 48, y: 82, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 661, minLevel: 2, maxLevel: 4, encounterRate: 35 },  // Fletchling
       { pokemonId: 659, minLevel: 2, maxLevel: 4, encounterRate: 35 },  // Bunnelby
@@ -1714,7 +1714,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A lush forest near Santalune City buzzing with common Bug-type Pokemon.",
     theme: "forest",
     region: "kalos",
-    position: { x: 25, y: 55, width: 15, height: 16 },
+    position: { x: 60, y: 78, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 10, minLevel: 3, maxLevel: 5, encounterRate: 25 },  // Caterpie
       { pokemonId: 13, minLevel: 3, maxLevel: 5, encounterRate: 25 },  // Weedle
@@ -1730,7 +1730,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A sparkling cavern where fossils and rare minerals lie buried in the walls.",
     theme: "cave",
     region: "kalos",
-    position: { x: 60, y: 40, width: 14, height: 14 },
+    position: { x: 22, y: 52, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 104, minLevel: 15, maxLevel: 18, encounterRate: 25 }, // Cubone
       { pokemonId: 111, minLevel: 15, maxLevel: 18, encounterRate: 25 }, // Rhyhorn
@@ -1746,7 +1746,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A bitterly cold cavern encased in ice, home to resilient Ice-type Pokemon.",
     theme: "cave",
     region: "kalos",
-    position: { x: 30, y: 25, width: 14, height: 14 },
+    position: { x: 42, y: 22, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 712, minLevel: 38, maxLevel: 41, encounterRate: 30 }, // Bergmite
       { pokemonId: 238, minLevel: 38, maxLevel: 40, encounterRate: 25 }, // Smoochum
@@ -1761,7 +1761,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A hidden refuge where abandoned Pokemon have gathered to live in peace.",
     theme: "forest",
     region: "kalos",
-    position: { x: 70, y: 15, width: 14, height: 14 },
+    position: { x: 82, y: 12, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 571, minLevel: 48, maxLevel: 50, encounterRate: 20 }, // Zoroark
       { pokemonId: 132, minLevel: 46, maxLevel: 48, encounterRate: 20 }, // Ditto
@@ -1778,7 +1778,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Rolling hills and flower fields between Santalune and Lumiose City.",
     theme: "grass",
     region: "kalos",
-    position: { x: 38, y: 65, width: 14, height: 10 },
+    position: { x: 56, y: 70, width: 10, height: 10 },
     encounterPool: [
       { pokemonId: 661, minLevel: 4, maxLevel: 7, encounterRate: 25 },
       { pokemonId: 659, minLevel: 4, maxLevel: 7, encounterRate: 20 },
@@ -1794,7 +1794,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A grand boulevard and berry fields between Camphrier and Cyllage.",
     theme: "grass",
     region: "kalos",
-    position: { x: 32, y: 58, width: 12, height: 10 },
+    position: { x: 30, y: 58, width: 10, height: 10 },
     encounterPool: [
       { pokemonId: 669, minLevel: 8, maxLevel: 12, encounterRate: 25 },
       { pokemonId: 165, minLevel: 8, maxLevel: 11, encounterRate: 20 },
@@ -1810,7 +1810,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Coastal cliffs and the Glittering Cave approach with Rock types.",
     theme: "grass",
     region: "kalos",
-    position: { x: 55, y: 52, width: 14, height: 10 },
+    position: { x: 18, y: 65, width: 10, height: 10 },
     encounterPool: [
       { pokemonId: 566, minLevel: 12, maxLevel: 15, encounterRate: 20 },
       { pokemonId: 564, minLevel: 12, maxLevel: 15, encounterRate: 20 },
@@ -1827,7 +1827,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Menhir Trail with mysterious standing stones and Reflection Cave approach.",
     theme: "grass",
     region: "kalos",
-    position: { x: 42, y: 48, width: 12, height: 10 },
+    position: { x: 34, y: 45, width: 10, height: 10 },
     encounterPool: [
       { pokemonId: 299, minLevel: 20, maxLevel: 22, encounterRate: 20 },
       { pokemonId: 193, minLevel: 20, maxLevel: 22, encounterRate: 20 },
@@ -1843,7 +1843,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Coastal and swamp routes between Shalour, Coumarine, and Laverre.",
     theme: "grass",
     region: "kalos",
-    position: { x: 35, y: 42, width: 14, height: 10 },
+    position: { x: 22, y: 42, width: 10, height: 10 },
     encounterPool: [
       { pokemonId: 128, minLevel: 24, maxLevel: 27, encounterRate: 15 },
       { pokemonId: 241, minLevel: 24, maxLevel: 27, encounterRate: 15 },
@@ -1859,7 +1859,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Autumnal paths through Laverre's marshland and Dendemille outskirts.",
     theme: "forest",
     region: "kalos",
-    position: { x: 28, y: 35, width: 14, height: 10 },
+    position: { x: 28, y: 28, width: 10, height: 10 },
     encounterPool: [
       { pokemonId: 198, minLevel: 34, maxLevel: 36, encounterRate: 20 },
       { pokemonId: 710, minLevel: 34, maxLevel: 36, encounterRate: 20 },
@@ -1875,7 +1875,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Rugged terrain and wetlands on the approach to the Pokemon League.",
     theme: "mountain",
     region: "kalos",
-    position: { x: 55, y: 22, width: 14, height: 12 },
+    position: { x: 68, y: 25, width: 10, height: 10 },
     encounterPool: [
       { pokemonId: 75, minLevel: 44, maxLevel: 47, encounterRate: 20 },
       { pokemonId: 621, minLevel: 44, maxLevel: 47, encounterRate: 15 },
@@ -1891,7 +1891,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Winding Woodlands and the path to Victory Road's entrance.",
     theme: "forest",
     region: "kalos",
-    position: { x: 48, y: 18, width: 14, height: 10 },
+    position: { x: 78, y: 15, width: 10, height: 10 },
     encounterPool: [
       { pokemonId: 708, minLevel: 46, maxLevel: 50, encounterRate: 20 },
       { pokemonId: 711, minLevel: 48, maxLevel: 50, encounterRate: 15 },
@@ -1907,7 +1907,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A cave linking Routes 7 and 8 with Zubat colonies.",
     theme: "cave",
     region: "kalos",
-    position: { x: 48, y: 55, width: 10, height: 10 },
+    position: { x: 38, y: 55, width: 7, height: 7 },
     encounterPool: [
       { pokemonId: 41, minLevel: 15, maxLevel: 18, encounterRate: 35 },
       { pokemonId: 293, minLevel: 15, maxLevel: 17, encounterRate: 25 },
@@ -1921,7 +1921,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A crystalline cave of mirrors hiding Rock and Psychic types.",
     theme: "cave",
     region: "kalos",
-    position: { x: 40, y: 44, width: 12, height: 12 },
+    position: { x: 28, y: 50, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 524, minLevel: 21, maxLevel: 23, encounterRate: 25 },
       { pokemonId: 302, minLevel: 21, maxLevel: 23, encounterRate: 20 },
@@ -1937,7 +1937,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A deep cave near Couriway Town where a dangerous cocoon Pokemon lurks.",
     theme: "cave",
     region: "kalos",
-    position: { x: 62, y: 28, width: 12, height: 12 },
+    position: { x: 72, y: 30, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 75, minLevel: 44, maxLevel: 46, encounterRate: 25 },
       { pokemonId: 525, minLevel: 44, maxLevel: 46, encounterRate: 20 },
@@ -1953,7 +1953,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Kalos's grand final challenge before meeting the Elite Four.",
     theme: "cave",
     region: "kalos",
-    position: { x: 42, y: 12, width: 14, height: 14 },
+    position: { x: 85, y: 5, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 75, minLevel: 56, maxLevel: 58, encounterRate: 20 },
       { pokemonId: 42, minLevel: 56, maxLevel: 58, encounterRate: 15 },
@@ -1972,7 +1972,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A tropical path on Melemele Island with ocean views and wild Pokemon.",
     theme: "grass",
     region: "alola",
-    position: { x: 50, y: 75, width: 12, height: 10 },
+    position: { x: 12, y: 72, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 731, minLevel: 2, maxLevel: 4, encounterRate: 35 }, // Pikipek
       { pokemonId: 734, minLevel: 2, maxLevel: 4, encounterRate: 35 }, // Yungoos
@@ -1986,7 +1986,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A flower-filled meadow alive with the hum of pollinating Pokemon.",
     theme: "grass",
     region: "alola",
-    position: { x: 25, y: 55, width: 14, height: 14 },
+    position: { x: 5, y: 62, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 742, minLevel: 9, maxLevel: 11, encounterRate: 30 },  // Cutiefly
       { pokemonId: 741, minLevel: 9, maxLevel: 12, encounterRate: 25 },  // Oricorio
@@ -2001,7 +2001,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A dense tropical jungle on Akala Island, teeming with plant and insect life.",
     theme: "forest",
     region: "alola",
-    position: { x: 60, y: 40, width: 15, height: 16 },
+    position: { x: 32, y: 55, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 753, minLevel: 18, maxLevel: 21, encounterRate: 25 }, // Fomantis
       { pokemonId: 755, minLevel: 18, maxLevel: 20, encounterRate: 25 }, // Morelull
@@ -2017,7 +2017,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The snow-capped summit of Ula'ula Island, gateway to the Pokemon League.",
     theme: "mountain",
     region: "alola",
-    position: { x: 30, y: 20, width: 14, height: 16 },
+    position: { x: 58, y: 12, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 215, minLevel: 42, maxLevel: 45, encounterRate: 25 }, // Sneasel
       { pokemonId: 359, minLevel: 42, maxLevel: 46, encounterRate: 20 }, // Absol
@@ -2033,7 +2033,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A bizarre dimension beyond Ultra Wormholes where Ultra Beasts roam free.",
     theme: "cave",
     region: "alola",
-    position: { x: 70, y: 15, width: 14, height: 14 },
+    position: { x: 88, y: 5, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 793, minLevel: 55, maxLevel: 58, encounterRate: 25 }, // Nihilego
       { pokemonId: 794, minLevel: 55, maxLevel: 58, encounterRate: 20 }, // Buzzwole
@@ -2050,7 +2050,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Melemele Island routes through berry fields and past Hau'oli outskirts.",
     theme: "grass",
     region: "alola",
-    position: { x: 40, y: 68, width: 12, height: 10 },
+    position: { x: 18, y: 82, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 734, minLevel: 5, maxLevel: 8, encounterRate: 30 },
       { pokemonId: 21, minLevel: 5, maxLevel: 8, encounterRate: 25 },
@@ -2065,7 +2065,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Akala Island routes through Paniola Ranch and lush meadows.",
     theme: "grass",
     region: "alola",
-    position: { x: 35, y: 60, width: 14, height: 10 },
+    position: { x: 28, y: 45, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 749, minLevel: 12, maxLevel: 15, encounterRate: 25 },
       { pokemonId: 759, minLevel: 12, maxLevel: 15, encounterRate: 20 },
@@ -2081,7 +2081,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Coastal roads on Akala with tide pools and volcanic ash.",
     theme: "water",
     region: "alola",
-    position: { x: 45, y: 52, width: 14, height: 10 },
+    position: { x: 38, y: 65, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 456, minLevel: 16, maxLevel: 19, encounterRate: 25 },
       { pokemonId: 771, minLevel: 16, maxLevel: 19, encounterRate: 20 },
@@ -2097,7 +2097,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Ula'ula Island routes around Mt. Hokulani and Secluded Shore.",
     theme: "grass",
     region: "alola",
-    position: { x: 55, y: 45, width: 14, height: 12 },
+    position: { x: 60, y: 35, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 774, minLevel: 25, maxLevel: 28, encounterRate: 15 },
       { pokemonId: 751, minLevel: 24, maxLevel: 27, encounterRate: 20 },
@@ -2113,7 +2113,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Desolate coast and Tapu Village ruins on Ula'ula Island.",
     theme: "desert",
     region: "alola",
-    position: { x: 40, y: 35, width: 14, height: 12 },
+    position: { x: 52, y: 50, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 769, minLevel: 28, maxLevel: 32, encounterRate: 25 },
       { pokemonId: 770, minLevel: 30, maxLevel: 34, encounterRate: 10 },
@@ -2129,7 +2129,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Po Town outskirts and the rain-soaked path to Ula'ula Meadow.",
     theme: "grass",
     region: "alola",
-    position: { x: 32, y: 28, width: 14, height: 10 },
+    position: { x: 50, y: 22, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 779, minLevel: 32, maxLevel: 36, encounterRate: 20 },
       { pokemonId: 775, minLevel: 32, maxLevel: 35, encounterRate: 15 },
@@ -2145,7 +2145,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The site of Melemele's first trial, crawling with Bug and Normal types.",
     theme: "cave",
     region: "alola",
-    position: { x: 38, y: 72, width: 10, height: 10 },
+    position: { x: 8, y: 80, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 19, minLevel: 9, maxLevel: 12, encounterRate: 30 },
       { pokemonId: 41, minLevel: 9, maxLevel: 12, encounterRate: 25 },
@@ -2160,7 +2160,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A rain-soaked area with cascading pools, site of Lana's trial.",
     theme: "water",
     region: "alola",
-    position: { x: 48, y: 58, width: 12, height: 12 },
+    position: { x: 35, y: 55, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 751, minLevel: 16, maxLevel: 19, encounterRate: 30 },
       { pokemonId: 746, minLevel: 16, maxLevel: 18, encounterRate: 25 },
@@ -2175,7 +2175,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A volcanic trail on Akala where Fire-type Pokemon bask in the heat.",
     theme: "mountain",
     region: "alola",
-    position: { x: 52, y: 48, width: 12, height: 12 },
+    position: { x: 40, y: 42, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 757, minLevel: 16, maxLevel: 19, encounterRate: 30 },
       { pokemonId: 240, minLevel: 16, maxLevel: 19, encounterRate: 25 },
@@ -2190,7 +2190,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A confusing desert maze on Ula'ula where sandstorms rage.",
     theme: "desert",
     region: "alola",
-    position: { x: 45, y: 32, width: 14, height: 12 },
+    position: { x: 62, y: 42, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 551, minLevel: 32, maxLevel: 36, encounterRate: 25 },
       { pokemonId: 769, minLevel: 32, maxLevel: 36, encounterRate: 25 },
@@ -2206,7 +2206,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A sprawling canyon on Poni Island, the site of the grand trial.",
     theme: "cave",
     region: "alola",
-    position: { x: 55, y: 22, width: 14, height: 14 },
+    position: { x: 80, y: 45, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 782, minLevel: 40, maxLevel: 44, encounterRate: 20 },
       { pokemonId: 621, minLevel: 40, maxLevel: 44, encounterRate: 20 },
@@ -2223,7 +2223,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A deep cavern on Poni Island where a powerful Pokemon hides.",
     theme: "cave",
     region: "alola",
-    position: { x: 62, y: 18, width: 12, height: 12 },
+    position: { x: 85, y: 55, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 42, minLevel: 46, maxLevel: 50, encounterRate: 25 },
       { pokemonId: 621, minLevel: 46, maxLevel: 50, encounterRate: 20 },
@@ -2241,7 +2241,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A pastoral countryside route dotted with woolly Pokemon and singing birds.",
     theme: "grass",
     region: "galar",
-    position: { x: 50, y: 75, width: 12, height: 10 },
+    position: { x: 43, y: 90, width: 9, height: 7 },
     encounterPool: [
       { pokemonId: 819, minLevel: 2, maxLevel: 4, encounterRate: 35 }, // Skwovet
       { pokemonId: 821, minLevel: 2, maxLevel: 4, encounterRate: 35 }, // Rookidee
@@ -2255,7 +2255,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A mysterious fog-shrouded forest where ancient legends slumber.",
     theme: "forest",
     region: "galar",
-    position: { x: 30, y: 55, width: 14, height: 16 },
+    position: { x: 36, y: 88, width: 8, height: 7 },
     encounterPool: [
       { pokemonId: 163, minLevel: 5, maxLevel: 7, encounterRate: 30 }, // Hoothoot
       { pokemonId: 43, minLevel: 5, maxLevel: 7, encounterRate: 25 },  // Oddish
@@ -2270,7 +2270,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "An enchanted bioluminescent forest where fairy lights flicker among the mushrooms.",
     theme: "forest",
     region: "galar",
-    position: { x: 60, y: 35, width: 15, height: 16 },
+    position: { x: 36, y: 52, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 859, minLevel: 34, maxLevel: 37, encounterRate: 25 }, // Impidimp
       { pokemonId: 856, minLevel: 34, maxLevel: 36, encounterRate: 25 }, // Hatenna
@@ -2286,7 +2286,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A vast frozen wilderness in southern Galar hiding legendary treasures beneath the snow.",
     theme: "mountain",
     region: "galar",
-    position: { x: 20, y: 20, width: 16, height: 16 },
+    position: { x: 35, y: 95, width: 10, height: 7 },
     encounterPool: [
       { pokemonId: 872, minLevel: 60, maxLevel: 63, encounterRate: 25 }, // Snom
       { pokemonId: 878, minLevel: 60, maxLevel: 62, encounterRate: 20 }, // Cufant
@@ -2304,7 +2304,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Early routes past the Professor's lab with diverse starter-area Pokemon.",
     theme: "grass",
     region: "galar",
-    position: { x: 42, y: 68, width: 12, height: 10 },
+    position: { x: 46, y: 83, width: 9, height: 7 },
     encounterPool: [
       { pokemonId: 819, minLevel: 5, maxLevel: 8, encounterRate: 25 },
       { pokemonId: 831, minLevel: 5, maxLevel: 8, encounterRate: 25 },
@@ -2319,7 +2319,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Farmland and the bridge to Hulbury with Grass and Water types.",
     theme: "grass",
     region: "galar",
-    position: { x: 38, y: 60, width: 12, height: 10 },
+    position: { x: 40, y: 75, width: 9, height: 7 },
     encounterPool: [
       { pokemonId: 831, minLevel: 14, maxLevel: 17, encounterRate: 20 },
       { pokemonId: 194, minLevel: 14, maxLevel: 17, encounterRate: 20 },
@@ -2335,7 +2335,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Rocky paths near Stow-on-Side with Fighting and Ground types.",
     theme: "mountain",
     region: "galar",
-    position: { x: 55, y: 52, width: 14, height: 10 },
+    position: { x: 35, y: 55, width: 9, height: 7 },
     encounterPool: [
       { pokemonId: 837, minLevel: 28, maxLevel: 32, encounterRate: 20 },
       { pokemonId: 838, minLevel: 30, maxLevel: 33, encounterRate: 15 },
@@ -2351,7 +2351,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Snowy Circhester outskirts and the coastal route to Spikemuth.",
     theme: "mountain",
     region: "galar",
-    position: { x: 48, y: 42, width: 14, height: 12 },
+    position: { x: 45, y: 28, width: 9, height: 7 },
     encounterPool: [
       { pokemonId: 872, minLevel: 38, maxLevel: 42, encounterRate: 25 },
       { pokemonId: 860, minLevel: 38, maxLevel: 42, encounterRate: 15 },
@@ -2367,7 +2367,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The final route to Wyndon, blanketed in snow.",
     theme: "mountain",
     region: "galar",
-    position: { x: 40, y: 32, width: 12, height: 10 },
+    position: { x: 42, y: 15, width: 8, height: 7 },
     encounterPool: [
       { pokemonId: 872, minLevel: 42, maxLevel: 46, encounterRate: 25 },
       { pokemonId: 875, minLevel: 42, maxLevel: 46, encounterRate: 20 },
@@ -2383,7 +2383,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Wide open Wild Area grasslands near Motostoke with roaming Pokemon.",
     theme: "grass",
     region: "galar",
-    position: { x: 55, y: 62, width: 14, height: 12 },
+    position: { x: 50, y: 68, width: 9, height: 7 },
     encounterPool: [
       { pokemonId: 831, minLevel: 8, maxLevel: 15, encounterRate: 20 },
       { pokemonId: 519, minLevel: 8, maxLevel: 14, encounterRate: 20 },
@@ -2400,7 +2400,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A windswept Wild Area bowl with sandstorms and Ground types.",
     theme: "desert",
     region: "galar",
-    position: { x: 65, y: 48, width: 14, height: 12 },
+    position: { x: 45, y: 58, width: 9, height: 7 },
     encounterPool: [
       { pokemonId: 844, minLevel: 38, maxLevel: 42, encounterRate: 20 },
       { pokemonId: 450, minLevel: 38, maxLevel: 42, encounterRate: 15 },
@@ -2417,7 +2417,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A misty lakeside area in the Wild Area with Steel and Fairy types.",
     theme: "grass",
     region: "galar",
-    position: { x: 70, y: 38, width: 14, height: 12 },
+    position: { x: 50, y: 50, width: 9, height: 7 },
     encounterPool: [
       { pokemonId: 856, minLevel: 28, maxLevel: 32, encounterRate: 20 },
       { pokemonId: 859, minLevel: 28, maxLevel: 32, encounterRate: 20 },
@@ -2434,7 +2434,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A remote Wild Area lake with powerful evolved Pokemon and Ditto.",
     theme: "water",
     region: "galar",
-    position: { x: 28, y: 30, width: 14, height: 14 },
+    position: { x: 42, y: 42, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 132, minLevel: 56, maxLevel: 60, encounterRate: 15 },
       { pokemonId: 612, minLevel: 56, maxLevel: 60, encounterRate: 15 },
@@ -2453,7 +2453,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Elevated Wild Area terrain near the grand Hammerlocke stadium.",
     theme: "grass",
     region: "galar",
-    position: { x: 50, y: 35, width: 14, height: 10 },
+    position: { x: 48, y: 38, width: 9, height: 7 },
     encounterPool: [
       { pokemonId: 841, minLevel: 36, maxLevel: 40, encounterRate: 15 },
       { pokemonId: 842, minLevel: 36, maxLevel: 40, encounterRate: 15 },
@@ -2470,7 +2470,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A river area in the Wild Area with Water and Electric types.",
     theme: "water",
     region: "galar",
-    position: { x: 60, y: 58, width: 12, height: 10 },
+    position: { x: 52, y: 65, width: 8, height: 7 },
     encounterPool: [
       { pokemonId: 833, minLevel: 18, maxLevel: 22, encounterRate: 25 },
       { pokemonId: 846, minLevel: 18, maxLevel: 22, encounterRate: 20 },
@@ -2487,7 +2487,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Ancient ruins in the Wild Area where Ghost types lurk at night.",
     theme: "urban",
     region: "galar",
-    position: { x: 48, y: 55, width: 10, height: 10 },
+    position: { x: 40, y: 62, width: 8, height: 7 },
     encounterPool: [
       { pokemonId: 355, minLevel: 15, maxLevel: 18, encounterRate: 25 },
       { pokemonId: 562, minLevel: 15, maxLevel: 18, encounterRate: 25 },
@@ -2504,7 +2504,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A wide open grassland near Mesagoza, perfect for beginning trainers.",
     theme: "grass",
     region: "paldea",
-    position: { x: 50, y: 75, width: 14, height: 12 },
+    position: { x: 45, y: 62, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 915, minLevel: 2, maxLevel: 4, encounterRate: 30 },  // Lechonk
       { pokemonId: 917, minLevel: 2, maxLevel: 4, encounterRate: 25 },  // Tarountula
@@ -2519,7 +2519,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A sprawling mountain lake harboring powerful aquatic Pokemon in its depths.",
     theme: "water",
     region: "paldea",
-    position: { x: 25, y: 40, width: 16, height: 14 },
+    position: { x: 25, y: 22, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 129, minLevel: 35, maxLevel: 38, encounterRate: 30 }, // Magikarp
       { pokemonId: 147, minLevel: 36, maxLevel: 39, encounterRate: 20 }, // Dratini
@@ -2535,7 +2535,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A hidden cave system near Alfornada where rare pseudo-legendary Pokemon lurk.",
     theme: "cave",
     region: "paldea",
-    position: { x: 60, y: 50, width: 14, height: 14 },
+    position: { x: 28, y: 75, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 443, minLevel: 28, maxLevel: 32, encounterRate: 25 }, // Gible
       { pokemonId: 246, minLevel: 28, maxLevel: 32, encounterRate: 25 }, // Larvitar
@@ -2551,7 +2551,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The deepest reaches of the Great Crater of Paldea, warped by Terastal energy.",
     theme: "cave",
     region: "paldea",
-    position: { x: 35, y: 15, width: 16, height: 16 },
+    position: { x: 44, y: 42, width: 10, height: 10 },
     encounterPool: [
       { pokemonId: 1005, minLevel: 55, maxLevel: 60, encounterRate: 15 }, // Roaring Moon
       { pokemonId: 1006, minLevel: 55, maxLevel: 60, encounterRate: 15 }, // Iron Valiant
@@ -2568,7 +2568,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Rolling grasslands south of Mesagoza with diverse early-game Pokemon.",
     theme: "grass",
     region: "paldea",
-    position: { x: 42, y: 68, width: 14, height: 10 },
+    position: { x: 40, y: 72, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 396, minLevel: 5, maxLevel: 10, encounterRate: 25 },
       { pokemonId: 921, minLevel: 5, maxLevel: 10, encounterRate: 20 },
@@ -2584,7 +2584,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Higher-level grasslands expanding south toward the coast.",
     theme: "grass",
     region: "paldea",
-    position: { x: 55, y: 62, width: 14, height: 12 },
+    position: { x: 55, y: 68, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 951, minLevel: 18, maxLevel: 22, encounterRate: 20 },
       { pokemonId: 952, minLevel: 22, maxLevel: 26, encounterRate: 10 },
@@ -2601,7 +2601,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Rugged western terrain with Rock and Fighting types near Cascarrafa.",
     theme: "mountain",
     region: "paldea",
-    position: { x: 18, y: 55, width: 14, height: 14 },
+    position: { x: 27, y: 52, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 744, minLevel: 20, maxLevel: 28, encounterRate: 20 },
       { pokemonId: 932, minLevel: 22, maxLevel: 28, encounterRate: 15 },
@@ -2618,7 +2618,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Diverse eastern terrain from beaches to forests near Levincia.",
     theme: "grass",
     region: "paldea",
-    position: { x: 72, y: 55, width: 14, height: 14 },
+    position: { x: 62, y: 52, width: 9, height: 9 },
     encounterPool: [
       { pokemonId: 947, minLevel: 22, maxLevel: 28, encounterRate: 15 },
       { pokemonId: 948, minLevel: 28, maxLevel: 34, encounterRate: 10 },
@@ -2636,7 +2636,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "Harsh northern highlands with powerful Pokemon near Montenevera.",
     theme: "mountain",
     region: "paldea",
-    position: { x: 35, y: 28, width: 16, height: 14 },
+    position: { x: 42, y: 18, width: 10, height: 8 },
     encounterPool: [
       { pokemonId: 459, minLevel: 35, maxLevel: 40, encounterRate: 20 },
       { pokemonId: 225, minLevel: 35, maxLevel: 38, encounterRate: 15 },
@@ -2653,7 +2653,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A snowy mountain pass connecting Medali to the northern reaches.",
     theme: "mountain",
     region: "paldea",
-    position: { x: 28, y: 38, width: 12, height: 12 },
+    position: { x: 32, y: 38, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 220, minLevel: 30, maxLevel: 35, encounterRate: 25 },
       { pokemonId: 221, minLevel: 34, maxLevel: 38, encounterRate: 15 },
@@ -2669,7 +2669,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A massive snow-capped mountain in central Paldea with ice-dwelling Pokemon.",
     theme: "mountain",
     region: "paldea",
-    position: { x: 42, y: 32, width: 16, height: 14 },
+    position: { x: 42, y: 25, width: 10, height: 9 },
     encounterPool: [
       { pokemonId: 459, minLevel: 36, maxLevel: 42, encounterRate: 20 },
       { pokemonId: 460, minLevel: 42, maxLevel: 46, encounterRate: 10 },
@@ -2686,7 +2686,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A dense forest in eastern Paldea where Bug and Grass types thrive.",
     theme: "forest",
     region: "paldea",
-    position: { x: 68, y: 42, width: 14, height: 12 },
+    position: { x: 60, y: 42, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 285, minLevel: 25, maxLevel: 30, encounterRate: 20 },
       { pokemonId: 286, minLevel: 30, maxLevel: 34, encounterRate: 10 },
@@ -2704,7 +2704,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A winding desert trail in western Paldea with Fire and Ground types.",
     theme: "desert",
     region: "paldea",
-    position: { x: 15, y: 45, width: 12, height: 12 },
+    position: { x: 26, y: 32, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 322, minLevel: 30, maxLevel: 36, encounterRate: 20 },
       { pokemonId: 323, minLevel: 36, maxLevel: 40, encounterRate: 10 },
@@ -2721,7 +2721,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A scorching desert in western Paldea full of Ground and Rock types.",
     theme: "desert",
     region: "paldea",
-    position: { x: 20, y: 52, width: 14, height: 10 },
+    position: { x: 55, y: 48, width: 9, height: 8 },
     encounterPool: [
       { pokemonId: 449, minLevel: 28, maxLevel: 34, encounterRate: 20 },
       { pokemonId: 450, minLevel: 34, maxLevel: 38, encounterRate: 10 },
@@ -2737,7 +2737,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "A hidden seaside cave with rare Water and Dragon types.",
     theme: "cave",
     region: "paldea",
-    position: { x: 75, y: 65, width: 12, height: 12 },
+    position: { x: 58, y: 82, width: 8, height: 8 },
     encounterPool: [
       { pokemonId: 147, minLevel: 30, maxLevel: 36, encounterRate: 15 },
       { pokemonId: 148, minLevel: 36, maxLevel: 40, encounterRate: 10 },
@@ -2754,7 +2754,7 @@ export const ROUTE_AREAS: RouteArea[] = [
     description: "The starting area near the Lighthouse where new trainers begin their journey.",
     theme: "grass",
     region: "paldea",
-    position: { x: 60, y: 78, width: 12, height: 10 },
+    position: { x: 50, y: 85, width: 8, height: 7 },
     encounterPool: [
       { pokemonId: 915, minLevel: 2, maxLevel: 5, encounterRate: 30 },
       { pokemonId: 921, minLevel: 2, maxLevel: 5, encounterRate: 25 },

@@ -13,8 +13,8 @@ export function usePWA() {
   const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
-    // Register service worker
-    if ("serviceWorker" in navigator) {
+    // Register service worker (production only — skip in dev to avoid stale cache)
+    if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
       navigator.serviceWorker.register("/sw.js").catch(() => {
         // SW registration failed — not critical, silently ignore
       });

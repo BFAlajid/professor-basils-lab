@@ -75,6 +75,14 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       const Module = await mGBA({ canvas: canvasRef.current }) as unknown as mGBAEmulator;
 
       await Module.FSInit();
+
+      // Disable mGBA's built-in Emscripten keyboard handlers — they register
+      // global keydown/keyup listeners that call preventDefault() on every key,
+      // which blocks typing in ALL input/textarea elements across the site.
+      // We use our own React keyboard handlers (in GBAEmulatorTab) that have
+      // an isTyping() guard to skip events when the user is focused on an input.
+      Module.toggleInput(false);
+
       emulatorRef.current = Module;
 
       // Load list of saved ROMs from IndexedDB

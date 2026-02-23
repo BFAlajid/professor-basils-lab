@@ -4,13 +4,13 @@ import { motion } from "framer-motion";
 import { RouteArea } from "@/types";
 
 const THEME_COLORS: Record<string, { bg: string; border: string; label: string }> = {
-  grass: { bg: "rgba(56, 183, 100, 0.25)", border: "#38b764", label: "Grass" },
-  cave: { bg: "rgba(139, 90, 43, 0.25)", border: "#8b5a2b", label: "Cave" },
-  water: { bg: "rgba(59, 130, 246, 0.25)", border: "#3b82f6", label: "Water" },
-  forest: { bg: "rgba(34, 139, 34, 0.25)", border: "#228b22", label: "Forest" },
-  mountain: { bg: "rgba(139, 137, 137, 0.25)", border: "#8b8989", label: "Mountain" },
-  urban: { bg: "rgba(200, 200, 200, 0.25)", border: "#c8c8c8", label: "Urban" },
-  desert: { bg: "rgba(210, 180, 100, 0.25)", border: "#d2b464", label: "Desert" },
+  grass: { bg: "rgba(56, 183, 100, 0.4)", border: "#38b764", label: "Grass" },
+  cave: { bg: "rgba(139, 90, 43, 0.4)", border: "#8b5a2b", label: "Cave" },
+  water: { bg: "rgba(59, 130, 246, 0.4)", border: "#3b82f6", label: "Water" },
+  forest: { bg: "rgba(34, 139, 34, 0.4)", border: "#228b22", label: "Forest" },
+  mountain: { bg: "rgba(139, 137, 137, 0.4)", border: "#8b8989", label: "Mountain" },
+  urban: { bg: "rgba(200, 200, 200, 0.4)", border: "#c8c8c8", label: "Urban" },
+  desert: { bg: "rgba(210, 180, 100, 0.4)", border: "#d2b464", label: "Desert" },
 };
 
 interface MapAreaProps {
@@ -42,11 +42,12 @@ export default function MapArea({ area, isSelected, onClick }: MapAreaProps) {
           isSelected ? "ring-2 ring-[#f0f0e8]" : ""
         }`}
         style={{
-          backgroundColor: isSelected ? theme.bg.replace("0.25", "0.5") : theme.bg,
+          backgroundColor: isSelected ? theme.bg.replace("0.4", "0.7") : theme.bg,
           borderColor: theme.border,
+          backdropFilter: "blur(2px)",
         }}
       >
-        <span className="text-[8px] font-pixel text-[#f0f0e8] drop-shadow-md leading-tight block p-1 truncate">
+        <span className="text-[8px] font-pixel text-[#f0f0e8] drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] leading-tight block p-1 truncate">
           {area.name}
         </span>
       </div>

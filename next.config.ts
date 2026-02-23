@@ -23,6 +23,13 @@ const nextConfig: NextConfig = {
           { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
         ],
       },
+      // Prevent browsers/CDN from serving stale HTML after deployments
+      {
+        source: "/((?!_next/static|favicon.ico).*)",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        ],
+      },
     ];
   },
 };
