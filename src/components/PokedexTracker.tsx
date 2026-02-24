@@ -2,7 +2,9 @@
 
 import { useState, useMemo, useCallback } from "react";
 import Image from "next/image";
+import { AnimatePresence, motion } from "framer-motion";
 import { usePokedexContext } from "@/contexts/PokedexContext";
+import HabitatDex from "./HabitatDex";
 
 // --- Constants ---
 
@@ -100,8 +102,21 @@ export default function PokedexTracker() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [selectedGen, setSelectedGen] = useState<number | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showHabitat, setShowHabitat] = useState(false);
 
   const completionPercent = getCompletionPercent();
+
+  // Build known Pokemon list for HabitatDex autocomplete
+  const knownPokemon = useMemo(() => {
+    const list: { id: number; name: string }[] = [];
+    for (let id = 1; id <= TOTAL_POKEMON; id++) {
+      const entry = entries[id];
+      if (entry?.seen && entry.name) {
+        list.push({ id, name: entry.name });
+      }
+    }
+    return list;
+  }, [entries]);
 
   // Build the list of all Pokemon IDs in the selected range
   const dexRange = useMemo((): { start: number; end: number } => {
@@ -189,34 +204,59 @@ export default function PokedexTracker() {
           </div>
         </div>
 
-        {/* Reset button */}
-        <div className="mt-3 flex justify-end">
-          {showResetConfirm ? (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-[#8b9bb4]">Reset all data?</span>
+        {/* Actions row */}
+        <div className="mt-3 flex items-center justify-between">
+          <button
+            onClick={() => setShowHabitat(!showHabitat)}
+            className={`rounded px-3 py-1 text-xs font-pixel transition-colors ${
+              showHabitat
+                ? "bg-[#38b764] text-[#f0f0e8]"
+                : "bg-[#3a4466] text-[#8b9bb4] hover:bg-[#4a5476] hover:text-[#f0f0e8]"
+            }`}
+          >
+            Habitat
+          </button>
+          <div>
+            {showResetConfirm ? (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-[#8b9bb4]">Reset all data?</span>
+                <button
+                  onClick={handleReset}
+                  className="rounded bg-[#e8433f] px-3 py-1 text-[#f0f0e8] hover:bg-[#c9362f] transition-colors font-pixel"
+                >
+                  Yes
+                </button>
+                <button
+                  onClick={() => setShowResetConfirm(false)}
+                  className="rounded bg-[#3a4466] px-3 py-1 text-[#f0f0e8] hover:bg-[#4a5476] transition-colors font-pixel"
+                >
+                  No
+                </button>
+              </div>
+            ) : (
               <button
-                onClick={handleReset}
-                className="rounded bg-[#e8433f] px-3 py-1 text-[#f0f0e8] hover:bg-[#c9362f] transition-colors font-pixel"
+                onClick={() => setShowResetConfirm(true)}
+                className="rounded bg-[#3a4466] px-3 py-1 text-xs text-[#8b9bb4] hover:bg-[#4a5476] hover:text-[#f0f0e8] transition-colors font-pixel"
               >
-                Yes
+                Reset
               </button>
-              <button
-                onClick={() => setShowResetConfirm(false)}
-                className="rounded bg-[#3a4466] px-3 py-1 text-[#f0f0e8] hover:bg-[#4a5476] transition-colors font-pixel"
-              >
-                No
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowResetConfirm(true)}
-              className="rounded bg-[#3a4466] px-3 py-1 text-xs text-[#8b9bb4] hover:bg-[#4a5476] hover:text-[#f0f0e8] transition-colors font-pixel"
-            >
-              Reset
-            </button>
-          )}
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Habitat Dex */}
+      <AnimatePresence>
+        {showHabitat && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <HabitatDex knownPokemon={knownPokemon} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Search + Filter */}
       <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">

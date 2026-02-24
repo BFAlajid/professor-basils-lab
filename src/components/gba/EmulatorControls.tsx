@@ -119,6 +119,7 @@ export default function EmulatorControls({
           value={Math.round(volume * 100)}
           onChange={(e) => onSetVolume(Number(e.target.value) / 100)}
           className="w-16 h-1 accent-[#e8433f]"
+          aria-label="Volume"
         />
       </div>
 

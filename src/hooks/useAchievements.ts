@@ -41,6 +41,12 @@ export interface PlayerStats {
   factoryBestRun: number;
   factoryRuns: number;
   hallOfFameEntries: number;
+  // Batch 2: Mini-games & Discovery
+  gameCornerCoinsEarned: number;
+  gameCornerPrizesClaimed: number;
+  quizBestScore: number;
+  quizPerfectRounds: number;
+  fossilsRevived: number;
 }
 
 export type AchievementCategory =
@@ -96,6 +102,11 @@ const DEFAULT_STATS: PlayerStats = {
   factoryBestRun: 0,
   factoryRuns: 0,
   hallOfFameEntries: 0,
+  gameCornerCoinsEarned: 0,
+  gameCornerPrizesClaimed: 0,
+  quizBestScore: 0,
+  quizPerfectRounds: 0,
+  fossilsRevived: 0,
 };
 
 // --- Achievement Definitions ---
@@ -488,6 +499,76 @@ function createAchievementDefinitions(): Omit<Achievement, "unlocked" | "unlocke
       icon: "\u{1F451}",
       category: "special",
       condition: (stats) => stats.hallOfFameEntries >= 20,
+    },
+
+    // Game Corner (Voltorb Flip)
+    {
+      id: "coin_collector",
+      name: "Coin Collector",
+      description: "Earn 500 coins at the Game Corner",
+      icon: "\u{1FA99}",
+      category: "exploration",
+      condition: (stats) => stats.gameCornerCoinsEarned >= 500,
+    },
+    {
+      id: "high_roller",
+      name: "High Roller",
+      description: "Earn 5,000 coins at the Game Corner",
+      icon: "\u{1F4B0}",
+      category: "exploration",
+      condition: (stats) => stats.gameCornerCoinsEarned >= 5000,
+    },
+    {
+      id: "prize_winner",
+      name: "Prize Winner",
+      description: "Claim 3 prizes from the Game Corner",
+      icon: "\u{1F3B0}",
+      category: "exploration",
+      condition: (stats) => stats.gameCornerPrizesClaimed >= 3,
+    },
+
+    // Type Quiz
+    {
+      id: "quiz_ace",
+      name: "Quiz Ace",
+      description: "Score 10+ in the Type Quiz",
+      icon: "\u{1F4DD}",
+      category: "exploration",
+      condition: (stats) => stats.quizBestScore >= 10,
+    },
+    {
+      id: "type_expert",
+      name: "Type Expert",
+      description: "Score 30+ in the Type Quiz",
+      icon: "\u{1F9E0}",
+      category: "exploration",
+      condition: (stats) => stats.quizBestScore >= 30,
+    },
+    {
+      id: "type_master",
+      name: "Type Master",
+      description: "Score 50+ in the Type Quiz",
+      icon: "\u{1F393}",
+      category: "exploration",
+      condition: (stats) => stats.quizBestScore >= 50,
+    },
+
+    // Fossil Revival
+    {
+      id: "fossil_finder",
+      name: "Fossil Finder",
+      description: "Revive 5 fossil Pokemon",
+      icon: "\u{1F9B4}",
+      category: "collection",
+      condition: (stats) => stats.fossilsRevived >= 5,
+    },
+    {
+      id: "paleontologist",
+      name: "Paleontologist",
+      description: "Revive all 11 fossil species",
+      icon: "\u{1F9EA}",
+      category: "collection",
+      condition: (stats) => stats.fossilsRevived >= 11,
     },
   ];
 }

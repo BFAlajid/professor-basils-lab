@@ -22,10 +22,14 @@ import MysteryGift from "./MysteryGift";
 import LinkCable from "./LinkCable";
 import LinkTrade from "./LinkTrade";
 import SafariZone from "./SafariZone";
+import VoltorbFlip from "./VoltorbFlip";
+import TypeQuiz from "./TypeQuiz";
+import FossilLab from "./FossilLab";
 import { useNuzlocke } from "@/hooks/useNuzlocke";
 import { useOnlineBattle } from "@/hooks/useOnlineBattle";
 import { useSafariZone } from "@/hooks/useSafariZone";
 import { LEGENDARY_IDS } from "@/data/legendaries";
+import { FOSSILS, FOSSIL_DROP_RATES } from "@/data/fossils";
 import { generateRandomIVs } from "@/utils/wildBattle";
 import { playCry } from "@/utils/cryPlayer";
 
@@ -84,8 +88,108 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
   const [showLinkCable, setShowLinkCable] = useState(false);
   const [linkView, setLinkView] = useState<"cable" | "trade">("cable");
   const [showSafariZone, setShowSafariZone] = useState(false);
+  const [showGameCorner, setShowGameCorner] = useState(false);
+  const [showTypeQuiz, setShowTypeQuiz] = useState(false);
+  const [showFossilLab, setShowFossilLab] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [showCatchFailure, setShowCatchFailure] = useState(false);
+
+  // Fossil inventory (localStorage-persisted)
+  const [fossilInventory, setFossilInventory] = useState<Record<string, number>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const saved = localStorage.getItem("pokemon-fossil-inventory");
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+  const fossilInventoryRef = useRef(fossilInventory);
+  fossilInventoryRef.current = fossilInventory;
+
+  // Persist fossil inventory
+  useEffect(() => {
+    try { localStorage.setItem("pokemon-fossil-inventory", JSON.stringify(fossilInventory)); } catch {}
+  }, [fossilInventory]);
+
+  // Close all side panels (mutual exclusion)
+  const closeAllPanels = useCallback(() => {
+    setShowPCBox(false); setShowDayCare(false); setShowWonderTrade(false);
+    setShowMysteryGift(false); setShowLinkCable(false); setShowSafariZone(false);
+    setShowGameCorner(false); setShowTypeQuiz(false); setShowFossilLab(false);
+  }, []);
+
+  // Roll fossil drop after a successful catch in cave/mountain/desert areas
+  const rollFossilDrop = useCallback((areaTheme?: string) => {
+    if (!areaTheme) return;
+    const rate = FOSSIL_DROP_RATES[areaTheme];
+    if (!rate || Math.random() > rate) return;
+    const fossil = FOSSILS[Math.floor(Math.random() * FOSSILS.length)];
+    setFossilInventory((prev) => ({ ...prev, [fossil.id]: (prev[fossil.id] ?? 0) + 1 }));
+  }, []);
+
+  // Handle reviving a fossil (fetch Pokemon data, add to PC box)
+  const handleReviveFossil = useCallback(async (fossilId: string) => {
+    const fossil = FOSSILS.find((f) => f.id === fossilId);
+    if (!fossil || (fossilInventory[fossilId] ?? 0) <= 0) return;
+
+    // Deduct from inventory
+    setFossilInventory((prev) => ({
+      ...prev,
+      [fossilId]: Math.max(0, (prev[fossilId] ?? 0) - 1),
+    }));
+
+    try {
+      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${fossil.pokemonId}`);
+      const pokemon = await res.json();
+
+      const pcPokemon: PCBoxPokemon = {
+        pokemon,
+        caughtWith: "poke-ball",
+        caughtInArea: "Fossil Lab",
+        caughtDate: new Date().toISOString(),
+        level: fossil.reviveLevel,
+        nature: NATURES[Math.floor(Math.random() * NATURES.length)],
+        ivs: generateRandomIVs(),
+        ability: pokemon.abilities?.[0]?.ability.name ?? "unknown",
+        isShiny: Math.random() < 1 / 4096,
+      };
+      addToBox(pcPokemon);
+      markCaught(pokemon.id, pokemon.name, "fossil");
+      incrementStat("fossilsRevived");
+      incrementStat("totalCaught");
+    } catch {
+      // If fetch fails, refund the fossil
+      setFossilInventory((prev) => ({
+        ...prev,
+        [fossilId]: (prev[fossilId] ?? 0) + 1,
+      }));
+    }
+  }, [fossilInventory, addToBox, markCaught, incrementStat]);
+
+  // Handle game corner prize purchase (fetch Pokemon, add to PC box)
+  const handleGameCornerPurchase = useCallback(async (pokemonId: number, level: number, area: string) => {
+    try {
+      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonId}`);
+      const pokemon = await res.json();
+
+      const pcPokemon: PCBoxPokemon = {
+        pokemon,
+        caughtWith: "poke-ball",
+        caughtInArea: area,
+        caughtDate: new Date().toISOString(),
+        level,
+        nature: NATURES[Math.floor(Math.random() * NATURES.length)],
+        ivs: generateRandomIVs(),
+        ability: pokemon.abilities?.[0]?.ability.name ?? "unknown",
+        isShiny: false,
+      };
+      addToBox(pcPokemon);
+      markCaught(pokemon.id, pokemon.name, "game-corner");
+      incrementStat("totalCaught");
+      incrementStat("gameCornerPrizesClaimed");
+    } catch {
+      // fetch failed — silently ignore
+    }
+  }, [addToBox, markCaught, incrementStat]);
 
   const handleStartEncounter = useCallback(async () => {
     // Nuzlocke: block encounters in already-encountered areas
@@ -148,8 +252,11 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
       incrementStat("shinyCaught");
     }
 
+    // Roll fossil drop in cave/mountain/desert areas
+    rollFossilDrop(encounter.currentArea?.theme);
+
     returnToMap();
-  }, [encounter, addToBox, returnToMap, markCaught, incrementStat, addUniqueBall, addUniqueType, addKantoSpecies, isAlreadyCaught]);
+  }, [encounter, addToBox, returnToMap, markCaught, incrementStat, addUniqueBall, addUniqueType, addKantoSpecies, isAlreadyCaught, rollFossilDrop]);
 
   const handleMoveToTeam = useCallback((index: number) => {
     const slot = moveToTeam(index);
@@ -271,7 +378,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                   Lead: {team[0].pokemon.name.charAt(0).toUpperCase() + team[0].pokemon.name.slice(1)}
                 </span>
                 <button
-                  onClick={() => { setShowSafariZone(!showSafariZone); if (!showSafariZone) { setShowPCBox(false); setShowDayCare(false); setShowWonderTrade(false); setShowMysteryGift(false); setShowLinkCable(false); } }}
+                  onClick={() => { const next = !showSafariZone; closeAllPanels(); if (next) setShowSafariZone(true); }}
                   className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
                     showSafariZone
                       ? "text-[#38b764] border-[#38b764] bg-[#38b764]/10"
@@ -281,7 +388,37 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                   Safari
                 </button>
                 <button
-                  onClick={() => { setShowMysteryGift(!showMysteryGift); if (!showMysteryGift) { setShowPCBox(false); setShowDayCare(false); setShowWonderTrade(false); setShowLinkCable(false); setShowSafariZone(false); } }}
+                  onClick={() => { const next = !showGameCorner; closeAllPanels(); if (next) setShowGameCorner(true); }}
+                  className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
+                    showGameCorner
+                      ? "text-[#f7a838] border-[#f7a838] bg-[#f7a838]/10"
+                      : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"
+                  }`}
+                >
+                  Game
+                </button>
+                <button
+                  onClick={() => { const next = !showTypeQuiz; closeAllPanels(); if (next) setShowTypeQuiz(true); }}
+                  className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
+                    showTypeQuiz
+                      ? "text-[#4a90d9] border-[#4a90d9] bg-[#4a90d9]/10"
+                      : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"
+                  }`}
+                >
+                  Quiz
+                </button>
+                <button
+                  onClick={() => { const next = !showFossilLab; closeAllPanels(); if (next) setShowFossilLab(true); }}
+                  className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
+                    showFossilLab
+                      ? "text-[#a0522d] border-[#a0522d] bg-[#a0522d]/10"
+                      : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"
+                  }`}
+                >
+                  Fossil{Object.values(fossilInventory).reduce((a, b) => a + b, 0) > 0 ? ` (${Object.values(fossilInventory).reduce((a, b) => a + b, 0)})` : ""}
+                </button>
+                <button
+                  onClick={() => { const next = !showMysteryGift; closeAllPanels(); if (next) setShowMysteryGift(true); }}
                   className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
                     showMysteryGift
                       ? "text-[#f7a838] border-[#f7a838]"
@@ -291,7 +428,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                   Gift
                 </button>
                 <button
-                  onClick={() => { setShowLinkCable(!showLinkCable); if (!showLinkCable) { setShowPCBox(false); setShowDayCare(false); setShowWonderTrade(false); setShowMysteryGift(false); setShowSafariZone(false); setLinkView("cable"); } }}
+                  onClick={() => { const next = !showLinkCable; closeAllPanels(); if (next) { setShowLinkCable(true); setLinkView("cable"); } }}
                   className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
                     showLinkCable
                       ? "text-[#e8433f] border-[#e8433f]"
@@ -301,7 +438,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                   Link
                 </button>
                 <button
-                  onClick={() => { setShowWonderTrade(!showWonderTrade); if (!showWonderTrade) { setShowPCBox(false); setShowDayCare(false); setShowMysteryGift(false); setShowLinkCable(false); setShowSafariZone(false); } }}
+                  onClick={() => { const next = !showWonderTrade; closeAllPanels(); if (next) setShowWonderTrade(true); }}
                   className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
                     showWonderTrade
                       ? "text-[#3b82f6] border-[#3b82f6]"
@@ -311,7 +448,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                   Trade
                 </button>
                 <button
-                  onClick={() => { setShowDayCare(!showDayCare); if (!showDayCare) { setShowPCBox(false); setShowWonderTrade(false); setShowMysteryGift(false); setShowLinkCable(false); setShowSafariZone(false); } }}
+                  onClick={() => { const next = !showDayCare; closeAllPanels(); if (next) setShowDayCare(true); }}
                   className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
                     showDayCare
                       ? "text-[#f7a838] border-[#f7a838]"
@@ -321,7 +458,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                   Day Care
                 </button>
                 <button
-                  onClick={() => { setShowPCBox(!showPCBox); if (!showPCBox) { setShowDayCare(false); setShowWonderTrade(false); setShowMysteryGift(false); setShowLinkCable(false); setShowSafariZone(false); } }}
+                  onClick={() => { const next = !showPCBox; closeAllPanels(); if (next) setShowPCBox(true); }}
                   className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
                     showPCBox
                       ? "text-[#38b764] border-[#38b764]"
@@ -525,6 +662,57 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                       }
                       setShowSafariZone(false);
                     }}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Game Corner (Voltorb Flip) panel */}
+            <AnimatePresence>
+              {showGameCorner && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <VoltorbFlip
+                    onAddToBox={handleGameCornerPurchase}
+                    onCoinsEarned={(amount) => incrementStat("gameCornerCoinsEarned", amount)}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Type Quiz panel */}
+            <AnimatePresence>
+              {showTypeQuiz && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <TypeQuiz onScoreUpdate={(score) => {
+                    if (score > (stats.quizBestScore ?? 0)) {
+                      // Use incrementStat to set the new best (delta-based)
+                      incrementStat("quizBestScore", score - (stats.quizBestScore ?? 0));
+                    }
+                  }} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Fossil Lab panel */}
+            <AnimatePresence>
+              {showFossilLab && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <FossilLab
+                    fossilInventory={fossilInventory}
+                    onRevive={handleReviveFossil}
+                    onClose={() => setShowFossilLab(false)}
                   />
                 </motion.div>
               )}

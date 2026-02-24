@@ -460,6 +460,7 @@ export default function GBAEmulatorTab(_props: GBAEmulatorTabProps) {
         type="file"
         accept=".gba,.gbc,.gb"
         className="hidden"
+        aria-label="Load ROM file"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleROMFile(file);
@@ -471,6 +472,7 @@ export default function GBAEmulatorTab(_props: GBAEmulatorTabProps) {
         type="file"
         accept=".sav"
         className="hidden"
+        aria-label="Load save file"
         onChange={onSaveFileSelected}
       />
     </div>
