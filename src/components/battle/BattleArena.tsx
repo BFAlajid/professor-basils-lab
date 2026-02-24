@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
-import { BattleState, BattleTurnAction } from "@/types";
+import { BattleState, BattleTurnAction, ActiveAnimation, SpriteAnimationState } from "@/types";
 import { getActivePokemon } from "@/utils/battle";
+import { getAttackerSide, buildAnimationConfig, isCriticalEntry, isSuperEffectiveEntry, isFaintEntry } from "@/utils/moveAnimations";
 import PokemonBattleSprite from "./PokemonBattleSprite";
+import MoveAnimationLayer from "./MoveAnimationLayer";
 import MovePanel from "./MovePanel";
 import SwitchPanel from "./SwitchPanel";
 import BattleLog from "./BattleLog";
@@ -30,6 +32,14 @@ export default function BattleArena({
   const [pvpPhase, setPvpPhase] = useState<"player1" | "player2" | "ready">("player1");
   const [pvpP1Action, setPvpP1Action] = useState<BattleTurnAction | null>(null);
 
+  // Move animation state
+  const [activeAnimation, setActiveAnimation] = useState<ActiveAnimation | null>(null);
+  const [p1SpriteAnim, setP1SpriteAnim] = useState<SpriteAnimationState>("idle");
+  const [p2SpriteAnim, setP2SpriteAnim] = useState<SpriteAnimationState>("idle");
+  const prevLogLen = useRef(0);
+  const animQueue = useRef<ActiveAnimation[]>([]);
+  const isAnimating = useRef(false);
+
   const p1Active = getActivePokemon(state.player1);
   const p2Active = getActivePokemon(state.player2);
 
@@ -48,6 +58,118 @@ export default function BattleArena({
   useEffect(() => {
     setMechanicActivated(false);
   }, [state.phase, state.turn]);
+
+  // Process new log entries for animations
+  const playNextAnimation = useCallback(() => {
+    if (animQueue.current.length === 0) {
+      isAnimating.current = false;
+      setActiveAnimation(null);
+      setP1SpriteAnim("idle");
+      setP2SpriteAnim("idle");
+      return;
+    }
+    isAnimating.current = true;
+    const anim = animQueue.current.shift()!;
+    setActiveAnimation(anim);
+
+    // Set sprite states
+    if (anim.attacker === "left") {
+      setP1SpriteAnim("attacking");
+      setTimeout(() => { setP2SpriteAnim("hit"); }, 200);
+    } else {
+      setP2SpriteAnim("attacking");
+      setTimeout(() => { setP1SpriteAnim("hit"); }, 200);
+    }
+    // Reset sprite states after animation
+    setTimeout(() => {
+      setP1SpriteAnim("idle");
+      setP2SpriteAnim("idle");
+    }, anim.config.duration);
+  }, []);
+
+  const handleAnimationComplete = useCallback(() => {
+    // Small gap between animations
+    setTimeout(playNextAnimation, 100);
+  }, [playNextAnimation]);
+
+  useEffect(() => {
+    if (state.log.length <= prevLogLen.current) {
+      if (state.phase === "setup") prevLogLen.current = 0;
+      return;
+    }
+    const newEntries = state.log.slice(prevLogLen.current);
+    prevLogLen.current = state.log.length;
+
+    const p1Name = p1Active?.slot.pokemon.name ?? "";
+    const p2Name = p2Active?.slot.pokemon.name ?? "";
+
+    // Batch: scan new entries for move-use patterns
+    let pendingAnim: Partial<ActiveAnimation> | null = null;
+
+    for (const entry of newEntries) {
+      // Check for move-use ("X used Y!")
+      const moveMatch = entry.message.match(/^(.+?) used (.+?)!$/);
+      if (moveMatch && (entry.kind === "damage" || entry.kind === "status")) {
+        const side = getAttackerSide(entry, p1Name, p2Name);
+        const damageClass = entry.kind === "status" ? "status" as const : "physical" as const;
+        pendingAnim = {
+          id: `${Date.now()}-${Math.random()}`,
+          config: buildAnimationConfig(damageClass),
+          attacker: side,
+          isCritical: false,
+          isSuperEffective: false,
+          startTime: Date.now(),
+        };
+        continue;
+      }
+
+      // Enrich pending animation with follow-up info
+      if (pendingAnim) {
+        if (isCriticalEntry(entry)) {
+          pendingAnim.isCritical = true;
+          continue;
+        }
+        if (isSuperEffectiveEntry(entry)) {
+          pendingAnim.isSuperEffective = true;
+          continue;
+        }
+      }
+
+      // Faint triggers sprite animation directly (no overlay)
+      if (isFaintEntry(entry)) {
+        const faintedSide = getAttackerSide(entry, p1Name, p2Name);
+        if (faintedSide === "left") setP1SpriteAnim("fainting");
+        else setP2SpriteAnim("fainting");
+      }
+
+      // Switch triggers entering animation
+      if (entry.kind === "switch") {
+        const switchSide = getAttackerSide(entry, p1Name, p2Name);
+        if (switchSide === "left") setP1SpriteAnim("entering");
+        else setP2SpriteAnim("entering");
+        setTimeout(() => {
+          setP1SpriteAnim("idle");
+          setP2SpriteAnim("idle");
+        }, 500);
+      }
+
+      // When we hit a non-continuation entry, flush pending animation
+      if (pendingAnim && pendingAnim.id) {
+        animQueue.current.push(pendingAnim as ActiveAnimation);
+        pendingAnim = null;
+      }
+    }
+
+    // Flush any remaining pending animation
+    if (pendingAnim && pendingAnim.id) {
+      animQueue.current.push(pendingAnim as ActiveAnimation);
+    }
+
+    // Start playing if not already
+    if (!isAnimating.current && animQueue.current.length > 0) {
+      playNextAnimation();
+    }
+  }, [state.log, state.phase, p1Active, p2Active, playNextAnimation]);
 
   const currentPlayer = state.mode === "pvp" ? pvpPhase : "player1";
   const currentTeam = currentPlayer === "player1" ? state.player1 : state.player2;
@@ -130,12 +252,13 @@ export default function BattleArena({
   return (
     <div className="space-y-4">
       {/* Battle Field */}
-      <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-6">
+      <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-6 relative">
         <div className="flex items-center justify-between gap-8">
           <PokemonBattleSprite
             pokemon={p1Active}
             side="left"
             label={state.mode === "ai" ? "Your Pokemon" : "Player 1"}
+            animationState={p1SpriteAnim}
           />
 
           <motion.div
@@ -150,8 +273,15 @@ export default function BattleArena({
             pokemon={p2Active}
             side="right"
             label={state.mode === "ai" ? "Opponent" : "Player 2"}
+            animationState={p2SpriteAnim}
           />
         </div>
+
+        {/* Move animation overlay */}
+        <MoveAnimationLayer
+          animation={activeAnimation}
+          onComplete={handleAnimationComplete}
+        />
 
         {/* Team Pokemon indicators */}
         <div className="flex justify-between mt-4">

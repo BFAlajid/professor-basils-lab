@@ -3,6 +3,8 @@
 import { useState, useMemo } from "react";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import type { AchievementCategory, Achievement } from "@/hooks/useAchievements";
+import type { TeamSlot } from "@/types";
+import TrainerCard from "./TrainerCard";
 
 type FilterTab = "all" | AchievementCategory;
 
@@ -77,7 +79,11 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
   );
 }
 
-export default function AchievementPanel() {
+interface AchievementPanelProps {
+  team?: TeamSlot[];
+}
+
+export default function AchievementPanel({ team = [] }: AchievementPanelProps) {
   const {
     achievements,
     stats,
@@ -132,6 +138,9 @@ export default function AchievementPanel() {
 
   return (
     <div className="space-y-6">
+      {/* Trainer Card */}
+      <TrainerCard team={team} stats={stats} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="font-pixel text-lg text-[#f0f0e8]">Achievements</h2>

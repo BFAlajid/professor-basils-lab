@@ -4,7 +4,7 @@ import { useReducer, useEffect, useCallback, useRef } from "react";
 
 // --- Types ---
 
-export type PokedexSource = "wild" | "gba-import" | "team" | "battle";
+export type PokedexSource = "wild" | "gba-import" | "team" | "battle" | "safari" | "fossil" | "game-corner";
 
 export interface PokedexEntry {
   id: number;

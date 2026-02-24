@@ -1,7 +1,19 @@
 "use client";
 
 import { useReducer, useCallback, useRef, useEffect } from "react";
-import { OnlineState, OnlinePhase, OnlineMessage, TeamSlot, BattleTurnAction } from "@/types";
+import { OnlineState, OnlinePhase, OnlineMessage, TeamSlot, BattleTurnAction, PCBoxPokemon, LinkMode, LinkTradeState, TradeOffer } from "@/types";
+
+const initialTradeState: LinkTradeState = {
+  mode: "idle",
+  myBoxShared: false,
+  opponentBox: [],
+  myOffer: null,
+  opponentOffer: null,
+  myConfirmed: false,
+  opponentConfirmed: false,
+  tradeComplete: false,
+  lastTradedReceived: null,
+};
 
 const initialState: OnlineState = {
   phase: "idle",
@@ -10,6 +22,7 @@ const initialState: OnlineState = {
   opponentTeam: null,
   lastPing: 0,
   error: null,
+  trade: { ...initialTradeState },
 };
 
 type OnlineAction =
@@ -21,16 +34,28 @@ type OnlineAction =
   | { type: "PING" }
   | { type: "ERROR"; error: string }
   | { type: "DISCONNECT" }
-  | { type: "RESET" };
+  | { type: "RESET" }
+  // Trade actions
+  | { type: "SET_LINK_MODE"; mode: LinkMode }
+  | { type: "SHARE_MY_BOX" }
+  | { type: "RECEIVE_OPPONENT_BOX"; box: PCBoxPokemon[] }
+  | { type: "SET_MY_OFFER"; offer: TradeOffer }
+  | { type: "RECEIVE_OPPONENT_OFFER"; offer: TradeOffer }
+  | { type: "OPPONENT_ACCEPTED" }
+  | { type: "OPPONENT_REJECTED" }
+  | { type: "CONFIRM_TRADE" }
+  | { type: "OPPONENT_CONFIRMED" }
+  | { type: "TRADE_DONE"; received: PCBoxPokemon }
+  | { type: "RESET_TRADE" };
 
 function onlineReducer(state: OnlineState, action: OnlineAction): OnlineState {
   switch (action.type) {
     case "SET_PHASE":
       return { ...state, phase: action.phase, error: null };
     case "CREATE_LOBBY":
-      return { ...state, phase: "waiting", roomCode: action.roomCode, isHost: true, error: null };
+      return { ...initialState, phase: "waiting", roomCode: action.roomCode, isHost: true };
     case "JOIN_LOBBY":
-      return { ...state, phase: "joining", roomCode: action.roomCode, isHost: false, error: null };
+      return { ...initialState, phase: "joining", roomCode: action.roomCode, isHost: false };
     case "CONNECTED":
       return { ...state, phase: "connected", error: null, lastPing: Date.now() };
     case "OPPONENT_TEAM":
@@ -43,6 +68,30 @@ function onlineReducer(state: OnlineState, action: OnlineAction): OnlineState {
       return { ...state, phase: "disconnected", error: "Connection lost." };
     case "RESET":
       return initialState;
+
+    // Trade reducers
+    case "SET_LINK_MODE":
+      return { ...state, trade: { ...initialTradeState, mode: action.mode } };
+    case "SHARE_MY_BOX":
+      return { ...state, trade: { ...state.trade, myBoxShared: true } };
+    case "RECEIVE_OPPONENT_BOX":
+      return { ...state, trade: { ...state.trade, opponentBox: action.box } };
+    case "SET_MY_OFFER":
+      return { ...state, trade: { ...state.trade, myOffer: action.offer, myConfirmed: false, opponentConfirmed: false } };
+    case "RECEIVE_OPPONENT_OFFER":
+      return { ...state, trade: { ...state.trade, opponentOffer: action.offer, myConfirmed: false, opponentConfirmed: false } };
+    case "OPPONENT_ACCEPTED":
+      return state; // No-op, offer already received
+    case "OPPONENT_REJECTED":
+      return { ...state, trade: { ...state.trade, opponentOffer: null, myOffer: null, myConfirmed: false, opponentConfirmed: false } };
+    case "CONFIRM_TRADE":
+      return { ...state, trade: { ...state.trade, myConfirmed: true } };
+    case "OPPONENT_CONFIRMED":
+      return { ...state, trade: { ...state.trade, opponentConfirmed: true } };
+    case "TRADE_DONE":
+      return { ...state, trade: { ...state.trade, tradeComplete: true, lastTradedReceived: action.received } };
+    case "RESET_TRADE":
+      return { ...state, trade: { ...initialTradeState, mode: "trade", opponentBox: state.trade.opponentBox, myBoxShared: state.trade.myBoxShared } };
     default:
       return state;
   }
@@ -109,6 +158,28 @@ export function useOnlineBattle() {
           break;
         case "DISCONNECT":
           dispatch({ type: "DISCONNECT" });
+          break;
+        // Trade messages
+        case "LINK_MODE":
+          dispatch({ type: "SET_LINK_MODE", mode: msg.payload as LinkMode });
+          break;
+        case "PC_BOX_SHARE":
+          dispatch({ type: "RECEIVE_OPPONENT_BOX", box: msg.payload as PCBoxPokemon[] });
+          break;
+        case "TRADE_OFFER":
+          dispatch({ type: "RECEIVE_OPPONENT_OFFER", offer: msg.payload as TradeOffer });
+          break;
+        case "TRADE_ACCEPT":
+          dispatch({ type: "OPPONENT_ACCEPTED" });
+          break;
+        case "TRADE_REJECT":
+          dispatch({ type: "OPPONENT_REJECTED" });
+          break;
+        case "TRADE_CONFIRM":
+          dispatch({ type: "OPPONENT_CONFIRMED" });
+          break;
+        case "TRADE_COMPLETE":
+          dispatch({ type: "TRADE_DONE", received: msg.payload as PCBoxPokemon });
           break;
       }
     });
@@ -199,6 +270,52 @@ export function useOnlineBattle() {
     });
   }, []);
 
+  // ── Trade Methods ──
+
+  const setLinkMode = useCallback((mode: LinkMode) => {
+    if (!connRef.current?.open) return;
+    dispatch({ type: "SET_LINK_MODE", mode });
+    connRef.current.send({ type: "LINK_MODE", payload: mode, timestamp: Date.now() } as OnlineMessage);
+  }, []);
+
+  const shareMyBox = useCallback((box: PCBoxPokemon[]) => {
+    if (!connRef.current?.open) return;
+    dispatch({ type: "SHARE_MY_BOX" });
+    connRef.current.send({ type: "PC_BOX_SHARE", payload: box, timestamp: Date.now() } as OnlineMessage);
+  }, []);
+
+  const sendTradeOffer = useCallback((offer: TradeOffer) => {
+    if (!connRef.current?.open) return;
+    dispatch({ type: "SET_MY_OFFER", offer });
+    connRef.current.send({ type: "TRADE_OFFER", payload: offer, timestamp: Date.now() } as OnlineMessage);
+  }, []);
+
+  const acceptTrade = useCallback(() => {
+    if (!connRef.current?.open) return;
+    connRef.current.send({ type: "TRADE_ACCEPT", payload: null, timestamp: Date.now() } as OnlineMessage);
+  }, []);
+
+  const rejectTrade = useCallback(() => {
+    if (!connRef.current?.open) return;
+    dispatch({ type: "OPPONENT_REJECTED" });
+    connRef.current.send({ type: "TRADE_REJECT", payload: null, timestamp: Date.now() } as OnlineMessage);
+  }, []);
+
+  const confirmTrade = useCallback(() => {
+    if (!connRef.current?.open) return;
+    dispatch({ type: "CONFIRM_TRADE" });
+    connRef.current.send({ type: "TRADE_CONFIRM", payload: null, timestamp: Date.now() } as OnlineMessage);
+  }, []);
+
+  const completeTrade = useCallback((sentPokemon: PCBoxPokemon) => {
+    if (!connRef.current?.open) return;
+    connRef.current.send({ type: "TRADE_COMPLETE", payload: sentPokemon, timestamp: Date.now() } as OnlineMessage);
+  }, []);
+
+  const resetTrade = useCallback(() => {
+    dispatch({ type: "RESET_TRADE" });
+  }, []);
+
   const disconnect = useCallback(() => {
     if (connRef.current?.open) {
       connRef.current.send({ type: "DISCONNECT", payload: null, timestamp: Date.now() } as OnlineMessage);
@@ -220,5 +337,14 @@ export function useOnlineBattle() {
     submitAction,
     waitForOpponentAction,
     disconnect,
+    // Trade
+    setLinkMode,
+    shareMyBox,
+    sendTradeOffer,
+    acceptTrade,
+    rejectTrade,
+    confirmTrade,
+    completeTrade,
+    resetTrade,
   };
 }

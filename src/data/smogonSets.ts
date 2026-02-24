@@ -1,0 +1,927 @@
+export interface SmogonSet {
+  name: string;
+  format: string;
+  nature: string;
+  ability: string;
+  item: string;
+  evs: { hp: number; atk: number; def: number; spa: number; spd: number; spe: number };
+  moves: string[];
+}
+
+export interface SmogonPokemonSets {
+  pokemonId: number;
+  pokemonName: string;
+  sets: SmogonSet[];
+}
+
+export const SMOGON_SETS: SmogonPokemonSets[] = [
+  // ── OU Tier ──────────────────────────────────────────────
+  {
+    pokemonId: 445,
+    pokemonName: "Garchomp",
+    sets: [
+      {
+        name: "Swords Dance Sweeper",
+        format: "OU",
+        nature: "jolly",
+        ability: "Rough Skin",
+        item: "Life Orb",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Swords Dance", "Earthquake", "Scale Shot", "Stone Edge"],
+      },
+      {
+        name: "Stealth Rock Lead",
+        format: "OU",
+        nature: "jolly",
+        ability: "Rough Skin",
+        item: "Focus Sash",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Stealth Rock", "Earthquake", "Dragon Claw", "Fire Fang"],
+      },
+    ],
+  },
+  {
+    pokemonId: 887,
+    pokemonName: "Dragapult",
+    sets: [
+      {
+        name: "Special Attacker",
+        format: "OU",
+        nature: "timid",
+        ability: "Infiltrator",
+        item: "Choice Specs",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Shadow Ball", "Draco Meteor", "Fire Blast", "U-turn"],
+      },
+      {
+        name: "Physical Dragon Dance",
+        format: "OU",
+        nature: "adamant",
+        ability: "Clear Body",
+        item: "Life Orb",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Dragon Dance", "Dragon Darts", "Phantom Force", "Sucker Punch"],
+      },
+    ],
+  },
+  {
+    pokemonId: 485,
+    pokemonName: "Heatran",
+    sets: [
+      {
+        name: "Specially Defensive",
+        format: "OU",
+        nature: "calm",
+        ability: "Flash Fire",
+        item: "Leftovers",
+        evs: { hp: 252, atk: 0, def: 4, spa: 0, spd: 252, spe: 0 },
+        moves: ["Magma Storm", "Earth Power", "Toxic", "Stealth Rock"],
+      },
+      {
+        name: "Choice Specs",
+        format: "OU",
+        nature: "modest",
+        ability: "Flash Fire",
+        item: "Choice Specs",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Magma Storm", "Flash Cannon", "Earth Power", "Eruption"],
+      },
+    ],
+  },
+  {
+    pokemonId: 748,
+    pokemonName: "Toxapex",
+    sets: [
+      {
+        name: "Defensive Pivot",
+        format: "OU",
+        nature: "bold",
+        ability: "Regenerator",
+        item: "Black Sludge",
+        evs: { hp: 252, atk: 0, def: 252, spa: 0, spd: 4, spe: 0 },
+        moves: ["Scald", "Recover", "Haze", "Toxic Spikes"],
+      },
+    ],
+  },
+  {
+    pokemonId: 823,
+    pokemonName: "Corviknight",
+    sets: [
+      {
+        name: "Physically Defensive",
+        format: "OU",
+        nature: "impish",
+        ability: "Pressure",
+        item: "Leftovers",
+        evs: { hp: 252, atk: 0, def: 168, spa: 0, spd: 88, spe: 0 },
+        moves: ["Body Press", "Brave Bird", "Defog", "Roost"],
+      },
+      {
+        name: "Bulk Up",
+        format: "OU",
+        nature: "careful",
+        ability: "Mirror Armor",
+        item: "Leftovers",
+        evs: { hp: 252, atk: 4, def: 0, spa: 0, spd: 252, spe: 0 },
+        moves: ["Bulk Up", "Body Press", "Iron Head", "Roost"],
+      },
+    ],
+  },
+  {
+    pokemonId: 36,
+    pokemonName: "Clefable",
+    sets: [
+      {
+        name: "Calm Mind",
+        format: "OU",
+        nature: "bold",
+        ability: "Magic Guard",
+        item: "Life Orb",
+        evs: { hp: 252, atk: 0, def: 252, spa: 4, spd: 0, spe: 0 },
+        moves: ["Calm Mind", "Moonblast", "Flamethrower", "Soft-Boiled"],
+      },
+      {
+        name: "Unaware Wall",
+        format: "OU",
+        nature: "bold",
+        ability: "Unaware",
+        item: "Leftovers",
+        evs: { hp: 252, atk: 0, def: 252, spa: 0, spd: 4, spe: 0 },
+        moves: ["Moonblast", "Knock Off", "Stealth Rock", "Soft-Boiled"],
+      },
+    ],
+  },
+  {
+    pokemonId: 645,
+    pokemonName: "Landorus-Therian",
+    sets: [
+      {
+        name: "Offensive Pivot",
+        format: "OU",
+        nature: "jolly",
+        ability: "Intimidate",
+        item: "Choice Scarf",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Earthquake", "U-turn", "Stone Edge", "Knock Off"],
+      },
+      {
+        name: "Stealth Rock Setter",
+        format: "OU",
+        nature: "adamant",
+        ability: "Intimidate",
+        item: "Leftovers",
+        evs: { hp: 252, atk: 44, def: 0, spa: 0, spd: 68, spe: 144 },
+        moves: ["Stealth Rock", "Earthquake", "U-turn", "Toxic"],
+      },
+    ],
+  },
+  {
+    pokemonId: 598,
+    pokemonName: "Ferrothorn",
+    sets: [
+      {
+        name: "Hazard Setter",
+        format: "OU",
+        nature: "relaxed",
+        ability: "Iron Barbs",
+        item: "Leftovers",
+        evs: { hp: 252, atk: 0, def: 252, spa: 0, spd: 4, spe: 0 },
+        moves: ["Stealth Rock", "Spikes", "Leech Seed", "Power Whip"],
+      },
+      {
+        name: "Mixed Wall",
+        format: "OU",
+        nature: "sassy",
+        ability: "Iron Barbs",
+        item: "Leftovers",
+        evs: { hp: 252, atk: 0, def: 24, spa: 0, spd: 232, spe: 0 },
+        moves: ["Knock Off", "Leech Seed", "Power Whip", "Protect"],
+      },
+    ],
+  },
+  {
+    pokemonId: 479,
+    pokemonName: "Rotom-Wash",
+    sets: [
+      {
+        name: "Defensive Pivot",
+        format: "OU",
+        nature: "bold",
+        ability: "Levitate",
+        item: "Leftovers",
+        evs: { hp: 252, atk: 0, def: 216, spa: 0, spd: 40, spe: 0 },
+        moves: ["Volt Switch", "Hydro Pump", "Will-O-Wisp", "Pain Split"],
+      },
+      {
+        name: "Choice Scarf",
+        format: "OU",
+        nature: "timid",
+        ability: "Levitate",
+        item: "Choice Scarf",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Volt Switch", "Hydro Pump", "Trick", "Thunderbolt"],
+      },
+    ],
+  },
+  {
+    pokemonId: 248,
+    pokemonName: "Tyranitar",
+    sets: [
+      {
+        name: "Dragon Dance",
+        format: "OU",
+        nature: "jolly",
+        ability: "Sand Stream",
+        item: "Lum Berry",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Dragon Dance", "Stone Edge", "Crunch", "Earthquake"],
+      },
+      {
+        name: "Assault Vest Tank",
+        format: "OU",
+        nature: "adamant",
+        ability: "Sand Stream",
+        item: "Assault Vest",
+        evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
+        moves: ["Stone Edge", "Crunch", "Earthquake", "Ice Punch"],
+      },
+    ],
+  },
+  {
+    pokemonId: 637,
+    pokemonName: "Volcarona",
+    sets: [
+      {
+        name: "Quiver Dance Sweeper",
+        format: "OU",
+        nature: "timid",
+        ability: "Flame Body",
+        item: "Heavy-Duty Boots",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Quiver Dance", "Fire Blast", "Bug Buzz", "Giga Drain"],
+      },
+    ],
+  },
+  {
+    pokemonId: 530,
+    pokemonName: "Excadrill",
+    sets: [
+      {
+        name: "Sand Rush Sweeper",
+        format: "OU",
+        nature: "jolly",
+        ability: "Sand Rush",
+        item: "Life Orb",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Swords Dance", "Earthquake", "Iron Head", "Rock Slide"],
+      },
+      {
+        name: "Rapid Spin Support",
+        format: "OU",
+        nature: "jolly",
+        ability: "Mold Breaker",
+        item: "Leftovers",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Rapid Spin", "Earthquake", "Iron Head", "Swords Dance"],
+      },
+    ],
+  },
+  {
+    pokemonId: 257,
+    pokemonName: "Blaziken",
+    sets: [
+      {
+        name: "Speed Boost Sweeper",
+        format: "OU",
+        nature: "adamant",
+        ability: "Speed Boost",
+        item: "Life Orb",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Swords Dance", "Flare Blitz", "Close Combat", "Thunder Punch"],
+      },
+    ],
+  },
+  {
+    pokemonId: 94,
+    pokemonName: "Gengar",
+    sets: [
+      {
+        name: "Nasty Plot",
+        format: "OU",
+        nature: "timid",
+        ability: "Cursed Body",
+        item: "Life Orb",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Nasty Plot", "Shadow Ball", "Sludge Wave", "Focus Blast"],
+      },
+      {
+        name: "Choice Scarf",
+        format: "OU",
+        nature: "timid",
+        ability: "Cursed Body",
+        item: "Choice Scarf",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Shadow Ball", "Sludge Wave", "Focus Blast", "Trick"],
+      },
+    ],
+  },
+  {
+    pokemonId: 212,
+    pokemonName: "Scizor",
+    sets: [
+      {
+        name: "Swords Dance",
+        format: "OU",
+        nature: "adamant",
+        ability: "Technician",
+        item: "Life Orb",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Swords Dance", "Bullet Punch", "U-turn", "Knock Off"],
+      },
+      {
+        name: "Choice Band Pivot",
+        format: "OU",
+        nature: "adamant",
+        ability: "Technician",
+        item: "Choice Band",
+        evs: { hp: 248, atk: 252, def: 0, spa: 0, spd: 8, spe: 0 },
+        moves: ["Bullet Punch", "U-turn", "Knock Off", "Superpower"],
+      },
+    ],
+  },
+  {
+    pokemonId: 461,
+    pokemonName: "Weavile",
+    sets: [
+      {
+        name: "Swords Dance Sweeper",
+        format: "OU",
+        nature: "jolly",
+        ability: "Pressure",
+        item: "Heavy-Duty Boots",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Swords Dance", "Triple Axel", "Knock Off", "Ice Shard"],
+      },
+    ],
+  },
+  {
+    pokemonId: 149,
+    pokemonName: "Dragonite",
+    sets: [
+      {
+        name: "Dragon Dance",
+        format: "OU",
+        nature: "adamant",
+        ability: "Multiscale",
+        item: "Lum Berry",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Dragon Dance", "Outrage", "Extreme Speed", "Earthquake"],
+      },
+      {
+        name: "Choice Band",
+        format: "OU",
+        nature: "adamant",
+        ability: "Multiscale",
+        item: "Choice Band",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Outrage", "Extreme Speed", "Earthquake", "Fire Punch"],
+      },
+    ],
+  },
+  {
+    pokemonId: 373,
+    pokemonName: "Salamence",
+    sets: [
+      {
+        name: "Dragon Dance Sweeper",
+        format: "OU",
+        nature: "jolly",
+        ability: "Moxie",
+        item: "Life Orb",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Dragon Dance", "Outrage", "Earthquake", "Fire Fang"],
+      },
+      {
+        name: "Special Attacker",
+        format: "OU",
+        nature: "timid",
+        ability: "Intimidate",
+        item: "Choice Specs",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Draco Meteor", "Fire Blast", "Hydro Pump", "Hurricane"],
+      },
+    ],
+  },
+  {
+    pokemonId: 376,
+    pokemonName: "Metagross",
+    sets: [
+      {
+        name: "Agility Sweeper",
+        format: "OU",
+        nature: "adamant",
+        ability: "Clear Body",
+        item: "Life Orb",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Agility", "Meteor Mash", "Earthquake", "Ice Punch"],
+      },
+      {
+        name: "Choice Band",
+        format: "OU",
+        nature: "adamant",
+        ability: "Clear Body",
+        item: "Choice Band",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Meteor Mash", "Earthquake", "Bullet Punch", "Zen Headbutt"],
+      },
+    ],
+  },
+  {
+    pokemonId: 448,
+    pokemonName: "Lucario",
+    sets: [
+      {
+        name: "Nasty Plot Special",
+        format: "OU",
+        nature: "timid",
+        ability: "Inner Focus",
+        item: "Life Orb",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Nasty Plot", "Aura Sphere", "Flash Cannon", "Vacuum Wave"],
+      },
+      {
+        name: "Swords Dance Physical",
+        format: "OU",
+        nature: "jolly",
+        ability: "Justified",
+        item: "Life Orb",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Swords Dance", "Close Combat", "Meteor Mash", "Extreme Speed"],
+      },
+    ],
+  },
+
+  // ── UU Tier ──────────────────────────────────────────────
+  {
+    pokemonId: 214,
+    pokemonName: "Heracross",
+    sets: [
+      {
+        name: "Choice Scarf",
+        format: "UU",
+        nature: "jolly",
+        ability: "Moxie",
+        item: "Choice Scarf",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Close Combat", "Megahorn", "Knock Off", "Earthquake"],
+      },
+      {
+        name: "Guts Wallbreaker",
+        format: "UU",
+        nature: "adamant",
+        ability: "Guts",
+        item: "Flame Orb",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Close Combat", "Megahorn", "Facade", "Knock Off"],
+      },
+    ],
+  },
+  {
+    pokemonId: 468,
+    pokemonName: "Togekiss",
+    sets: [
+      {
+        name: "Nasty Plot",
+        format: "UU",
+        nature: "timid",
+        ability: "Serene Grace",
+        item: "Leftovers",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Nasty Plot", "Air Slash", "Flamethrower", "Roost"],
+      },
+      {
+        name: "Defensive Support",
+        format: "UU",
+        nature: "bold",
+        ability: "Serene Grace",
+        item: "Heavy-Duty Boots",
+        evs: { hp: 248, atk: 0, def: 216, spa: 0, spd: 44, spe: 0 },
+        moves: ["Air Slash", "Heal Bell", "Defog", "Roost"],
+      },
+    ],
+  },
+  {
+    pokemonId: 609,
+    pokemonName: "Chandelure",
+    sets: [
+      {
+        name: "Choice Specs",
+        format: "UU",
+        nature: "timid",
+        ability: "Flash Fire",
+        item: "Choice Specs",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Shadow Ball", "Fire Blast", "Energy Ball", "Trick"],
+      },
+      {
+        name: "Substitute + Calm Mind",
+        format: "UU",
+        nature: "timid",
+        ability: "Flash Fire",
+        item: "Leftovers",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Substitute", "Calm Mind", "Shadow Ball", "Flamethrower"],
+      },
+    ],
+  },
+  {
+    pokemonId: 450,
+    pokemonName: "Hippowdon",
+    sets: [
+      {
+        name: "Physically Defensive",
+        format: "UU",
+        nature: "impish",
+        ability: "Sand Stream",
+        item: "Leftovers",
+        evs: { hp: 252, atk: 0, def: 252, spa: 0, spd: 4, spe: 0 },
+        moves: ["Stealth Rock", "Earthquake", "Whirlwind", "Slack Off"],
+      },
+    ],
+  },
+  {
+    pokemonId: 534,
+    pokemonName: "Conkeldurr",
+    sets: [
+      {
+        name: "Guts Wallbreaker",
+        format: "UU",
+        nature: "adamant",
+        ability: "Guts",
+        item: "Flame Orb",
+        evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
+        moves: ["Drain Punch", "Mach Punch", "Knock Off", "Facade"],
+      },
+      {
+        name: "Iron Fist Bulk",
+        format: "UU",
+        nature: "adamant",
+        ability: "Iron Fist",
+        item: "Assault Vest",
+        evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
+        moves: ["Drain Punch", "Mach Punch", "Thunder Punch", "Ice Punch"],
+      },
+    ],
+  },
+  {
+    pokemonId: 242,
+    pokemonName: "Blissey",
+    sets: [
+      {
+        name: "Specially Defensive Wall",
+        format: "UU",
+        nature: "bold",
+        ability: "Natural Cure",
+        item: "Heavy-Duty Boots",
+        evs: { hp: 252, atk: 0, def: 252, spa: 0, spd: 4, spe: 0 },
+        moves: ["Seismic Toss", "Soft-Boiled", "Toxic", "Stealth Rock"],
+      },
+    ],
+  },
+  {
+    pokemonId: 230,
+    pokemonName: "Kingdra",
+    sets: [
+      {
+        name: "Swift Swim Sweeper",
+        format: "UU",
+        nature: "modest",
+        ability: "Swift Swim",
+        item: "Life Orb",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Hydro Pump", "Draco Meteor", "Hurricane", "Ice Beam"],
+      },
+    ],
+  },
+  {
+    pokemonId: 473,
+    pokemonName: "Mamoswine",
+    sets: [
+      {
+        name: "Wallbreaker",
+        format: "UU",
+        nature: "adamant",
+        ability: "Thick Fat",
+        item: "Life Orb",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Earthquake", "Icicle Crash", "Ice Shard", "Knock Off"],
+      },
+      {
+        name: "Choice Band",
+        format: "UU",
+        nature: "jolly",
+        ability: "Thick Fat",
+        item: "Choice Band",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Earthquake", "Icicle Crash", "Ice Shard", "Superpower"],
+      },
+    ],
+  },
+  {
+    pokemonId: 286,
+    pokemonName: "Breloom",
+    sets: [
+      {
+        name: "Technician Sweeper",
+        format: "UU",
+        nature: "jolly",
+        ability: "Technician",
+        item: "Life Orb",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Spore", "Mach Punch", "Bullet Seed", "Swords Dance"],
+      },
+    ],
+  },
+  {
+    pokemonId: 199,
+    pokemonName: "Slowking",
+    sets: [
+      {
+        name: "Assault Vest Tank",
+        format: "UU",
+        nature: "sassy",
+        ability: "Regenerator",
+        item: "Assault Vest",
+        evs: { hp: 252, atk: 0, def: 4, spa: 0, spd: 252, spe: 0 },
+        moves: ["Scald", "Psychic", "Future Sight", "Flamethrower"],
+      },
+      {
+        name: "Defensive Pivot",
+        format: "UU",
+        nature: "bold",
+        ability: "Regenerator",
+        item: "Heavy-Duty Boots",
+        evs: { hp: 252, atk: 0, def: 252, spa: 4, spd: 0, spe: 0 },
+        moves: ["Scald", "Future Sight", "Teleport", "Slack Off"],
+      },
+    ],
+  },
+
+  // ── VGC Tier ─────────────────────────────────────────────
+  {
+    pokemonId: 727,
+    pokemonName: "Incineroar",
+    sets: [
+      {
+        name: "Defensive Support",
+        format: "VGC",
+        nature: "careful",
+        ability: "Intimidate",
+        item: "Sitrus Berry",
+        evs: { hp: 236, atk: 4, def: 108, spa: 0, spd: 156, spe: 4 },
+        moves: ["Fake Out", "Flare Blitz", "Knock Off", "Parting Shot"],
+      },
+      {
+        name: "Assault Vest",
+        format: "VGC",
+        nature: "adamant",
+        ability: "Intimidate",
+        item: "Assault Vest",
+        evs: { hp: 252, atk: 116, def: 0, spa: 0, spd: 140, spe: 0 },
+        moves: ["Fake Out", "Flare Blitz", "Knock Off", "U-turn"],
+      },
+    ],
+  },
+  {
+    pokemonId: 812,
+    pokemonName: "Rillaboom",
+    sets: [
+      {
+        name: "Grassy Glide Attacker",
+        format: "VGC",
+        nature: "adamant",
+        ability: "Grassy Surge",
+        item: "Miracle Seed",
+        evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
+        moves: ["Grassy Glide", "Wood Hammer", "Fake Out", "U-turn"],
+      },
+      {
+        name: "Choice Band",
+        format: "VGC",
+        nature: "adamant",
+        ability: "Grassy Surge",
+        item: "Choice Band",
+        evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
+        moves: ["Grassy Glide", "Wood Hammer", "Knock Off", "U-turn"],
+      },
+    ],
+  },
+  {
+    pokemonId: 892,
+    pokemonName: "Urshifu",
+    sets: [
+      {
+        name: "Single-Strike Sweeper",
+        format: "VGC",
+        nature: "jolly",
+        ability: "Unseen Fist",
+        item: "Focus Sash",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Wicked Blow", "Close Combat", "Sucker Punch", "Detect"],
+      },
+      {
+        name: "Rapid-Strike Attacker",
+        format: "VGC",
+        nature: "jolly",
+        ability: "Unseen Fist",
+        item: "Choice Scarf",
+        evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 4, spe: 252 },
+        moves: ["Surging Strikes", "Close Combat", "Aqua Jet", "U-turn"],
+      },
+    ],
+  },
+  {
+    pokemonId: 987,
+    pokemonName: "Flutter Mane",
+    sets: [
+      {
+        name: "Choice Specs Attacker",
+        format: "VGC",
+        nature: "timid",
+        ability: "Protosynthesis",
+        item: "Choice Specs",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Shadow Ball", "Moonblast", "Mystical Fire", "Dazzling Gleam"],
+      },
+      {
+        name: "Booster Energy",
+        format: "VGC",
+        nature: "modest",
+        ability: "Protosynthesis",
+        item: "Booster Energy",
+        evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+        moves: ["Shadow Ball", "Moonblast", "Icy Wind", "Protect"],
+      },
+    ],
+  },
+  {
+    pokemonId: 992,
+    pokemonName: "Iron Hands",
+    sets: [
+      {
+        name: "Assault Vest Tank",
+        format: "VGC",
+        nature: "adamant",
+        ability: "Quark Drive",
+        item: "Assault Vest",
+        evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
+        moves: ["Drain Punch", "Wild Charge", "Fake Out", "Heavy Slam"],
+      },
+      {
+        name: "Booster Energy",
+        format: "VGC",
+        nature: "adamant",
+        ability: "Quark Drive",
+        item: "Booster Energy",
+        evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
+        moves: ["Close Combat", "Wild Charge", "Fake Out", "Volt Switch"],
+      },
+    ],
+  },
+  {
+    pokemonId: 591,
+    pokemonName: "Amoonguss",
+    sets: [
+      {
+        name: "Redirector Support",
+        format: "VGC",
+        nature: "relaxed",
+        ability: "Regenerator",
+        item: "Sitrus Berry",
+        evs: { hp: 252, atk: 0, def: 172, spa: 0, spd: 84, spe: 0 },
+        moves: ["Spore", "Rage Powder", "Pollen Puff", "Protect"],
+      },
+      {
+        name: "Coba Berry Pivot",
+        format: "VGC",
+        nature: "sassy",
+        ability: "Regenerator",
+        item: "Coba Berry",
+        evs: { hp: 252, atk: 0, def: 76, spa: 0, spd: 180, spe: 0 },
+        moves: ["Spore", "Rage Powder", "Clear Smog", "Protect"],
+      },
+    ],
+  },
+  {
+    pokemonId: 977,
+    pokemonName: "Dondozo",
+    sets: [
+      {
+        name: "Order Up Partner",
+        format: "VGC",
+        nature: "adamant",
+        ability: "Unaware",
+        item: "Leftovers",
+        evs: { hp: 252, atk: 132, def: 60, spa: 0, spd: 60, spe: 4 },
+        moves: ["Wave Crash", "Order Up", "Protect", "Earthquake"],
+      },
+      {
+        name: "Curse Tank",
+        format: "VGC",
+        nature: "careful",
+        ability: "Unaware",
+        item: "Leftovers",
+        evs: { hp: 252, atk: 4, def: 108, spa: 0, spd: 144, spe: 0 },
+        moves: ["Wave Crash", "Curse", "Rest", "Protect"],
+      },
+    ],
+  },
+  {
+    pokemonId: 279,
+    pokemonName: "Pelipper",
+    sets: [
+      {
+        name: "Rain Setter",
+        format: "VGC",
+        nature: "modest",
+        ability: "Drizzle",
+        item: "Focus Sash",
+        evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+        moves: ["Hurricane", "Weather Ball", "Tailwind", "Protect"],
+      },
+      {
+        name: "Defensive Rain Setter",
+        format: "VGC",
+        nature: "bold",
+        ability: "Drizzle",
+        item: "Damp Rock",
+        evs: { hp: 252, atk: 0, def: 252, spa: 0, spd: 4, spe: 0 },
+        moves: ["Scald", "Hurricane", "U-turn", "Protect"],
+      },
+    ],
+  },
+  {
+    pokemonId: 983,
+    pokemonName: "Kingambit",
+    sets: [
+      {
+        name: "Assault Vest",
+        format: "VGC",
+        nature: "adamant",
+        ability: "Defiant",
+        item: "Assault Vest",
+        evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
+        moves: ["Sucker Punch", "Kowtow Cleave", "Iron Head", "Low Kick"],
+      },
+      {
+        name: "Supreme Overlord Closer",
+        format: "VGC",
+        nature: "adamant",
+        ability: "Supreme Overlord",
+        item: "Black Glasses",
+        evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
+        moves: ["Sucker Punch", "Kowtow Cleave", "Iron Head", "Protect"],
+      },
+    ],
+  },
+  {
+    pokemonId: 1004,
+    pokemonName: "Chi-Yu",
+    sets: [
+      {
+        name: "Choice Scarf",
+        format: "VGC",
+        nature: "timid",
+        ability: "Beads of Ruin",
+        item: "Choice Scarf",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Heat Wave", "Dark Pulse", "Psychic", "Overheat"],
+      },
+      {
+        name: "Focus Sash Attacker",
+        format: "VGC",
+        nature: "modest",
+        ability: "Beads of Ruin",
+        item: "Focus Sash",
+        evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+        moves: ["Heat Wave", "Dark Pulse", "Nasty Plot", "Protect"],
+      },
+    ],
+  },
+];
+
+/** Look up all competitive sets for a given Pokemon by national dex ID. */
+export function getSmogonSets(pokemonId: number): SmogonSet[] {
+  return SMOGON_SETS.find((s) => s.pokemonId === pokemonId)?.sets ?? [];
+}
+
+/** Get all unique format tags present in the data set. */
+export function getAvailableFormats(): string[] {
+  const formats = new Set<string>();
+  for (const entry of SMOGON_SETS) {
+    for (const set of entry.sets) {
+      formats.add(set.format);
+    }
+  }
+  return Array.from(formats).sort();
+}

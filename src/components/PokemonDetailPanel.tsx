@@ -15,6 +15,8 @@ import TeraTypeSelector from "./TeraTypeSelector";
 import FormeSelector from "./FormeSelector";
 import StatRadarChart from "./StatRadarChart";
 import { playCry } from "@/utils/cryPlayer";
+import SmogonSetLoader from "./SmogonSetLoader";
+import { NATURES } from "@/data/natures";
 
 interface PokemonDetailPanelProps {
   slot: TeamSlot;
@@ -163,6 +165,28 @@ export default function PokemonDetailPanel({
       <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
         <EVEditor evs={evs} onChange={onUpdateEvs} />
         <IVEditor ivs={ivs} onChange={onUpdateIvs} />
+      </div>
+
+      {/* Smogon Competitive Sets */}
+      <div className="mt-6">
+        <SmogonSetLoader
+          pokemonId={slot.pokemon.id}
+          onApplySet={(set) => {
+            const matchedNature = NATURES.find(n => n.name.toLowerCase() === set.nature.toLowerCase());
+            if (matchedNature) onUpdateNature(matchedNature);
+            onUpdateAbility(set.ability);
+            onUpdateItem(set.item);
+            onUpdateEvs({
+              hp: set.evs.hp,
+              attack: set.evs.atk,
+              defense: set.evs.def,
+              spAtk: set.evs.spa,
+              spDef: set.evs.spd,
+              speed: set.evs.spe,
+            });
+            onUpdateMoves(set.moves);
+          }}
+        />
       </div>
     </motion.div>
   );

@@ -43,6 +43,85 @@ function shuffleArray<T>(arr: T[]): T[] {
   return shuffled;
 }
 
+// Generate a team scaled to the given floor/difficulty for Battle Tower
+export async function generateScaledTeam(floor: number): Promise<TeamSlot[]> {
+  // Scale team size and difficulty by floor
+  const teamSize = floor < 8 ? Math.min(3 + Math.floor(floor / 2), 6) : 6;
+  const difficulty: DifficultyLevel = floor < 8 ? "easy" : floor < 15 ? "normal" : "hard";
+
+  // Higher floors pick from better Pokemon (bias toward end of list = stronger)
+  const pool = floor >= 15
+    ? COMPETITIVE_POKEMON_IDS
+    : floor >= 8
+      ? COMPETITIVE_POKEMON_IDS.slice(0, Math.floor(COMPETITIVE_POKEMON_IDS.length * 0.75))
+      : COMPETITIVE_POKEMON_IDS.slice(0, Math.floor(COMPETITIVE_POKEMON_IDS.length * 0.5));
+
+  const selectedIds = shuffleArray(pool).slice(0, teamSize);
+
+  const pokemonList = await Promise.all(
+    selectedIds.map(async (id) => {
+      try {
+        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+        if (!res.ok) return null;
+        return (await res.json()) as Pokemon;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return pokemonList
+    .filter((p): p is Pokemon => p !== null)
+    .map((pokemon, i) => {
+      const baseStats = extractBaseStats(pokemon);
+      const isPhysical = baseStats.attack > baseStats.spAtk;
+
+      // Harder floors get better natures
+      const naturePool = difficulty === "easy"
+        ? NATURES.filter(n => !n.increased && !n.decreased) // Neutral natures for easy
+        : isPhysical
+          ? NATURES.filter(n => n.name === "adamant" || n.name === "jolly")
+          : NATURES.filter(n => n.name === "modest" || n.name === "timid");
+      const nature = randomChoice(naturePool.length > 0 ? naturePool : NATURES);
+
+      // EVs scale with difficulty
+      const evs = difficulty === "easy"
+        ? { hp: 128, attack: 128, defense: 64, spAtk: 64, spDef: 64, speed: 64 }
+        : isPhysical
+          ? randomChoice(EV_SPREADS.slice(0, 2))
+          : randomChoice(EV_SPREADS.slice(2, 4));
+
+      // IVs scale with difficulty
+      const ivBase = difficulty === "easy" ? 15 : difficulty === "normal" ? 25 : 31;
+      const ivs = {
+        hp: ivBase, attack: ivBase, defense: ivBase,
+        spAtk: ivBase, spDef: ivBase, speed: ivBase,
+      };
+
+      const allMoves = pokemon.moves.map(m => m.move.name);
+      const shuffledMoves = shuffleArray(allMoves);
+      const selectedMoves = shuffledMoves.slice(0, Math.min(4, shuffledMoves.length));
+
+      const pokemonTypes = pokemon.types.map((t: any) => t.type.name) as TypeName[];
+      const teraType = randomChoice(pokemonTypes);
+
+      const megaStone = MEGA_STONES.find(s => s.megaTarget === pokemon.name);
+      const heldItem = megaStone ? megaStone.name : null;
+
+      return {
+        pokemon,
+        position: i,
+        nature,
+        evs,
+        ivs,
+        ability: pokemon.abilities?.[0]?.ability.name ?? null,
+        heldItem,
+        selectedMoves,
+        teraConfig: { teraType },
+      };
+    });
+}
+
 export async function generateRandomTeam(): Promise<TeamSlot[]> {
   const selectedIds = shuffleArray(COMPETITIVE_POKEMON_IDS).slice(0, 6);
 

@@ -9,6 +9,7 @@ import PokemonDetailPanel from "./PokemonDetailPanel";
 import { exportToShowdown, importFromShowdown } from "@/utils/showdownFormat";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { TEAM_PRESETS } from "@/data/teamPresets";
+import QRExport from "./QRExport";
 
 interface TeamRosterProps {
   team: TeamSlot[];
@@ -48,6 +49,7 @@ export default function TeamRoster({
   const [showdownMessage, setShowdownMessage] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const emptySlots = Math.max(0, 6 - team.length);
   const { incrementStat } = useAchievementsContext();
 
@@ -112,12 +114,20 @@ export default function TeamRoster({
       {/* Showdown toolbar */}
       <div className="mb-4 flex items-center gap-2">
         {team.length > 0 && (
-          <button
-            onClick={handleExport}
-            className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
-          >
-            Export Showdown
-          </button>
+          <>
+            <button
+              onClick={handleExport}
+              className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
+            >
+              Export Showdown
+            </button>
+            <button
+              onClick={() => setShowQR(true)}
+              className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
+            >
+              QR Code
+            </button>
+          </>
         )}
         <button
           onClick={() => {
@@ -295,6 +305,12 @@ export default function TeamRoster({
         isOpen={searchOpen}
         onClose={() => setSearchOpen(false)}
         onSelect={onAdd}
+      />
+
+      <QRExport
+        team={team}
+        isOpen={showQR}
+        onClose={() => setShowQR(false)}
       />
     </>
   );
