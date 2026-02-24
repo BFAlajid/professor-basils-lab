@@ -8,7 +8,7 @@ import { usePokedexContext } from "@/contexts/PokedexContext";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { NATURES } from "@/data/natures";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
-import type { Pokemon, TeamSlot } from "@/types";
+import type { TeamSlot } from "@/types";
 import dynamic from "next/dynamic";
 import SkeletonLoader from "@/components/SkeletonLoader";
 
@@ -120,7 +120,7 @@ export default function Home() {
                 ability: s.a ?? pokemon.abilities?.[0]?.ability.name ?? null,
                 heldItem: s.h ?? null,
                 selectedMoves: s.m ?? [],
-                teraConfig: s.t ? { teraType: s.t as any } : undefined,
+                teraConfig: s.t ? { teraType: s.t as string } : undefined,
                 formeOverride: s.f ?? undefined,
               } as TeamSlot;
             } catch {
@@ -236,7 +236,7 @@ export default function Home() {
               key={tab.id}
               id={`tab-${tab.id}`}
               role="tab"
-              aria-selected={activeTab === tab.id ? "true" : "false"}
+              {...{ "aria-selected": activeTab === tab.id }}
               aria-controls={`tabpanel-${tab.id}`}
               tabIndex={activeTab === tab.id ? 0 : -1}
               onClick={() => setActiveTab(tab.id)}
