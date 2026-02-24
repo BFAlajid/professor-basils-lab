@@ -106,7 +106,16 @@ export default function BattleSetup({
           >
             <span className="block text-base font-pixel">Facility</span>
             <span className="block text-[10px] mt-1 opacity-70">
-              Elite Four &amp; Battle Tower
+              E4, Tower &amp; Gyms
+            </span>
+          </button>
+          <button
+            onClick={() => onModeChange?.("factory")}
+            className="flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-colors bg-[#3a4466] text-[#8b9bb4] hover:bg-[#4a5577]"
+          >
+            <span className="block text-base font-pixel">Factory</span>
+            <span className="block text-[10px] mt-1 opacity-70">
+              Rental Pokemon
             </span>
           </button>
         </div>

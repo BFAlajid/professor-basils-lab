@@ -15,6 +15,8 @@ import ReplayList from "./ReplayList";
 import TournamentBracket from "./TournamentBracket";
 import OnlineLobby from "./OnlineLobby";
 import BattleFacilityView from "./BattleFacilityView";
+import BattleFactory from "./BattleFactory";
+import { useBattleFactory } from "@/hooks/useBattleFactory";
 
 interface BattleTabProps {
   team: TeamSlot[];
@@ -38,12 +40,13 @@ export default function BattleTab({ team }: BattleTabProps) {
   const tournament = useTournament();
   const online = useOnlineBattle();
   const facility = useBattleFacility();
+  const factory = useBattleFactory();
   const hasRecorded = useRef(false);
   const prevLogLen = useRef(0);
   const facilityRecorded = useRef(false);
   const [viewingReplay, setViewingReplay] = useState<BattleReplay | null>(null);
   const [replaySaved, setReplaySaved] = useState(false);
-  const [activeBattleMode, setActiveBattleMode] = useState<"ai" | "pvp" | "tournament" | "online" | "facility" | null>(null);
+  const [activeBattleMode, setActiveBattleMode] = useState<"ai" | "pvp" | "tournament" | "online" | "facility" | "factory" | null>(null);
 
   // Determine which battle state to use
   const isFacilityMode = activeBattleMode === "facility";
@@ -86,16 +89,23 @@ export default function BattleTab({ team }: BattleTabProps) {
       }
       facility.handleBattleEnd(winner ?? "player2");
 
-      // Track E4 / Battle Tower achievements
+      // Track E4 / Battle Tower / Gym achievements
       if (winner === "player1") {
         if (facility.facilityState.mode === "elite_four") {
           const newWins = facility.facilityState.wins + 1;
           if (newWins >= facility.facilityState.totalOpponents) {
             incrementStat("eliteFourCleared", 1);
+            incrementStat("hallOfFameEntries", 1);
           }
         } else if (facility.facilityState.mode === "battle_tower") {
           const newStreak = facility.facilityState.streak + 1;
           setBattleTowerStreak(newStreak);
+        } else if (facility.facilityState.mode === "gym_challenge") {
+          incrementStat("gymBadgesEarned", 1);
+          const newWins = facility.facilityState.wins + 1;
+          if (newWins >= facility.facilityState.totalOpponents) {
+            incrementStat("hallOfFameEntries", 1);
+          }
         }
       }
     }
@@ -155,6 +165,13 @@ export default function BattleTab({ team }: BattleTabProps) {
     setActiveBattleMode(mode);
     startBattle(player1Team, player2Team, mode, playerMechanic, aiMechanic, difficulty);
   }, [startBattle]);
+
+  // Handle entering factory mode
+  useEffect(() => {
+    if (activeBattleMode === "factory" && factory.factoryState.phase === "idle") {
+      factory.startFactory();
+    }
+  }, [activeBattleMode, factory]);
 
   // Handle online ready to battle
   const handleOnlineReady = useCallback(() => {
@@ -232,6 +249,9 @@ export default function BattleTab({ team }: BattleTabProps) {
         onStartBattleTower={() => {
           facility.startBattleTower();
         }}
+        onStartGymChallenge={() => {
+          facility.startGymChallenge();
+        }}
         onBeginBattle={() => {
           facility.beginCurrentBattle(team);
         }}
@@ -242,6 +262,68 @@ export default function BattleTab({ team }: BattleTabProps) {
           facility.healTeam();
         }}
         onReset={handleFacilityReset}
+      />
+    );
+  }
+
+  // ═══ FACTORY MODE ═══
+  if (activeBattleMode === "factory") {
+    const fPhase = factory.factoryState.phase;
+
+    // During battling, use the main battle hook
+    if (fPhase === "battling" && state.phase !== "setup" && state.phase !== "ended") {
+      return (
+        <BattleArena
+          state={state}
+          onSubmitAction={submitPlayerAction}
+          onForceSwitch={forceSwitch}
+          onAutoAISwitch={autoAISwitch}
+          onSubmitPvPActions={submitActions}
+        />
+      );
+    }
+
+    // Battle ended in factory mode
+    if (fPhase === "battling" && state.phase === "ended") {
+      if (state.winner === "player1") {
+        factory.reportWin();
+      } else {
+        factory.reportLoss();
+      }
+      resetBattle();
+      return null;
+    }
+
+    // All other factory phases (pick, swap, victory, defeat)
+    return (
+      <BattleFactory
+        factoryState={factory.factoryState}
+        onSelect={factory.selectRental}
+        onDeselect={factory.deselectRental}
+        onConfirm={async () => {
+          factory.confirmTeam();
+          await factory.generateOpponent();
+          // Start battle with factory team vs opponent
+          const fState = factory.factoryState;
+          const pTeam = fState.selectedIndices.map(i => fState.rentalPool[i]);
+          if (fState.opponentTeam.length > 0) {
+            startBattle(pTeam, fState.opponentTeam, "ai");
+          }
+        }}
+        onSwap={factory.swapPokemon}
+        onSkipSwap={async () => {
+          factory.skipSwap();
+          await factory.generateOpponent();
+          const fState = factory.factoryState;
+          if (fState.opponentTeam.length > 0) {
+            startBattle(fState.playerTeam, fState.opponentTeam, "ai");
+          }
+        }}
+        onReset={() => {
+          factory.resetFactory();
+          setActiveBattleMode(null);
+        }}
+        isLoading={false}
       />
     );
   }

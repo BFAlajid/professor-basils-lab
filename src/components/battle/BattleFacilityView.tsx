@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { BattleFacilityState, EliteFourMember, TeamSlot } from "@/types";
 import { typeColors } from "@/data/typeColors";
 import LoadingSpinner from "../LoadingSpinner";
+import GymBadgeCase from "./GymBadgeCase";
+import HallOfFame from "./HallOfFame";
+import { saveToHallOfFame } from "@/data/hallOfFame";
 
 interface BattleFacilityViewProps {
   facilityState: BattleFacilityState;
@@ -12,6 +16,7 @@ interface BattleFacilityViewProps {
   isLoading: boolean;
   onStartEliteFour: () => void;
   onStartBattleTower: () => void;
+  onStartGymChallenge: () => void;
   onBeginBattle: () => void;
   onNextBattle: () => void;
   onHeal: () => void;
@@ -24,15 +29,23 @@ export default function BattleFacilityView({
   isLoading,
   onStartEliteFour,
   onStartBattleTower,
+  onStartGymChallenge,
   onBeginBattle,
   onNextBattle,
   onHeal,
   onReset,
 }: BattleFacilityViewProps) {
-  const { mode, phase, currentOpponentIndex, wins, streak, bestStreak, opponents, teamHpPercents } = facilityState;
+  const { mode, phase, currentOpponentIndex, wins, streak, bestStreak, opponents, teamHpPercents, badges } = facilityState;
   const currentOpponent = opponents[currentOpponentIndex] ?? null;
   const isEliteFour = mode === "elite_four";
   const isTower = mode === "battle_tower";
+  const isGym = mode === "gym_challenge";
+  const [showHallOfFame, setShowHallOfFame] = useState(false);
+
+  // Hall of Fame overlay
+  if (showHallOfFame) {
+    return <HallOfFame onClose={() => setShowHallOfFame(false)} />;
+  }
 
   // Lobby — choose mode
   if (phase === "lobby") {
@@ -43,37 +56,65 @@ export default function BattleFacilityView({
           <p className="text-xs text-[#8b9bb4]">
             Test your team in the ultimate challenge!
           </p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-3">
             <button
               onClick={onStartEliteFour}
               className="rounded-xl border-2 border-[#f7a838] bg-[#1a1c2c] p-4 text-left hover:bg-[#262b44] transition-colors"
             >
-              <span className="block text-base font-pixel text-[#f7a838]">Elite Four</span>
+              <span className="block text-sm font-pixel text-[#f7a838]">Elite Four</span>
               <span className="block text-[10px] text-[#8b9bb4] mt-1">
-                5 battles, no healing between fights. Defeat 4 specialists + Champion.
+                5 battles, no healing. Defeat 4 specialists + Champion.
               </span>
             </button>
             <button
               onClick={onStartBattleTower}
               className="rounded-xl border-2 border-[#60a5fa] bg-[#1a1c2c] p-4 text-left hover:bg-[#262b44] transition-colors"
             >
-              <span className="block text-base font-pixel text-[#60a5fa]">Battle Tower</span>
+              <span className="block text-sm font-pixel text-[#60a5fa]">Battle Tower</span>
               <span className="block text-[10px] text-[#8b9bb4] mt-1">
-                Endless streak. Difficulty scales every 7 wins. Heal every 7 wins.
+                Endless streak. Scales every 7 wins. Heal every 7.
               </span>
               {bestStreak > 0 && (
                 <span className="block text-[10px] text-[#f7a838] mt-1">
-                  Best streak: {bestStreak}
+                  Best: {bestStreak}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={onStartGymChallenge}
+              className="rounded-xl border-2 border-[#38b764] bg-[#1a1c2c] p-4 text-left hover:bg-[#262b44] transition-colors"
+            >
+              <span className="block text-sm font-pixel text-[#38b764]">Gym Challenge</span>
+              <span className="block text-[10px] text-[#8b9bb4] mt-1">
+                8 type-themed gyms. Full heal between battles. Earn badges.
+              </span>
+              {badges && badges.length > 0 && (
+                <span className="block text-[10px] text-[#f7a838] mt-1">
+                  Badges: {badges.length}/8
                 </span>
               )}
             </button>
           </div>
-          <button
-            onClick={onReset}
-            className="text-xs text-[#8b9bb4] hover:text-[#f0f0e8] transition-colors"
-          >
-            Back to Battle Setup
-          </button>
+
+          {/* Badge case preview */}
+          {badges && badges.length > 0 && (
+            <GymBadgeCase earnedBadges={badges} />
+          )}
+
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={() => setShowHallOfFame(true)}
+              className="text-xs text-[#f7a838] hover:text-[#f0f0e8] transition-colors"
+            >
+              Hall of Fame
+            </button>
+            <button
+              onClick={onReset}
+              className="text-xs text-[#8b9bb4] hover:text-[#f0f0e8] transition-colors"
+            >
+              Back to Battle Setup
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -96,6 +137,8 @@ export default function BattleFacilityView({
           <span className="text-[10px] text-[#8b9bb4] uppercase tracking-wider">
             {isEliteFour
               ? `Battle ${currentOpponentIndex + 1} of ${facilityState.totalOpponents}`
+              : isGym
+              ? `Gym ${currentOpponentIndex + 1} of 8`
               : `Floor ${wins + 1}`}
             {isTower && ` — Streak: ${streak}`}
           </span>
@@ -212,6 +255,8 @@ export default function BattleFacilityView({
           <p className="text-xs text-[#8b9bb4] mt-1">
             {isEliteFour
               ? `Defeated ${wins} of ${facilityState.totalOpponents} trainers`
+              : isGym
+              ? `Defeated ${wins} of 8 Gym Leaders`
               : `Streak: ${streak} | Best: ${bestStreak}`}
           </p>
         </div>
@@ -306,6 +351,24 @@ export default function BattleFacilityView({
 
   // Victory
   if (phase === "victory") {
+    // Auto-save to Hall of Fame
+    const teamForHof = playerTeam.map((slot) => ({
+      pokemonId: slot.pokemon.id,
+      name: slot.pokemon.name,
+      spriteUrl: slot.pokemon.sprites.front_default,
+      level: 50,
+    }));
+
+    // Save once (useEffect pattern not ideal here, so we rely on idempotent save)
+    saveToHallOfFame({
+      id: "",
+      date: new Date().toISOString(),
+      mode: mode as "elite_four" | "battle_tower" | "gym_challenge",
+      team: teamForHof,
+      streak: isTower ? streak : undefined,
+      gymBadges: isGym ? (badges?.length ?? 0) : undefined,
+    });
+
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
@@ -318,13 +381,17 @@ export default function BattleFacilityView({
           animate={{ y: 0 }}
           transition={{ delay: 0.2, type: "spring" }}
         >
-          {isEliteFour ? "Elite Four Champion!" : "Battle Tower Record!"}
+          {isEliteFour ? "Elite Four Champion!" : isGym ? "Gym Champion!" : "Battle Tower Record!"}
         </motion.h2>
         <p className="text-sm text-[#8b9bb4]">
           {isEliteFour
             ? "You defeated all Elite Four members and the Champion!"
+            : isGym
+            ? "You defeated all 8 Gym Leaders and earned every badge!"
             : `Final streak: ${streak} | Best: ${bestStreak}`}
         </p>
+        {isGym && badges && <GymBadgeCase earnedBadges={badges} />}
+        <p className="text-[10px] text-[#f7a838]">Saved to Hall of Fame!</p>
         <button
           onClick={onReset}
           className="rounded-lg bg-[#f7a838] px-8 py-3 text-sm font-pixel text-[#1a1c2c] hover:bg-[#d89230] transition-colors"

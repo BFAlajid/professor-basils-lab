@@ -620,7 +620,7 @@ export interface EliteFourMember {
   }[];
 }
 
-export type BattleFacilityMode = "elite_four" | "battle_tower";
+export type BattleFacilityMode = "elite_four" | "battle_tower" | "gym_challenge";
 export type BattleFacilityPhase =
   | "lobby"
   | "pre_battle"
@@ -640,6 +640,20 @@ export interface BattleFacilityState {
   teamHpPercents: number[];
   teamStatuses: (StatusCondition)[];
   opponents: EliteFourMember[];
+  badges?: string[];
+}
+
+// --- Battle Factory Types ---
+
+export interface BattleFactoryState {
+  phase: "idle" | "pick" | "battling" | "swap" | "victory" | "defeat";
+  rentalPool: TeamSlot[];
+  selectedIndices: number[];
+  playerTeam: TeamSlot[];
+  opponentTeam: TeamSlot[];
+  wins: number;
+  bestRun: number;
+  totalRuns: number;
 }
 
 // ── Safari Zone ───────────────────────────────────────────────────────

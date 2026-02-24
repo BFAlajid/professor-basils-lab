@@ -36,6 +36,11 @@ export interface PlayerStats {
   // Batch 3: Safari Zone
   safariPokemonCaught: number;
   safariTripsCompleted: number;
+  // Batch 1B: Gym Challenge, Battle Factory, Hall of Fame
+  gymBadgesEarned: number;
+  factoryBestRun: number;
+  factoryRuns: number;
+  hallOfFameEntries: number;
 }
 
 export type AchievementCategory =
@@ -87,6 +92,10 @@ const DEFAULT_STATS: PlayerStats = {
   battleTowerBestStreak: 0,
   safariPokemonCaught: 0,
   safariTripsCompleted: 0,
+  gymBadgesEarned: 0,
+  factoryBestRun: 0,
+  factoryRuns: 0,
+  hallOfFameEntries: 0,
 };
 
 // --- Achievement Definitions ---
@@ -417,6 +426,68 @@ function createAchievementDefinitions(): Omit<Achievement, "unlocked" | "unlocke
       icon: "\u{1F9ED}",
       category: "exploration",
       condition: (stats) => stats.safariTripsCompleted >= 5,
+    },
+
+    // Gym Challenge
+    {
+      id: "boulder_badge",
+      name: "Boulder Badge",
+      description: "Earn your first Gym Badge",
+      icon: "\u{1F48E}",
+      category: "battle",
+      condition: (stats) => stats.gymBadgesEarned >= 1,
+    },
+    {
+      id: "rising_star",
+      name: "Rising Star",
+      description: "Earn 4 Gym Badges",
+      icon: "\u2B50",
+      category: "battle",
+      condition: (stats) => stats.gymBadgesEarned >= 4,
+    },
+    {
+      id: "gym_champion",
+      name: "Gym Champion",
+      description: "Earn all 8 Gym Badges",
+      icon: "\u{1F3C5}",
+      category: "battle",
+      condition: (stats) => stats.gymBadgesEarned >= 8,
+    },
+
+    // Battle Factory
+    {
+      id: "rental_master",
+      name: "Rental Master",
+      description: "Complete a Battle Factory run (7 wins)",
+      icon: "\u{1F3ED}",
+      category: "battle",
+      condition: (stats) => stats.factoryRuns >= 1,
+    },
+    {
+      id: "factory_tycoon",
+      name: "Factory Tycoon",
+      description: "Complete 3 Battle Factory runs",
+      icon: "\u{1F3AD}",
+      category: "battle",
+      condition: (stats) => stats.factoryRuns >= 3,
+    },
+
+    // Hall of Fame
+    {
+      id: "legend_entry",
+      name: "Legend",
+      description: "Enter the Hall of Fame 5 times",
+      icon: "\u{1F3C6}",
+      category: "special",
+      condition: (stats) => stats.hallOfFameEntries >= 5,
+    },
+    {
+      id: "hall_regular",
+      name: "Hall of Fame Regular",
+      description: "Enter the Hall of Fame 20 times",
+      icon: "\u{1F451}",
+      category: "special",
+      condition: (stats) => stats.hallOfFameEntries >= 20,
     },
   ];
 }

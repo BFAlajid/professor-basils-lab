@@ -12,6 +12,7 @@ import {
 } from "@/types";
 import { useBattle } from "./useBattle";
 import { ELITE_FOUR } from "@/data/eliteFour";
+import { GYM_LEADERS, GYM_BADGE_NAMES } from "@/data/gymLeaders";
 import { generateScaledTeam } from "@/utils/ai";
 
 // ── Action types ──────────────────────────────────────────────────────
@@ -19,6 +20,8 @@ import { generateScaledTeam } from "@/utils/ai";
 type FacilityAction =
   | { type: "START_ELITE_FOUR" }
   | { type: "START_BATTLE_TOWER" }
+  | { type: "START_GYM_CHALLENGE" }
+  | { type: "EARN_BADGE"; badge: string }
   | { type: "SET_OPPONENTS"; opponents: EliteFourMember[] }
   | { type: "BEGIN_BATTLE" }
   | { type: "BATTLE_WON"; hpPercents: number[]; statuses: StatusCondition[] }
@@ -26,6 +29,7 @@ type FacilityAction =
   | { type: "NEXT_BATTLE" }
   | { type: "HEAL_TEAM" }
   | { type: "LOAD_BEST_STREAK"; streak: number }
+  | { type: "LOAD_BADGES"; badges: string[] }
   | { type: "RESET" };
 
 // ── Initial state ─────────────────────────────────────────────────────
@@ -41,6 +45,7 @@ const initialFacilityState: BattleFacilityState = {
   teamHpPercents: [],
   teamStatuses: [],
   opponents: [],
+  badges: [],
 };
 
 // ── Reducer ───────────────────────────────────────────────────────────
@@ -65,8 +70,30 @@ function facilityReducer(
         mode: "battle_tower",
         phase: "pre_battle",
         totalOpponents: Infinity,
-        bestStreak: state.bestStreak, // preserve persisted best streak
+        bestStreak: state.bestStreak,
+        badges: state.badges,
       };
+
+    case "START_GYM_CHALLENGE":
+      return {
+        ...initialFacilityState,
+        mode: "gym_challenge",
+        phase: "pre_battle",
+        totalOpponents: 8,
+        opponents: GYM_LEADERS,
+        badges: state.badges,
+      };
+
+    case "EARN_BADGE": {
+      const newBadges = state.badges ? [...state.badges] : [];
+      if (!newBadges.includes(action.badge)) {
+        newBadges.push(action.badge);
+      }
+      return { ...state, badges: newBadges };
+    }
+
+    case "LOAD_BADGES":
+      return { ...state, badges: action.badges };
 
     case "SET_OPPONENTS":
       return { ...state, opponents: action.opponents };
@@ -77,6 +104,24 @@ function facilityReducer(
     case "BATTLE_WON": {
       const newWins = state.wins + 1;
       const newIndex = state.currentOpponentIndex + 1;
+
+      if (state.mode === "gym_challenge") {
+        // Gym challenge: full heal between gyms, earn badge
+        const badgeName = GYM_BADGE_NAMES[state.currentOpponentIndex] ?? "";
+        const updatedBadges = state.badges ? [...state.badges] : [];
+        if (badgeName && !updatedBadges.includes(badgeName)) {
+          updatedBadges.push(badgeName);
+        }
+        return {
+          ...state,
+          wins: newWins,
+          currentOpponentIndex: newIndex,
+          badges: updatedBadges,
+          teamHpPercents: action.hpPercents.map(() => 1), // full heal
+          teamStatuses: action.statuses.map(() => null),
+          phase: newWins >= state.totalOpponents ? "victory" : "between_battles",
+        };
+      }
 
       if (state.mode === "elite_four") {
         return {
@@ -121,7 +166,7 @@ function facilityReducer(
       return { ...state, bestStreak: action.streak };
 
     case "RESET":
-      return { ...initialFacilityState, bestStreak: state.bestStreak };
+      return { ...initialFacilityState, bestStreak: state.bestStreak, badges: state.badges };
 
     default:
       return state;
@@ -136,7 +181,7 @@ export function useBattleFacility() {
   const [isLoadingOpponent, setIsLoadingOpponent] = useState(false);
   const hasLoadedStreak = useRef(false);
 
-  // Load persisted best streak on mount
+  // Load persisted best streak and badges on mount
   useEffect(() => {
     if (hasLoadedStreak.current) return;
     hasLoadedStreak.current = true;
@@ -146,6 +191,13 @@ export function useBattleFacility() {
         const parsed = parseInt(saved, 10);
         if (!isNaN(parsed) && parsed > 0) {
           dispatch({ type: "LOAD_BEST_STREAK", streak: parsed });
+        }
+      }
+      const savedBadges = localStorage.getItem("pokemon-gym-badges");
+      if (savedBadges) {
+        const badges = JSON.parse(savedBadges);
+        if (Array.isArray(badges)) {
+          dispatch({ type: "LOAD_BADGES", badges });
         }
       }
     } catch {
@@ -162,6 +214,10 @@ export function useBattleFacility() {
 
   const startEliteFour = useCallback(() => {
     dispatch({ type: "START_ELITE_FOUR" });
+  }, []);
+
+  const startGymChallenge = useCallback(() => {
+    dispatch({ type: "START_GYM_CHALLENGE" });
   }, []);
 
   const startBattleTower = useCallback(async () => {
@@ -228,6 +284,10 @@ export function useBattleFacility() {
         let difficulty: DifficultyLevel = "normal";
         if (facilityState.mode === "elite_four") {
           difficulty = facilityState.currentOpponentIndex >= 3 ? "hard" : "normal";
+        } else if (facilityState.mode === "gym_challenge") {
+          // Gyms 1-3 easy, 4-6 normal, 7-8 hard
+          const gymIndex = facilityState.currentOpponentIndex;
+          difficulty = gymIndex < 3 ? "easy" : gymIndex < 6 ? "normal" : "hard";
         } else {
           // battle_tower: scale difficulty by floor
           const floor = facilityState.wins + 1;
@@ -274,6 +334,20 @@ export function useBattleFacility() {
               "pokemon-battle-tower-streak",
               String(newBest)
             );
+          } catch {
+            // localStorage unavailable
+          }
+        }
+
+        // Persist gym badges
+        if (facilityState.mode === "gym_challenge") {
+          try {
+            const badgeName = GYM_BADGE_NAMES[facilityState.currentOpponentIndex] ?? "";
+            const currentBadges = facilityState.badges ? [...facilityState.badges] : [];
+            if (badgeName && !currentBadges.includes(badgeName)) {
+              currentBadges.push(badgeName);
+            }
+            localStorage.setItem("pokemon-gym-badges", JSON.stringify(currentBadges));
           } catch {
             // localStorage unavailable
           }
@@ -346,6 +420,7 @@ export function useBattleFacility() {
     battle,
     startEliteFour,
     startBattleTower,
+    startGymChallenge,
     beginCurrentBattle,
     handleBattleEnd,
     nextBattle,
