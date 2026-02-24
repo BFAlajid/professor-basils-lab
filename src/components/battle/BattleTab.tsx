@@ -17,6 +17,7 @@ import OnlineLobby from "./OnlineLobby";
 import BattleFacilityView from "./BattleFacilityView";
 import BattleFactory from "./BattleFactory";
 import { useBattleFactory } from "@/hooks/useBattleFactory";
+import { GYM_BADGE_NAMES } from "@/data/gymLeaders";
 
 interface BattleTabProps {
   team: TeamSlot[];
@@ -226,6 +227,12 @@ export default function BattleTab({ team }: BattleTabProps) {
 
     // Facility battle ended — show result briefly then route to facility view
     if (fPhase === "battling" && fBattle.phase === "ended") {
+      const fState = facility.facilityState;
+      const currentOpp = fState.opponents[fState.currentOpponentIndex] ?? null;
+      const isGym = fState.mode === "gym_challenge";
+      const badgeName = isGym && fBattle.winner === "player1"
+        ? (GYM_BADGE_NAMES[fState.currentOpponentIndex] ?? null)
+        : null;
       return (
         <BattleResult
           state={fBattle}
@@ -233,6 +240,9 @@ export default function BattleTab({ team }: BattleTabProps) {
             facility.battle.resetBattle();
           }}
           onReset={handleFacilityReset}
+          trainerName={currentOpp?.name}
+          prizeMoney={currentOpp?.prizeMoney}
+          badgeEarned={badgeName ?? undefined}
         />
       );
     }

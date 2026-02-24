@@ -9,12 +9,17 @@ interface BattleResultProps {
   onReset: () => void;
   onSaveReplay?: () => void;
   replaySaved?: boolean;
+  trainerName?: string;
+  prizeMoney?: number;
+  badgeEarned?: string;
 }
 
-export default function BattleResult({ state, onPlayAgain, onReset, onSaveReplay, replaySaved }: BattleResultProps) {
+export default function BattleResult({ state, onPlayAgain, onReset, onSaveReplay, replaySaved, trainerName, prizeMoney, badgeEarned }: BattleResultProps) {
   const isPlayer1Winner = state.winner === "player1";
   const winnerLabel = state.mode === "ai"
-    ? (isPlayer1Winner ? "You Win!" : "You Lose!")
+    ? (isPlayer1Winner
+        ? (trainerName ? `You defeated ${trainerName}!` : "You Win!")
+        : "You Lose!")
     : (isPlayer1Winner ? "Player 1 Wins!" : "Player 2 Wins!");
 
   const p1Alive = state.player1.pokemon.filter((p) => !p.isFainted).length;
@@ -36,6 +41,32 @@ export default function BattleResult({ state, onPlayAgain, onReset, onSaveReplay
       >
         {winnerLabel}
       </motion.h2>
+
+      {/* Rewards */}
+      {isPlayer1Winner && (prizeMoney || badgeEarned) && (
+        <div className="mb-4 space-y-1">
+          {prizeMoney != null && prizeMoney > 0 && (
+            <motion.p
+              className="text-sm font-pixel text-[#f7a838]"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              You received ¥{prizeMoney.toLocaleString()}!
+            </motion.p>
+          )}
+          {badgeEarned && (
+            <motion.p
+              className="text-sm font-pixel text-[#f0f0e8]"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              You received the <span className="text-[#f7a838]">{badgeEarned} Badge</span>!
+            </motion.p>
+          )}
+        </div>
+      )}
 
       <div className="mb-6 space-y-2 text-sm text-[#8b9bb4]">
         <p>Turns: {state.turn}</p>

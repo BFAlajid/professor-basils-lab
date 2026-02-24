@@ -7,6 +7,7 @@ export const ELITE_FOUR: EliteFourMember[] = [
     title: "Ice Master",
     specialty: "ice",
     quote: "No one can best me when it comes to icy Pokemon!",
+    prizeMoney: 5500,
     team: [
       {
         pokemonId: 87, // Dewgong
@@ -52,6 +53,7 @@ export const ELITE_FOUR: EliteFourMember[] = [
     title: "Fighting Expert",
     specialty: "fighting",
     quote: "We will grind you down with our superior power!",
+    prizeMoney: 5500,
     team: [
       {
         pokemonId: 95, // Onix
@@ -97,6 +99,7 @@ export const ELITE_FOUR: EliteFourMember[] = [
     title: "Ghost Mistress",
     specialty: "ghost",
     quote: "I'll show you true terror!",
+    prizeMoney: 5500,
     team: [
       {
         pokemonId: 94, // Gengar #1
@@ -142,6 +145,7 @@ export const ELITE_FOUR: EliteFourMember[] = [
     title: "Dragon Tamer",
     specialty: "dragon",
     quote: "You dare challenge the might of dragons?",
+    prizeMoney: 6000,
     team: [
       {
         pokemonId: 130, // Gyarados
@@ -187,6 +191,7 @@ export const ELITE_FOUR: EliteFourMember[] = [
     title: "Pokemon Champion",
     specialty: "mixed",
     quote: "I am the most powerful trainer in the world!",
+    prizeMoney: 11000,
     team: [
       {
         pokemonId: 18, // Pidgeot

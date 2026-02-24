@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# rust build artifacts
+rust/target/
+
 # devlogs (local only)
 DEVLOG*.md
 IMPLEMENTATION-PLAN.md

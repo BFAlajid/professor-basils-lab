@@ -18,6 +18,7 @@ export const GYM_LEADERS: EliteFourMember[] = [
     title: "Boulder Badge",
     specialty: "rock",
     quote: "My rock-hard willpower is evident even in my Pokemon!",
+    prizeMoney: 1680,
     team: [
       {
         pokemonId: 74, // Geodude
@@ -49,6 +50,7 @@ export const GYM_LEADERS: EliteFourMember[] = [
     title: "Cascade Badge",
     specialty: "water",
     quote: "My policy is an all-out offensive with water Pokemon!",
+    prizeMoney: 2100,
     team: [
       {
         pokemonId: 121, // Starmie
@@ -80,6 +82,7 @@ export const GYM_LEADERS: EliteFourMember[] = [
     title: "Thunder Badge",
     specialty: "electric",
     quote: "I tell you, kid, electric Pokemon saved me during the war!",
+    prizeMoney: 2520,
     team: [
       {
         pokemonId: 101, // Electrode
@@ -111,6 +114,7 @@ export const GYM_LEADERS: EliteFourMember[] = [
     title: "Rainbow Badge",
     specialty: "grass",
     quote: "I am a student of the art of flower arranging... and Pokemon!",
+    prizeMoney: 2940,
     team: [
       {
         pokemonId: 71, // Victreebel
@@ -149,6 +153,7 @@ export const GYM_LEADERS: EliteFourMember[] = [
     title: "Soul Badge",
     specialty: "poison",
     quote: "Fwahaha! A Pokemon battle is like a ninja duel!",
+    prizeMoney: 3360,
     team: [
       {
         pokemonId: 110, // Weezing
@@ -187,6 +192,7 @@ export const GYM_LEADERS: EliteFourMember[] = [
     title: "Marsh Badge",
     specialty: "psychic",
     quote: "I had a vision of your arrival... and your defeat!",
+    prizeMoney: 3780,
     team: [
       {
         pokemonId: 65, // Alakazam
@@ -225,6 +231,7 @@ export const GYM_LEADERS: EliteFourMember[] = [
     title: "Volcano Badge",
     specialty: "fire",
     quote: "Hah! My fire burns with the intensity of a volcano!",
+    prizeMoney: 4200,
     team: [
       {
         pokemonId: 59, // Arcanine
@@ -270,6 +277,7 @@ export const GYM_LEADERS: EliteFourMember[] = [
     title: "Earth Badge",
     specialty: "ground",
     quote: "I, the leader of Team Rocket, shall make you feel the earth tremble!",
+    prizeMoney: 5040,
     team: [
       {
         pokemonId: 34, // Nidoking

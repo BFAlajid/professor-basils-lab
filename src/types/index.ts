@@ -610,6 +610,7 @@ export interface EliteFourMember {
   title: string;
   specialty: TypeName | "mixed";
   quote: string;
+  prizeMoney?: number;
   team: {
     pokemonId: number;
     moves: string[];

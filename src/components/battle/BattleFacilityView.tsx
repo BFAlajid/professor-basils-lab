@@ -243,6 +243,9 @@ export default function BattleFacilityView({
   if (phase === "between_battles") {
     const canHeal = isTower && wins > 0 && wins % 7 === 0;
     const nextOpponent = opponents[currentOpponentIndex] ?? null;
+    const defeatedOpponent = opponents[currentOpponentIndex - 1] ?? null;
+    const earnedBadge = isGym ? (badges?.[badges.length - 1] ?? null) : null;
+    const prizeMoney = defeatedOpponent?.prizeMoney ?? (isTower ? 1000 * wins : 0);
 
     return (
       <motion.div
@@ -250,8 +253,41 @@ export default function BattleFacilityView({
         animate={{ opacity: 1 }}
         className="rounded-xl border border-[#3a4466] bg-[#262b44] p-6 space-y-4"
       >
-        <div className="text-center">
-          <h3 className="text-lg font-pixel text-[#38b764]">Victory!</h3>
+        {/* Defeated trainer announcement */}
+        <div className="text-center space-y-2">
+          <motion.h3
+            className="text-lg font-pixel text-[#38b764]"
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 300 }}
+          >
+            You defeated {defeatedOpponent?.name ?? "the opponent"}!
+          </motion.h3>
+
+          {/* Prize money */}
+          {prizeMoney > 0 && (
+            <motion.p
+              className="text-sm font-pixel text-[#f7a838]"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              You received ¥{prizeMoney.toLocaleString()}!
+            </motion.p>
+          )}
+
+          {/* Badge earned (gym only) */}
+          {earnedBadge && (
+            <motion.p
+              className="text-sm font-pixel text-[#f0f0e8]"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              You received the <span className="text-[#f7a838]">{earnedBadge} Badge</span>!
+            </motion.p>
+          )}
+
           <p className="text-xs text-[#8b9bb4] mt-1">
             {isEliteFour
               ? `Defeated ${wins} of ${facilityState.totalOpponents} trainers`
