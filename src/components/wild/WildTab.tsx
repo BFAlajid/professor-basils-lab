@@ -20,6 +20,7 @@ import DayCare from "./DayCare";
 import { useNuzlocke } from "@/hooks/useNuzlocke";
 import { LEGENDARY_IDS } from "@/data/legendaries";
 import { generateRandomIVs } from "@/utils/wildBattle";
+import { playCry } from "@/utils/cryPlayer";
 
 interface WildTabProps {
   team: TeamSlot[];
@@ -145,6 +146,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
   useEffect(() => {
     if (encounter.phase === "encounter_intro" && encounter.wildPokemon) {
       markSeen(encounter.wildPokemon.id, encounter.wildPokemon.name, "wild");
+      playCry(encounter.wildPokemon);
     }
   }, [encounter.phase, encounter.wildPokemon, markSeen]);
 

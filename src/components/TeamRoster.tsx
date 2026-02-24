@@ -8,6 +8,7 @@ import PokemonSearch from "./PokemonSearch";
 import PokemonDetailPanel from "./PokemonDetailPanel";
 import { exportToShowdown, importFromShowdown } from "@/utils/showdownFormat";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
+import { TEAM_PRESETS } from "@/data/teamPresets";
 
 interface TeamRosterProps {
   team: TeamSlot[];
@@ -46,8 +47,23 @@ export default function TeamRoster({
   const [showdownText, setShowdownText] = useState("");
   const [showdownMessage, setShowdownMessage] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
   const emptySlots = Math.max(0, 6 - team.length);
   const { incrementStat } = useAchievementsContext();
+
+  const handleLoadPreset = useCallback(async (paste: string) => {
+    if (!onSetTeam) return;
+    setIsImporting(true);
+    try {
+      const slots = await importFromShowdown(paste);
+      if (slots.length > 0) {
+        onSetTeam(slots);
+        setShowPresets(false);
+      }
+    } finally {
+      setIsImporting(false);
+    }
+  }, [onSetTeam]);
 
   const expandedSlot = team.find((s) => s.position === expandedPosition);
 
@@ -113,7 +129,49 @@ export default function TeamRoster({
         >
           Import Showdown
         </button>
+        {onSetTeam && (
+          <button
+            onClick={() => setShowPresets(!showPresets)}
+            className={`px-3 py-1.5 rounded-lg text-[#f0f0e8] text-xs font-pixel transition-colors ${
+              showPresets ? "bg-[#e8433f] hover:bg-[#f05050]" : "bg-[#3a4466] hover:bg-[#4a5577]"
+            }`}
+          >
+            Team Presets
+          </button>
+        )}
       </div>
+
+      {/* Team Presets */}
+      <AnimatePresence>
+        {showPresets && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-4 overflow-hidden"
+          >
+            <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
+              <h3 className="text-sm font-pixel text-[#f0f0e8] mb-3">Competitive Team Presets</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {TEAM_PRESETS.map((preset) => (
+                  <button
+                    key={preset.name}
+                    onClick={() => handleLoadPreset(preset.showdownPaste)}
+                    disabled={isImporting}
+                    className="text-left rounded-lg border border-[#3a4466] bg-[#1a1c2c] p-3 hover:border-[#e8433f] transition-colors disabled:opacity-50"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-pixel text-[#f0f0e8]">{preset.name}</span>
+                      <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#3a4466] text-[#8b9bb4]">{preset.format}</span>
+                    </div>
+                    <p className="text-[10px] text-[#8b9bb4] leading-tight">{preset.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Showdown modal */}
       <AnimatePresence>

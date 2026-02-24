@@ -34,11 +34,14 @@ export default function MapArea({ area, isSelected, onClick }: MapAreaProps) {
         width: `${area.position.width}%`,
         height: `${area.position.height}%`,
       }}
-      whileHover={{ scale: 1.05 }}
+      whileHover={{
+        scale: 1.08,
+        boxShadow: `0 0 12px ${theme.border}80`,
+      }}
       whileTap={{ scale: 0.98 }}
     >
       <div
-        className={`w-full h-full rounded-lg border-2 transition-all duration-200 ${
+        className={`w-full h-full rounded-lg border-2 transition-all duration-200 group-hover:animate-pulse ${
           isSelected ? "ring-2 ring-[#f0f0e8]" : ""
         }`}
         style={{

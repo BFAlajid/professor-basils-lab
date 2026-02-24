@@ -53,6 +53,10 @@ export interface Pokemon {
   types: PokemonType[];
   moves: PokemonMoveRef[];
   abilities?: PokemonAbilityRef[];
+  cries?: {
+    latest: string;
+    legacy: string;
+  };
 }
 
 // --- Generational Mechanics ---

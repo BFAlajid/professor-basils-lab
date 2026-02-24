@@ -7,6 +7,7 @@ import { typeColors } from "@/data/typeColors";
 import TypeBadge from "./TypeBadge";
 import { extractBaseStats } from "@/utils/damage";
 import { getHeldItem } from "@/data/heldItems";
+import { playCry } from "@/utils/cryPlayer";
 
 interface PokemonCardProps {
   slot: TeamSlot;
@@ -49,16 +50,29 @@ export default function PokemonCard({
       }`}
       onClick={onClick}
     >
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove(position);
-        }}
-        aria-label={`Remove ${pokemon.name} from team`}
-        className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#3a4466] text-xs text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
-      >
-        X
-      </button>
+      <div className="absolute top-2 right-2 flex gap-1">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            playCry(pokemon);
+          }}
+          aria-label={`Play ${pokemon.name} cry`}
+          className="flex h-6 w-6 items-center justify-center rounded-full bg-[#3a4466] text-xs text-[#8b9bb4] hover:bg-[#3b82f6] hover:text-[#f0f0e8] transition-colors"
+          title="Play cry"
+        >
+          &#9835;
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(position);
+          }}
+          aria-label={`Remove ${pokemon.name} from team`}
+          className="flex h-6 w-6 items-center justify-center rounded-full bg-[#3a4466] text-xs text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
+        >
+          X
+        </button>
+      </div>
 
       <div className="flex flex-col items-center gap-3">
         {sprite && (

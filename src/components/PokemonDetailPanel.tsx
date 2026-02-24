@@ -13,6 +13,8 @@ import HeldItemSelector from "./HeldItemSelector";
 import MoveSelector from "./MoveSelector";
 import TeraTypeSelector from "./TeraTypeSelector";
 import FormeSelector from "./FormeSelector";
+import StatRadarChart from "./StatRadarChart";
+import { playCry } from "@/utils/cryPlayer";
 
 interface PokemonDetailPanelProps {
   slot: TeamSlot;
@@ -63,7 +65,17 @@ export default function PokemonDetailPanel({
       className="col-span-full rounded-xl border border-[#3a4466] bg-[#262b44] p-4 overflow-hidden"
     >
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold font-pixel capitalize">{slot.pokemon.name} - Configuration</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-bold font-pixel capitalize">{slot.pokemon.name} - Configuration</h3>
+          <button
+            onClick={() => playCry(slot.pokemon)}
+            aria-label={`Play ${slot.pokemon.name} cry`}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-[#3a4466] text-sm text-[#8b9bb4] hover:bg-[#3b82f6] hover:text-[#f0f0e8] transition-colors"
+            title="Play cry"
+          >
+            &#9835;
+          </button>
+        </div>
         <button
           onClick={onClose}
           className="rounded-lg bg-[#3a4466] px-3 py-1 text-sm text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
@@ -100,6 +112,9 @@ export default function PokemonDetailPanel({
           </div>
           <div className="mt-2 text-xs text-[#8b9bb4]">
             BST: {Object.values(calculatedStats).reduce((a, b) => a + b, 0)}
+          </div>
+          <div className="mt-3 flex justify-center">
+            <StatRadarChart baseStats={baseStats} calculatedStats={calculatedStats} size={160} />
           </div>
         </div>
 

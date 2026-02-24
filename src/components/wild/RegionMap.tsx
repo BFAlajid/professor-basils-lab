@@ -1,10 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RouteArea } from "@/types";
 import { REGIONS, getAreasForRegion, RegionId } from "@/data/routes";
 import MapArea from "./MapArea";
+
+const THEME_OPTIONS = [
+  { value: "", label: "All Types" },
+  { value: "grass", label: "Grass" },
+  { value: "cave", label: "Cave" },
+  { value: "water", label: "Water" },
+  { value: "forest", label: "Forest" },
+  { value: "mountain", label: "Mountain" },
+  { value: "urban", label: "Urban" },
+  { value: "desert", label: "Desert" },
+];
 
 interface RegionMapProps {
   selectedArea: RouteArea | null;
@@ -15,8 +26,19 @@ export default function RegionMap({ selectedArea, onSelectArea }: RegionMapProps
   const [activeRegion, setActiveRegion] = useState<RegionId>("kanto");
   const [mapLoaded, setMapLoaded] = useState<Record<string, boolean>>({});
   const [mapError, setMapError] = useState<Record<string, boolean>>({});
-  const areas = getAreasForRegion(activeRegion);
+  const [themeFilter, setThemeFilter] = useState("");
+  const [maxLevelFilter, setMaxLevelFilter] = useState(100);
+  const allAreas = getAreasForRegion(activeRegion);
   const region = REGIONS.find((r) => r.id === activeRegion);
+
+  const areas = useMemo(() => {
+    return allAreas.filter((area) => {
+      if (themeFilter && area.theme !== themeFilter) return false;
+      const minLevel = Math.min(...area.encounterPool.map((p) => p.minLevel));
+      if (minLevel > maxLevelFilter) return false;
+      return true;
+    });
+  }, [allAreas, themeFilter, maxLevelFilter]);
 
   return (
     <div className="space-y-3">
@@ -36,6 +58,34 @@ export default function RegionMap({ selectedArea, onSelectArea }: RegionMapProps
             {r.name}
           </button>
         ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <select
+          value={themeFilter}
+          onChange={(e) => setThemeFilter(e.target.value)}
+          className="bg-[#1a1c2c] border border-[#3a4466] rounded-lg px-2 py-1 text-[10px] font-pixel text-[#f0f0e8] outline-none"
+        >
+          {THEME_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-pixel text-[#8b9bb4]">Max Lv.</span>
+          <input
+            type="range"
+            min={5}
+            max={100}
+            value={maxLevelFilter}
+            onChange={(e) => setMaxLevelFilter(Number(e.target.value))}
+            className="w-20 accent-[#e8433f]"
+          />
+          <span className="text-[10px] font-pixel text-[#f0f0e8] w-6">{maxLevelFilter}</span>
+        </div>
+        <span className="text-[10px] text-[#8b9bb4]">
+          {areas.length}/{allAreas.length} zones
+        </span>
       </div>
 
       {/* Map area */}

@@ -43,7 +43,35 @@ function toDisplayName(apiName: string): string {
  * slug (e.g. "Iron Bundle" → "iron-bundle").
  */
 function toApiName(displayName: string): string {
-  return displayName.trim().toLowerCase().replace(/\s+/g, "-");
+  return displayName
+    .trim()
+    .toLowerCase()
+    .replace(/['']/g, "")          // strip apostrophes (King's Shield → kings-shield)
+    .replace(/[^\w\s-]/g, "")      // strip remaining special chars
+    .replace(/\s+/g, "-");
+}
+
+/** Known Showdown → PokeAPI move name mismatches */
+const MOVE_ALIASES: Record<string, string> = {
+  "hi-jump-kick": "high-jump-kick",
+  "grasswhistle": "grass-whistle",
+  "smellingsalt": "smelling-salts",
+  "vice-grip": "vise-grip",
+  "featherdance": "feather-dance",
+  "extremespeed": "extreme-speed",
+  "ancientpower": "ancient-power",
+  "dragonbreath": "dragon-breath",
+  "dynamicpunch": "dynamic-punch",
+  "thunderpunch": "thunder-punch",
+  "self-destruct": "self-destruct",
+};
+
+/**
+ * Convert a Showdown move name to its PokeAPI slug, resolving known aliases.
+ */
+function toMoveApiName(showdownName: string): string {
+  const base = toApiName(showdownName);
+  return MOVE_ALIASES[base] ?? base;
 }
 
 // ── Export ──────────────────────────────────────────────────────────────
@@ -137,15 +165,41 @@ function exportSlot(slot: TeamSlot): string {
  * Blocks are separated by one or more blank lines.
  */
 export async function importFromShowdown(text: string): Promise<TeamSlot[]> {
-  const blocks = text
+  // Normalize: merge "orphan" move blocks back into their Pokemon block.
+  // Showdown format uses blank lines between Pokemon, but some pastes also
+  // put a blank line between the nature/stats and the moves.  We detect
+  // orphan blocks (lines that look like moves, not a new Pokemon header)
+  // and append them to the previous block.
+  const rawBlocks = text
     .split(/\n\s*\n/)
     .map((b) => b.trim())
     .filter((b) => b.length > 0);
 
+  const blocks: string[] = [];
+  for (const block of rawBlocks) {
+    const firstLine = block.split("\n")[0].trim();
+    const looksLikePokemon =
+      firstLine.includes(" @ ") ||       // has item
+      /\(.+\)/.test(firstLine) ||         // has nickname(species)
+      firstLine.includes("Ability:") ||
+      firstLine.includes("EVs:") ||
+      firstLine.includes("IVs:") ||
+      firstLine.endsWith("Nature") ||
+      firstLine.startsWith("Tera Type:");
+
+    if (!looksLikePokemon && blocks.length > 0) {
+      // Orphan block — likely move names without "- " prefix.
+      // Merge into the previous Pokemon block.
+      blocks[blocks.length - 1] += "\n" + block;
+    } else {
+      blocks.push(block);
+    }
+  }
+
   const slots: TeamSlot[] = [];
 
   for (let i = 0; i < blocks.length; i++) {
-    const slot = await parseBlock(blocks[i], i);
+    const slot = await parseBlock(blocks[i], slots.length);
     if (slot) {
       slots.push(slot);
     }
@@ -221,10 +275,28 @@ async function parseBlock(
       const natureName = line.replace("Nature", "").trim().toLowerCase();
       nature =
         NATURES.find((n) => n.name === natureName) ?? null;
-    } else if (line.startsWith("- ")) {
-      selectedMoves.push(toApiName(line.slice(2).trim()));
+    } else if (/^[-–—]\s/.test(line)) {
+      // Handle regular dash, en-dash, and em-dash prefixes
+      const moveName = toMoveApiName(line.replace(/^[-–—]\s*/, ""));
+      if (moveName) selectedMoves.push(moveName);
+    } else if (line && selectedMoves.length < 4) {
+      // Lines without a dash prefix are also treated as moves —
+      // Showdown format supports both "- Move" and bare "Move" lines
+      const moveName = toMoveApiName(line);
+      if (moveName) selectedMoves.push(moveName);
     }
   }
+
+  // Validate moves against the Pokemon's learnset for best match
+  const learnset = new Set(pokemon.moves.map((m) => m.move.name));
+  const validatedMoves = selectedMoves.map((move) => {
+    if (learnset.has(move)) return move;
+    // Try fuzzy match — some moves differ by hyphens
+    const fuzzy = [...learnset].find(
+      (lm) => lm.replace(/-/g, "") === move.replace(/-/g, "")
+    );
+    return fuzzy ?? move; // keep original if no match (still display it)
+  });
 
   const slot: TeamSlot = {
     pokemon,
@@ -234,7 +306,7 @@ async function parseBlock(
     ivs: hasIvLine ? ivs : { ...DEFAULT_IVS },
     ability,
     heldItem,
-    selectedMoves: selectedMoves.length > 0 ? selectedMoves : undefined,
+    selectedMoves: validatedMoves.length > 0 ? validatedMoves : undefined,
     teraConfig,
   };
 
