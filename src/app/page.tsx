@@ -236,7 +236,7 @@ export default function Home() {
               key={tab.id}
               id={`tab-${tab.id}`}
               role="tab"
-              aria-selected={activeTab === tab.id}
+              aria-selected={activeTab === tab.id ? "true" : "false"}
               aria-controls={`tabpanel-${tab.id}`}
               tabIndex={activeTab === tab.id ? 0 : -1}
               onClick={() => setActiveTab(tab.id)}
