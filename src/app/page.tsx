@@ -331,7 +331,7 @@ export default function Home() {
                 <PokedexTracker />
               )}
               {activeTab === "achievements" && (
-                <AchievementPanel />
+                <AchievementPanel team={team} />
               )}
             </motion.div>
           )}

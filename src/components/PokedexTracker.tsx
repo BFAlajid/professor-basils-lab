@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePokedexContext } from "@/contexts/PokedexContext";
 import HabitatDex from "./HabitatDex";
+import PokedexFilters from "./PokedexFilters";
+import { applyFilters, DEFAULT_FILTER_CONFIG, type PokedexFilterConfig, type PokemonBaseData } from "@/utils/pokedexFilterEngine";
 
 // --- Constants ---
 
@@ -103,8 +105,67 @@ export default function PokedexTracker() {
   const [selectedGen, setSelectedGen] = useState<number | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showHabitat, setShowHabitat] = useState(false);
+  const [filterConfig, setFilterConfig] = useState<PokedexFilterConfig>(DEFAULT_FILTER_CONFIG);
+  const [baseDataMap, setBaseDataMap] = useState<Map<number, PokemonBaseData>>(new Map());
+  const [isLoadingBaseData, setIsLoadingBaseData] = useState(false);
+  const baseDataLoaded = useRef(false);
 
   const completionPercent = getCompletionPercent();
+
+  // Check if advanced filters are active (anything beyond basic search/filter/gen)
+  const hasAdvancedFilters = filterConfig.typeFilter !== null ||
+    filterConfig.minBST !== null || filterConfig.maxBST !== null ||
+    filterConfig.abilitySearch !== "" ||
+    Object.values(filterConfig.statThresholds).some((v) => v && v > 0);
+
+  // Lazy-load base data from PokeAPI when filters first need it
+  useEffect(() => {
+    if (!hasAdvancedFilters || baseDataLoaded.current) return;
+    baseDataLoaded.current = true;
+    setIsLoadingBaseData(true);
+
+    // Fetch basic data for all 1025 Pokemon from PokeAPI list endpoint
+    (async () => {
+      try {
+        const map = new Map<number, PokemonBaseData>();
+        // Fetch in batches to avoid overwhelming the API
+        for (let offset = 0; offset < TOTAL_POKEMON; offset += 100) {
+          const limit = Math.min(100, TOTAL_POKEMON - offset);
+          const res = await fetch(`https://pokeapi.co/api/v2/pokemon?offset=${offset}&limit=${limit}`);
+          const data = await res.json();
+          const details = await Promise.all(
+            data.results.map(async (p: { url: string }) => {
+              const r = await fetch(p.url);
+              return r.json();
+            })
+          );
+          for (const pokemon of details) {
+            const stats = {
+              hp: pokemon.stats[0]?.base_stat ?? 0,
+              attack: pokemon.stats[1]?.base_stat ?? 0,
+              defense: pokemon.stats[2]?.base_stat ?? 0,
+              spAttack: pokemon.stats[3]?.base_stat ?? 0,
+              spDefense: pokemon.stats[4]?.base_stat ?? 0,
+              speed: pokemon.stats[5]?.base_stat ?? 0,
+            };
+            map.set(pokemon.id, {
+              id: pokemon.id,
+              name: pokemon.name,
+              types: pokemon.types.map((t: { type: { name: string } }) => t.type.name),
+              abilities: pokemon.abilities.map((a: { ability: { name: string } }) => a.ability.name),
+              stats,
+              bst: Object.values(stats).reduce((a: number, b: number) => a + b, 0),
+            });
+          }
+        }
+        setBaseDataMap(map);
+      } catch {
+        // silently fail — filters just won't work for stats/types
+      } finally {
+        setIsLoadingBaseData(false);
+      }
+    })();
+  }, [hasAdvancedFilters]);
 
   // Build known Pokemon list for HabitatDex autocomplete
   const knownPokemon = useMemo(() => {
@@ -127,9 +188,10 @@ export default function PokedexTracker() {
     return { start: 1, end: TOTAL_POKEMON };
   }, [selectedGen]);
 
-  // Filter the Pokemon list based on search, filter tab, and generation
+  // Filter the Pokemon list based on search, filter tab, generation, and advanced filters
   const filteredIds = useMemo(() => {
-    const ids: number[] = [];
+    // Step 1: basic filters (tab + search + gen)
+    const basicIds: number[] = [];
     for (let id = dexRange.start; id <= dexRange.end; id++) {
       const entry = entries[id];
 
@@ -157,10 +219,30 @@ export default function PokedexTracker() {
         if (!name.includes(q) && !idStr.includes(q)) continue;
       }
 
-      ids.push(id);
+      basicIds.push(id);
     }
-    return ids;
-  }, [dexRange, entries, activeFilter, searchQuery]);
+
+    // Step 2: apply advanced filters if base data is loaded and filters are active
+    if (hasAdvancedFilters && baseDataMap.size > 0) {
+      return applyFilters(basicIds, filterConfig, baseDataMap);
+    }
+
+    // Apply sort from filterConfig even without advanced filters
+    if (filterConfig.sortBy !== "dex" || filterConfig.sortDirection !== "asc") {
+      const sorted = [...basicIds];
+      if (filterConfig.sortBy === "name") {
+        sorted.sort((a, b) => {
+          const nameA = entries[a]?.name ?? "";
+          const nameB = entries[b]?.name ?? "";
+          return nameA.localeCompare(nameB);
+        });
+      }
+      if (filterConfig.sortDirection === "desc") sorted.reverse();
+      return sorted;
+    }
+
+    return basicIds;
+  }, [dexRange, entries, activeFilter, searchQuery, hasAdvancedFilters, baseDataMap, filterConfig]);
 
   const handleReset = useCallback(() => {
     reset();
@@ -314,6 +396,14 @@ export default function PokedexTracker() {
           ))}
         </div>
       </div>
+
+      {/* Advanced Filters */}
+      <PokedexFilters config={filterConfig} onChange={setFilterConfig} />
+      {isLoadingBaseData && (
+        <div className="text-center text-[10px] text-[#f7a838] font-pixel animate-pulse">
+          Loading Pokemon data for filters...
+        </div>
+      )}
 
       {/* Results count */}
       <div className="px-1 text-xs text-[#8b9bb4]">
