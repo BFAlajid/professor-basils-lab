@@ -44,7 +44,7 @@ const SpeedTierChart = dynamic(() => import("@/components/SpeedTierChart"), {
 const PokemonComparison = dynamic(() => import("@/components/PokemonComparison"), {
   loading: () => <SkeletonLoader label="Loading comparison..." lines={3} />,
 });
-const GBAEmulatorTab = dynamic(() => import("@/components/gba/GBAEmulatorTab"), {
+const UnifiedEmulatorTab = dynamic(() => import("@/components/emulator/UnifiedEmulatorTab"), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center py-20">
@@ -53,7 +53,7 @@ const GBAEmulatorTab = dynamic(() => import("@/components/gba/GBAEmulatorTab"), 
   ),
 });
 
-type Tab = "team" | "analysis" | "stats" | "damage" | "battle" | "wild" | "gba" | "pokedex" | "achievements";
+type Tab = "team" | "analysis" | "stats" | "damage" | "battle" | "wild" | "emulator" | "pokedex" | "achievements";
 
 const tabs: { id: Tab; label: string; short: string }[] = [
   { id: "team", label: "Team", short: "TM" },
@@ -62,7 +62,7 @@ const tabs: { id: Tab; label: string; short: string }[] = [
   { id: "damage", label: "Damage", short: "DM" },
   { id: "battle", label: "Battle", short: "BT" },
   { id: "wild", label: "Wild", short: "WD" },
-  { id: "gba", label: "GBA", short: "GBA" },
+  { id: "emulator", label: "Emulator", short: "EM" },
   { id: "pokedex", label: "Pokédex", short: "PD" },
   { id: "achievements", label: "Badges", short: "BD" },
 ];
@@ -273,13 +273,13 @@ export default function Home() {
         role="tabpanel"
         aria-labelledby={`tab-${activeTab}`}
       >
-        {/* GBA emulator stays mounted to preserve WASM state across tab switches */}
-        <div style={{ display: activeTab === "gba" ? "block" : "none" }}>
-          <GBAEmulatorTab />
+        {/* Emulator stays mounted to preserve WASM state across tab switches */}
+        <div style={{ display: activeTab === "emulator" ? "block" : "none" }}>
+          <UnifiedEmulatorTab />
         </div>
 
         <AnimatePresence mode="wait">
-          {activeTab !== "gba" && (
+          {activeTab !== "emulator" && (
             <motion.div
               key={activeTab}
               initial={{ opacity: 0, y: 10 }}

@@ -40,6 +40,7 @@ type mGBAEmulator = {
 
 export interface GBAEmulatorState {
   isReady: boolean;
+  isLoading: boolean;
   isRunning: boolean;
   isPaused: boolean;
   romName: string | null;
@@ -54,6 +55,7 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
   const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [state, setState] = useState<GBAEmulatorState>({
     isReady: false,
+    isLoading: false,
     isRunning: false,
     isPaused: false,
     romName: null,
@@ -100,6 +102,7 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
     const emu = emulatorRef.current;
     if (!emu) return;
 
+    setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
       // Store ROM in IndexedDB for later use
       const buffer = await file.arrayBuffer();
@@ -121,13 +124,14 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
 
       const success = emu.loadGame(romPath);
       if (!success) {
-        setState((s) => ({ ...s, error: "Failed to load ROM" }));
+        setState((s) => ({ ...s, isLoading: false, error: "Failed to load ROM" }));
         return;
       }
 
       const roms = await listROMs();
       setState((s) => ({
         ...s,
+        isLoading: false,
         isRunning: true,
         isPaused: false,
         romName: file.name,
@@ -139,7 +143,7 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       startAutoSave(file.name);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load ROM";
-      setState((s) => ({ ...s, error: msg }));
+      setState((s) => ({ ...s, isLoading: false, error: msg }));
     }
   }, []);
 
@@ -148,10 +152,11 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
     const emu = emulatorRef.current;
     if (!emu) return;
 
+    setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
       const buffer = await loadROMFromDB(romName);
       if (!buffer) {
-        setState((s) => ({ ...s, error: "ROM not found in storage" }));
+        setState((s) => ({ ...s, isLoading: false, error: "ROM not found in storage" }));
         return;
       }
 
@@ -169,12 +174,13 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
 
       const success = emu.loadGame(romPath);
       if (!success) {
-        setState((s) => ({ ...s, error: "Failed to load ROM" }));
+        setState((s) => ({ ...s, isLoading: false, error: "Failed to load ROM" }));
         return;
       }
 
       setState((s) => ({
         ...s,
+        isLoading: false,
         isRunning: true,
         isPaused: false,
         romName,
@@ -184,7 +190,7 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       startAutoSave(romName);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load ROM";
-      setState((s) => ({ ...s, error: msg }));
+      setState((s) => ({ ...s, isLoading: false, error: msg }));
     }
   }, []);
 

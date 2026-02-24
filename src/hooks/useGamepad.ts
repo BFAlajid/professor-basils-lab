@@ -82,15 +82,17 @@ export function useGamepad(options: UseGamepadOptions = {}): UseGamepadReturn {
   // without needing to restart the rAF loop
   const onPressRef = useRef(onButtonPress);
   const onReleaseRef = useRef(onButtonRelease);
-  onPressRef.current = onButtonPress;
-  onReleaseRef.current = onButtonRelease;
+  useEffect(() => {
+    onPressRef.current = onButtonPress;
+    onReleaseRef.current = onButtonRelease;
+  });
 
   // Track previous button states to detect edges (press/release)
   const prevButtonsRef = useRef<Record<string, boolean>>({});
   const rafIdRef = useRef<number>(0);
 
   const pollGamepads = useCallback(() => {
-    if (typeof navigator === "undefined" || !navigator.getGamepads) return;
+    if (typeof navigator === "undefined" || typeof navigator.getGamepads !== "function") return;
 
     const gamepads = navigator.getGamepads();
     let activeGamepad: Gamepad | null = null;

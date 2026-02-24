@@ -1,8 +1,7 @@
-const DB_NAME = "pokemon-gba-emulator";
+const DB_NAME = "pokemon-nds-emulator";
 const DB_VERSION = 1;
 const ROM_STORE = "roms";
 const SAVE_STORE = "saves";
-const STATE_STORE = "states";
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -12,11 +11,11 @@ function openDB(): Promise<IDBDatabase> {
         const db = req.result;
         if (!db.objectStoreNames.contains(ROM_STORE)) db.createObjectStore(ROM_STORE);
         if (!db.objectStoreNames.contains(SAVE_STORE)) db.createObjectStore(SAVE_STORE);
-        if (!db.objectStoreNames.contains(STATE_STORE)) db.createObjectStore(STATE_STORE);
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     } catch {
+      // Safari private browsing blocks IndexedDB — reject gracefully
       reject(new Error("IndexedDB unavailable (private browsing?)"));
     }
   });
@@ -95,46 +94,34 @@ function txDelete(store: string, key: string): Promise<void> {
 }
 
 // ROM storage — all functions degrade gracefully if IndexedDB is unavailable
-export async function storeROM(name: string, data: ArrayBuffer): Promise<void> {
+export async function storeNDSROM(name: string, data: ArrayBuffer): Promise<void> {
   try { await txPut(ROM_STORE, name, data); } catch { /* private browsing — skip persist */ }
 }
 
-export async function loadROM(name: string): Promise<ArrayBuffer | null> {
+export async function loadNDSROM(name: string): Promise<ArrayBuffer | null> {
   try { return await txGet<ArrayBuffer>(ROM_STORE, name); } catch { return null; }
 }
 
-export async function listROMs(): Promise<string[]> {
+export async function listNDSROMs(): Promise<string[]> {
   try { return await txKeys(ROM_STORE); } catch { return []; }
 }
 
-export async function deleteROM(name: string): Promise<void> {
+export async function deleteNDSROM(name: string): Promise<void> {
   try { await txDelete(ROM_STORE, name); } catch { /* noop */ }
 }
 
 // Save file storage
-export async function storeSave(romName: string, data: Uint8Array): Promise<void> {
+export async function storeNDSSave(romName: string, data: Uint8Array): Promise<void> {
   try { await txPut(SAVE_STORE, romName, data); } catch { /* private browsing — skip persist */ }
 }
 
-export async function loadSave(romName: string): Promise<Uint8Array | null> {
+export async function loadNDSSave(romName: string): Promise<Uint8Array | null> {
   try {
     const data = await txGet<Uint8Array>(SAVE_STORE, romName);
     return data ? new Uint8Array(data) : null;
   } catch { return null; }
 }
 
-export async function listSaves(): Promise<string[]> {
+export async function listNDSSaves(): Promise<string[]> {
   try { return await txKeys(SAVE_STORE); } catch { return []; }
-}
-
-// Save state storage
-export async function storeSaveState(key: string, data: Uint8Array): Promise<void> {
-  try { await txPut(STATE_STORE, key, data); } catch { /* private browsing — skip persist */ }
-}
-
-export async function loadSaveState(key: string): Promise<Uint8Array | null> {
-  try {
-    const data = await txGet<Uint8Array>(STATE_STORE, key);
-    return data ? new Uint8Array(data) : null;
-  } catch { return null; }
 }

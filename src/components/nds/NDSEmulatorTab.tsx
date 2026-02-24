@@ -1,56 +1,40 @@
 "use client";
 
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import { useGBAEmulator } from "@/hooks/useGBAEmulator";
+import { useNDSEmulator, NDS_KEYS } from "@/hooks/useNDSEmulator";
 import { useGamepad, type GBAButton } from "@/hooks/useGamepad";
-import { usePCBox } from "@/hooks/usePCBox";
-import EmulatorControls from "./EmulatorControls";
-import SaveImporter from "./SaveImporter";
-import type { PCBoxPokemon } from "@/types";
+import NDSEmulatorControls from "./NDSEmulatorControls";
 
-/** Map uppercase GBA button names from useGamepad to mGBA emulator button names */
-const GBA_TO_EMULATOR: Record<GBAButton, string> = {
-  A: "A",
-  B: "B",
-  L: "L",
-  R: "R",
-  START: "Start",
-  SELECT: "Select",
-  UP: "Up",
-  DOWN: "Down",
-  LEFT: "Left",
-  RIGHT: "Right",
+/** Map GBA-style button names from useGamepad to NDS key bit positions */
+const GAMEPAD_TO_NDS: Record<GBAButton, number> = {
+  A: NDS_KEYS.A,
+  B: NDS_KEYS.B,
+  L: NDS_KEYS.L,
+  R: NDS_KEYS.R,
+  START: NDS_KEYS.START,
+  SELECT: NDS_KEYS.SELECT,
+  UP: NDS_KEYS.UP,
+  DOWN: NDS_KEYS.DOWN,
+  LEFT: NDS_KEYS.LEFT,
+  RIGHT: NDS_KEYS.RIGHT,
 };
 
-interface GBAEmulatorTabProps {
+/** D-pad on-screen buttons */
+const DPAD_BUTTONS = [
+  { bit: NDS_KEYS.UP, label: "▲", x: 1, y: 0 },
+  { bit: NDS_KEYS.DOWN, label: "▼", x: 1, y: 2 },
+  { bit: NDS_KEYS.LEFT, label: "◀", x: 0, y: 1 },
+  { bit: NDS_KEYS.RIGHT, label: "▶", x: 2, y: 1 },
+] as const;
+
+interface NDSEmulatorTabProps {
   initialFile?: File | null;
 }
 
-const DPAD_BUTTONS = [
-  { name: "Up", label: "▲", x: 1, y: 0 },
-  { name: "Down", label: "▼", x: 1, y: 2 },
-  { name: "Left", label: "◀", x: 0, y: 1 },
-  { name: "Right", label: "▶", x: 2, y: 1 },
-] as const;
-
-const ACTION_BUTTONS = [
-  { name: "A", label: "A", color: "bg-[#e8433f]" },
-  { name: "B", label: "B", color: "bg-[#3a6050]" },
-] as const;
-
-export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
   const saveInputRef = useRef<HTMLInputElement>(null);
   const romInputRef = useRef<HTMLInputElement>(null);
-  const [showImporter, setShowImporter] = useState(false);
-  const [importSaveData, setImportSaveData] = useState<Uint8Array | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const { addToBox } = usePCBox();
-
-  const onImportPokemon = useCallback(
-    (pokemon: PCBoxPokemon) => addToBox(pokemon),
-    [addToBox]
-  );
 
   const {
     state,
@@ -60,38 +44,31 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
     pause,
     resume,
     reset,
-    saveStateSlot,
-    loadStateSlot,
     exportSave,
     importSave,
     setVolume,
-    setSpeed,
     buttonPress,
     buttonUnpress,
     takeScreenshot,
-  } = useGBAEmulator(canvasRef);
+    setContainerRef,
+  } = useNDSEmulator();
 
-  // Gamepad support — only active when emulator is running
+  // Gamepad support — reuse existing hook (covers A, B, L, R, START, SELECT, directions)
   const handleGamepadPress = useCallback(
-    (button: GBAButton) => {
-      buttonPress(GBA_TO_EMULATOR[button]);
-    },
+    (button: GBAButton) => buttonPress(GAMEPAD_TO_NDS[button]),
     [buttonPress]
   );
 
   const handleGamepadRelease = useCallback(
-    (button: GBAButton) => {
-      buttonUnpress(GBA_TO_EMULATOR[button]);
-    },
+    (button: GBAButton) => buttonUnpress(GAMEPAD_TO_NDS[button]),
     [buttonUnpress]
   );
 
-  const { connected: gamepadConnected, controllerName: gamepadName } =
-    useGamepad({
-      onButtonPress: handleGamepadPress,
-      onButtonRelease: handleGamepadRelease,
-      enabled: state.isRunning && !state.isPaused,
-    });
+  const { connected: gamepadConnected, controllerName: gamepadName } = useGamepad({
+    onButtonPress: handleGamepadPress,
+    onButtonRelease: handleGamepadRelease,
+    enabled: state.isRunning && !state.isPaused,
+  });
 
   // Initialize on mount
   useEffect(() => {
@@ -107,65 +84,14 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
     }
   }, [initialFile, state.isReady, state.isRunning, loadROMFile]);
 
-  // Keyboard bindings
-  const pressedKeysRef = useRef(new Set<string>());
-  useEffect(() => {
-    if (!state.isRunning || state.isPaused) return;
-
-    const keyMap: Record<string, string> = {
-      arrowup: "Up",
-      arrowdown: "Down",
-      arrowleft: "Left",
-      arrowright: "Right",
-      z: "A",
-      x: "B",
-      enter: "Start",
-      backspace: "Select",
-      a: "L",
-      s: "R",
-    };
-
-    const isTyping = () => {
-      const tag = document.activeElement?.tagName;
-      return tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable;
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isTyping()) return;
-      const btn = keyMap[e.key.toLowerCase()];
-      if (btn && !pressedKeysRef.current.has(btn)) {
-        e.preventDefault();
-        pressedKeysRef.current.add(btn);
-        buttonPress(btn);
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (isTyping()) return;
-      const btn = keyMap[e.key.toLowerCase()];
-      if (btn) {
-        e.preventDefault();
-        pressedKeysRef.current.delete(btn);
-        buttonUnpress(btn);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    return () => {
-      // Release all pressed keys on cleanup
-      pressedKeysRef.current.forEach((btn) => buttonUnpress(btn));
-      pressedKeysRef.current.clear();
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [state.isRunning, state.isPaused, buttonPress, buttonUnpress]);
+  // Keyboard + touch input: RetroArch captures keyboard events from the document
+  // and pointer/touch events from the canvas natively. No manual handlers needed.
 
   // ROM file handler
   const handleROMFile = useCallback(
     (file: File) => {
       const ext = file.name.toLowerCase().split(".").pop();
-      if (["gba", "gbc", "gb"].includes(ext ?? "")) {
+      if (ext === "nds" || ext === "ds") {
         loadROMFile(file);
       }
     },
@@ -216,48 +142,26 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
     if (!dataUrl) return;
     const a = document.createElement("a");
     a.href = dataUrl;
-    a.download = `screenshot-${Date.now()}.png`;
+    a.download = `nds-screenshot-${Date.now()}.png`;
     a.click();
   }, [takeScreenshot]);
 
-  // Import Pokemon flow
-  const handleImportPokemon = useCallback(() => {
-    const data = exportSave();
-    if (data) {
-      setImportSaveData(data);
-      setShowImporter(true);
-    }
-  }, [exportSave]);
-
-  // Touch controls
-  const handleTouchStart = useCallback(
-    (btn: string) => (e: React.TouchEvent | React.MouseEvent) => {
+  // On-screen button press/release handlers
+  const handleBtnDown = useCallback(
+    (bit: number) => (e: React.TouchEvent | React.MouseEvent) => {
       e.preventDefault();
-      buttonPress(btn);
+      buttonPress(bit);
     },
     [buttonPress]
   );
 
-  const handleTouchEnd = useCallback(
-    (btn: string) => (e: React.TouchEvent | React.MouseEvent) => {
+  const handleBtnUp = useCallback(
+    (bit: number) => (e: React.TouchEvent | React.MouseEvent) => {
       e.preventDefault();
-      buttonUnpress(btn);
+      buttonUnpress(bit);
     },
     [buttonUnpress]
   );
-
-  if (showImporter && importSaveData) {
-    return (
-      <SaveImporter
-        saveData={importSaveData}
-        onImport={onImportPokemon}
-        onClose={() => {
-          setShowImporter(false);
-          setImportSaveData(null);
-        }}
-      />
-    );
-  }
 
   return (
     <div className="space-y-4">
@@ -269,21 +173,16 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
       )}
 
       {/* Controls toolbar */}
-      <EmulatorControls
+      <NDSEmulatorControls
         isRunning={state.isRunning}
         isPaused={state.isPaused}
-        speed={state.speed}
         volume={state.volume}
         onPause={pause}
         onResume={resume}
         onReset={reset}
-        onSaveState={saveStateSlot}
-        onLoadState={loadStateSlot}
         onExportSave={handleExportSave}
         onImportSave={handleImportSave}
-        onSetSpeed={setSpeed}
         onSetVolume={setVolume}
-        onImportPokemon={handleImportPokemon}
         onScreenshot={handleScreenshot}
         gamepadConnected={gamepadConnected}
         gamepadName={gamepadName}
@@ -292,9 +191,10 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
       {/* Canvas + ROM loader */}
       <div className="flex flex-col items-center gap-4">
         <div
-          className={`relative w-full rounded-lg overflow-hidden border-4 ${
+          className={`relative rounded-lg overflow-hidden border-4 ${
             dragOver ? "border-[#e8433f]" : "border-[#3a4466]"
           } bg-black transition-colors`}
+          style={{ width: "100%", maxWidth: 512 }}
           onDragOver={(e) => {
             e.preventDefault();
             setDragOver(true);
@@ -302,27 +202,30 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
         >
-          <canvas
-            ref={canvasRef}
-            width={240}
-            height={160}
+          {/* Divider line between screens */}
+          {state.isRunning && (
+            <div
+              className="absolute left-0 right-0 h-px bg-[#3a4466] z-10 pointer-events-none"
+              style={{ top: "50%" }}
+            />
+          )}
+
+          {/* Container for the persistent singleton canvas managed by useNDSEmulator.
+              The hook appends a canvas with id="canvas" (required by Emscripten GL). */}
+          <div
+            ref={setContainerRef}
+            className="block w-full aspect-[2/3]"
             style={{
               imageRendering: "pixelated",
-              WebkitImageRendering: "crisp-edges",
             } as React.CSSProperties}
-            className="block w-full aspect-[3/2]"
           />
 
           {/* Overlay when no ROM loaded */}
           {!state.isRunning && state.isReady && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-4">
               <div className="text-center space-y-2">
-                <p className="text-[#f0f0e8] font-pixel text-sm">
-                  GBA Emulator
-                </p>
-                <p className="text-[#8b9bb4] text-xs hidden sm:block">
-                  Drag & drop a .gba ROM file here
-                </p>
+                <p className="text-[#f0f0e8] font-pixel text-sm">NDS Emulator</p>
+                <p className="text-[#8b9bb4] text-xs hidden sm:block">Drag & drop a .nds ROM file here</p>
                 <p className="text-[#8b9bb4] text-xs hidden sm:block">or</p>
                 <button
                   onClick={() => romInputRef.current?.click()}
@@ -335,9 +238,7 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
               {/* Previously loaded ROMs */}
               {state.savedROMs.length > 0 && (
                 <div className="space-y-2 text-center">
-                  <p className="text-[#8b9bb4] text-[10px] font-pixel">
-                    Previously loaded:
-                  </p>
+                  <p className="text-[#8b9bb4] text-[10px] font-pixel">Previously loaded:</p>
                   <div className="flex flex-wrap gap-2 justify-center max-w-md">
                     {state.savedROMs.map((rom) => (
                       <button
@@ -353,27 +254,22 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
               )}
 
               <p className="text-[#8b9bb4] text-[9px] italic mt-4 max-w-sm text-center">
-                Load your own legally obtained ROM files.
-                No ROMs are provided or distributed by this application.
+                Load your own legally obtained ROM files. No ROMs are provided or distributed by this application.
               </p>
             </div>
           )}
 
-          {/* Loading overlay */}
+          {/* WASM loading overlay */}
           {!state.isReady && !state.error && (
             <div className="absolute inset-0 flex items-center justify-center bg-black">
-              <p className="text-[#8b9bb4] font-pixel text-xs animate-pulse">
-                Loading emulator...
-              </p>
+              <p className="text-[#8b9bb4] font-pixel text-xs animate-pulse">Loading NDS emulator...</p>
             </div>
           )}
 
           {/* ROM loading overlay */}
           {state.isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-              <p className="text-[#8b9bb4] font-pixel text-xs animate-pulse">
-                Loading ROM...
-              </p>
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
+              <p className="text-[#f0f0e8] font-pixel text-xs animate-pulse">Loading ROM...</p>
             </div>
           )}
         </div>
@@ -388,6 +284,10 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
               {" | "}
               <span className="text-[#f0f0e8]">X</span> = B
               {" | "}
+              <span className="text-[#f0f0e8]">C</span> = X
+              {" | "}
+              <span className="text-[#f0f0e8]">V</span> = Y
+              {" | "}
               <span className="text-[#f0f0e8]">Enter</span> = Start
               {" | "}
               <span className="text-[#f0f0e8]">Backspace</span> = Select
@@ -396,6 +296,7 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
               {" | "}
               <span className="text-[#f0f0e8]">S</span> = R
             </p>
+            <p className="text-[#8b9bb4]/60">Click or tap bottom screen for touch input</p>
           </div>
         )}
 
@@ -409,17 +310,14 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
             <div className="grid grid-cols-3 grid-rows-3 w-28 h-28 gap-0.5">
               {DPAD_BUTTONS.map((btn) => (
                 <button
-                  key={btn.name}
-                  onMouseDown={handleTouchStart(btn.name)}
-                  onMouseUp={handleTouchEnd(btn.name)}
-                  onMouseLeave={handleTouchEnd(btn.name)}
-                  onTouchStart={handleTouchStart(btn.name)}
-                  onTouchEnd={handleTouchEnd(btn.name)}
+                  key={btn.bit}
+                  onMouseDown={handleBtnDown(btn.bit)}
+                  onMouseUp={handleBtnUp(btn.bit)}
+                  onMouseLeave={handleBtnUp(btn.bit)}
+                  onTouchStart={handleBtnDown(btn.bit)}
+                  onTouchEnd={handleBtnUp(btn.bit)}
                   className="bg-[#3a4466] text-[#f0f0e8] rounded text-lg active:bg-[#4a5577] select-none"
-                  style={{
-                    gridColumn: btn.x + 1,
-                    gridRow: btn.y + 1,
-                  }}
+                  style={{ gridColumn: btn.x + 1, gridRow: btn.y + 1 }}
                 >
                   {btn.label}
                 </button>
@@ -428,51 +326,88 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
 
             {/* Start / Select */}
             <div className="flex gap-2">
-              {(["Select", "Start"] as const).map((btn) => (
+              {([
+                { bit: NDS_KEYS.SELECT, label: "Select" },
+                { bit: NDS_KEYS.START, label: "Start" },
+              ] as const).map((btn) => (
                 <button
-                  key={btn}
-                  onMouseDown={handleTouchStart(btn)}
-                  onMouseUp={handleTouchEnd(btn)}
-                  onMouseLeave={handleTouchEnd(btn)}
-                  onTouchStart={handleTouchStart(btn)}
-                  onTouchEnd={handleTouchEnd(btn)}
+                  key={btn.label}
+                  onMouseDown={handleBtnDown(btn.bit)}
+                  onMouseUp={handleBtnUp(btn.bit)}
+                  onMouseLeave={handleBtnUp(btn.bit)}
+                  onTouchStart={handleBtnDown(btn.bit)}
+                  onTouchEnd={handleBtnUp(btn.bit)}
                   className="px-3 py-1.5 bg-[#3a4466] text-[#8b9bb4] rounded text-[10px] font-pixel active:bg-[#4a5577] select-none"
-                >
-                  {btn}
-                </button>
-              ))}
-            </div>
-
-            {/* A/B buttons */}
-            <div className="flex gap-3 items-center">
-              {ACTION_BUTTONS.map((btn) => (
-                <button
-                  key={btn.name}
-                  onMouseDown={handleTouchStart(btn.name)}
-                  onMouseUp={handleTouchEnd(btn.name)}
-                  onMouseLeave={handleTouchEnd(btn.name)}
-                  onTouchStart={handleTouchStart(btn.name)}
-                  onTouchEnd={handleTouchEnd(btn.name)}
-                  className={`w-12 h-12 rounded-full ${btn.color} text-[#f0f0e8] font-pixel text-sm font-bold active:brightness-125 select-none`}
                 >
                   {btn.label}
                 </button>
               ))}
             </div>
 
+            {/* A/B/X/Y diamond layout */}
+            <div className="relative w-24 h-24">
+              {/* Y (top) */}
+              <button
+                onMouseDown={handleBtnDown(NDS_KEYS.Y)}
+                onMouseUp={handleBtnUp(NDS_KEYS.Y)}
+                onMouseLeave={handleBtnUp(NDS_KEYS.Y)}
+                onTouchStart={handleBtnDown(NDS_KEYS.Y)}
+                onTouchEnd={handleBtnUp(NDS_KEYS.Y)}
+                className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-[#4a6a8a] text-[#f0f0e8] font-pixel text-sm font-bold active:brightness-125 select-none"
+              >
+                Y
+              </button>
+              {/* X (left) */}
+              <button
+                onMouseDown={handleBtnDown(NDS_KEYS.X)}
+                onMouseUp={handleBtnUp(NDS_KEYS.X)}
+                onMouseLeave={handleBtnUp(NDS_KEYS.X)}
+                onTouchStart={handleBtnDown(NDS_KEYS.X)}
+                onTouchEnd={handleBtnUp(NDS_KEYS.X)}
+                className="absolute top-1/2 left-0 -translate-y-1/2 w-10 h-10 rounded-full bg-[#6a6a3a] text-[#f0f0e8] font-pixel text-sm font-bold active:brightness-125 select-none"
+              >
+                X
+              </button>
+              {/* A (right) */}
+              <button
+                onMouseDown={handleBtnDown(NDS_KEYS.A)}
+                onMouseUp={handleBtnUp(NDS_KEYS.A)}
+                onMouseLeave={handleBtnUp(NDS_KEYS.A)}
+                onTouchStart={handleBtnDown(NDS_KEYS.A)}
+                onTouchEnd={handleBtnUp(NDS_KEYS.A)}
+                className="absolute top-1/2 right-0 -translate-y-1/2 w-10 h-10 rounded-full bg-[#e8433f] text-[#f0f0e8] font-pixel text-sm font-bold active:brightness-125 select-none"
+              >
+                A
+              </button>
+              {/* B (bottom) */}
+              <button
+                onMouseDown={handleBtnDown(NDS_KEYS.B)}
+                onMouseUp={handleBtnUp(NDS_KEYS.B)}
+                onMouseLeave={handleBtnUp(NDS_KEYS.B)}
+                onTouchStart={handleBtnDown(NDS_KEYS.B)}
+                onTouchEnd={handleBtnUp(NDS_KEYS.B)}
+                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-[#3a6050] text-[#f0f0e8] font-pixel text-sm font-bold active:brightness-125 select-none"
+              >
+                B
+              </button>
+            </div>
+
             {/* L/R bumpers */}
             <div className="flex flex-col gap-1">
-              {(["L", "R"] as const).map((btn) => (
+              {([
+                { bit: NDS_KEYS.L, label: "L" },
+                { bit: NDS_KEYS.R, label: "R" },
+              ] as const).map((btn) => (
                 <button
-                  key={btn}
-                  onMouseDown={handleTouchStart(btn)}
-                  onMouseUp={handleTouchEnd(btn)}
-                  onMouseLeave={handleTouchEnd(btn)}
-                  onTouchStart={handleTouchStart(btn)}
-                  onTouchEnd={handleTouchEnd(btn)}
+                  key={btn.label}
+                  onMouseDown={handleBtnDown(btn.bit)}
+                  onMouseUp={handleBtnUp(btn.bit)}
+                  onMouseLeave={handleBtnUp(btn.bit)}
+                  onTouchStart={handleBtnDown(btn.bit)}
+                  onTouchEnd={handleBtnUp(btn.bit)}
                   className="px-4 py-2 bg-[#3a4466] text-[#f0f0e8] rounded font-pixel text-xs active:bg-[#4a5577] select-none"
                 >
-                  {btn}
+                  {btn.label}
                 </button>
               ))}
             </div>
@@ -484,9 +419,9 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
       <input
         ref={romInputRef}
         type="file"
-        accept=".gba,.gbc,.gb"
+        accept=".nds,.ds"
         className="hidden"
-        aria-label="Load ROM file"
+        aria-label="Load NDS ROM file"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleROMFile(file);
@@ -496,9 +431,9 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
       <input
         ref={saveInputRef}
         type="file"
-        accept=".sav"
+        accept=".sav,.dsv"
         className="hidden"
-        aria-label="Load save file"
+        aria-label="Load NDS save file"
         onChange={onSaveFileSelected}
       />
     </div>
