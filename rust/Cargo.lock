@@ -56,6 +56,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "pkmn-breeding"
+version = "0.1.0"
+dependencies = [
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "pkmn-catch-rate"
 version = "0.1.0"
 dependencies = [
@@ -67,6 +74,13 @@ name = "pkmn-damage"
 version = "0.1.0"
 dependencies = [
  "pkmn-type-chart",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "pkmn-showdown"
+version = "0.1.0"
+dependencies = [
  "wasm-bindgen",
 ]
 

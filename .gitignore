@@ -40,8 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# rust build artifacts
+# Rust/WASM build artifacts
 rust/target/
+rust/*/target/
+rust/Cargo.lock
 
 # devlogs (local only)
 DEVLOG*.md

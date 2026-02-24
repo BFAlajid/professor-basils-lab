@@ -1,3 +1,3 @@
 [workspace]
-members = ["gen3-parser", "pkmn-analysis", "pkmn-battle", "pkmn-catch-rate", "pkmn-damage", "pkmn-stats", "pkmn-type-chart"]
+members = ["gen3-parser", "pkmn-analysis", "pkmn-battle", "pkmn-breeding", "pkmn-catch-rate", "pkmn-damage", "pkmn-showdown", "pkmn-stats", "pkmn-type-chart"]
 resolver = "2"
