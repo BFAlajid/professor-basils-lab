@@ -48,6 +48,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "pkmn-battle"
+version = "0.1.0"
+dependencies = [
+ "pkmn-type-chart",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "pkmn-catch-rate"
 version = "0.1.0"
 dependencies = [
