@@ -1,0 +1,3 @@
+[workspace]
+members = ["gen3-parser", "pkmn-stats", "pkmn-type-chart"]
+resolver = "2"
