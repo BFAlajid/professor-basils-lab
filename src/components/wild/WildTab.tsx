@@ -17,7 +17,14 @@ import PCBox from "./PCBox";
 import NuzlockeGraveyard from "./NuzlockeGraveyard";
 import NuzlockeGameOver from "./NuzlockeGameOver";
 import DayCare from "./DayCare";
+import WonderTrade from "./WonderTrade";
+import MysteryGift from "./MysteryGift";
+import LinkCable from "./LinkCable";
+import LinkTrade from "./LinkTrade";
+import SafariZone from "./SafariZone";
 import { useNuzlocke } from "@/hooks/useNuzlocke";
+import { useOnlineBattle } from "@/hooks/useOnlineBattle";
+import { useSafariZone } from "@/hooks/useSafariZone";
 import { LEGENDARY_IDS } from "@/data/legendaries";
 import { generateRandomIVs } from "@/utils/wildBattle";
 import { playCry } from "@/utils/cryPlayer";
@@ -54,7 +61,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
   } = usePCBox();
 
   const { markSeen, markCaught } = usePokedexContext();
-  const { incrementStat, addUniqueBall, addUniqueType, addKantoSpecies } = useAchievementsContext();
+  const { incrementStat, addUniqueBall, addUniqueType, addKantoSpecies, updateShinyChain, resetShinyChain, stats } = useAchievementsContext();
 
   const {
     state: nuzlocke,
@@ -67,8 +74,16 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
     resetNuzlocke,
   } = useNuzlocke();
 
+  const online = useOnlineBattle();
+  const safari = useSafariZone();
+
   const [showPCBox, setShowPCBox] = useState(false);
   const [showDayCare, setShowDayCare] = useState(false);
+  const [showWonderTrade, setShowWonderTrade] = useState(false);
+  const [showMysteryGift, setShowMysteryGift] = useState(false);
+  const [showLinkCable, setShowLinkCable] = useState(false);
+  const [linkView, setLinkView] = useState<"cable" | "trade">("cable");
+  const [showSafariZone, setShowSafariZone] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [showCatchFailure, setShowCatchFailure] = useState(false);
 
@@ -108,6 +123,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
       nature: NATURES[Math.floor(Math.random() * NATURES.length)],
       ivs: generateRandomIVs(),
       ability: encounter.wildPokemon.abilities?.[0]?.ability.name ?? "unknown",
+      isShiny: encounter.isShiny,
     };
 
     addToBox(pcPokemon);
@@ -142,13 +158,14 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
     }
   }, [moveToTeam, onAddToTeam]);
 
-  // Mark Pokemon as seen when encounter starts
+  // Mark Pokemon as seen and update shiny chain when encounter starts
   useEffect(() => {
     if (encounter.phase === "encounter_intro" && encounter.wildPokemon) {
       markSeen(encounter.wildPokemon.id, encounter.wildPokemon.name, "wild");
       playCry(encounter.wildPokemon);
+      updateShinyChain(encounter.wildPokemon.name);
     }
-  }, [encounter.phase, encounter.wildPokemon, markSeen]);
+  }, [encounter.phase, encounter.wildPokemon, markSeen, updateShinyChain]);
 
   // Auto transition from encounter_intro to battle
   useEffect(() => {
@@ -177,12 +194,15 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
     }
   }, [nuzlocke.enabled, encounter.phase, encounter.playerCurrentHp, team, encounter.wildPokemon, encounter.currentArea, encounter.wildLevel, addToGraveyard, checkGameOver, box.length]);
 
-  // Reset catch failure state when phase changes
+  // Reset catch failure state when phase changes; reset chain on flee
   useEffect(() => {
     if (encounter.phase !== "catching") {
       setShowCatchFailure(false);
     }
-  }, [encounter.phase]);
+    if (encounter.phase === "fled") {
+      resetShinyChain();
+    }
+  }, [encounter.phase, resetShinyChain]);
 
   // Audio triggers
   useEffect(() => {
@@ -251,7 +271,47 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                   Lead: {team[0].pokemon.name.charAt(0).toUpperCase() + team[0].pokemon.name.slice(1)}
                 </span>
                 <button
-                  onClick={() => { setShowDayCare(!showDayCare); if (!showDayCare) setShowPCBox(false); }}
+                  onClick={() => { setShowSafariZone(!showSafariZone); if (!showSafariZone) { setShowPCBox(false); setShowDayCare(false); setShowWonderTrade(false); setShowMysteryGift(false); setShowLinkCable(false); } }}
+                  className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
+                    showSafariZone
+                      ? "text-[#38b764] border-[#38b764] bg-[#38b764]/10"
+                      : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"
+                  }`}
+                >
+                  Safari
+                </button>
+                <button
+                  onClick={() => { setShowMysteryGift(!showMysteryGift); if (!showMysteryGift) { setShowPCBox(false); setShowDayCare(false); setShowWonderTrade(false); setShowLinkCable(false); setShowSafariZone(false); } }}
+                  className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
+                    showMysteryGift
+                      ? "text-[#f7a838] border-[#f7a838]"
+                      : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"
+                  }`}
+                >
+                  Gift
+                </button>
+                <button
+                  onClick={() => { setShowLinkCable(!showLinkCable); if (!showLinkCable) { setShowPCBox(false); setShowDayCare(false); setShowWonderTrade(false); setShowMysteryGift(false); setShowSafariZone(false); setLinkView("cable"); } }}
+                  className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
+                    showLinkCable
+                      ? "text-[#e8433f] border-[#e8433f]"
+                      : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"
+                  }`}
+                >
+                  Link
+                </button>
+                <button
+                  onClick={() => { setShowWonderTrade(!showWonderTrade); if (!showWonderTrade) { setShowPCBox(false); setShowDayCare(false); setShowMysteryGift(false); setShowLinkCable(false); setShowSafariZone(false); } }}
+                  className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
+                    showWonderTrade
+                      ? "text-[#3b82f6] border-[#3b82f6]"
+                      : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"
+                  }`}
+                >
+                  Trade
+                </button>
+                <button
+                  onClick={() => { setShowDayCare(!showDayCare); if (!showDayCare) { setShowPCBox(false); setShowWonderTrade(false); setShowMysteryGift(false); setShowLinkCable(false); setShowSafariZone(false); } }}
                   className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
                     showDayCare
                       ? "text-[#f7a838] border-[#f7a838]"
@@ -261,7 +321,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                   Day Care
                 </button>
                 <button
-                  onClick={() => { setShowPCBox(!showPCBox); if (!showPCBox) setShowDayCare(false); }}
+                  onClick={() => { setShowPCBox(!showPCBox); if (!showPCBox) { setShowDayCare(false); setShowWonderTrade(false); setShowMysteryGift(false); setShowLinkCable(false); setShowSafariZone(false); } }}
                   className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
                     showPCBox
                       ? "text-[#38b764] border-[#38b764]"
@@ -327,6 +387,163 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Wonder Trade panel */}
+            <AnimatePresence>
+              {showWonderTrade && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <WonderTrade
+                    box={box}
+                    onRemoveFromBox={removeFromBox}
+                    onAddToBox={addToBox}
+                    onTradeComplete={() => incrementStat("wonderTradesCompleted")}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Mystery Gift panel */}
+            <AnimatePresence>
+              {showMysteryGift && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <MysteryGift
+                    onAddToBox={addToBox}
+                    onGiftClaimed={() => incrementStat("mysteryGiftsClaimed")}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Link Cable / Link Trade panel */}
+            <AnimatePresence>
+              {showLinkCable && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  {linkView === "cable" ? (
+                    <LinkCable
+                      online={{
+                        state: online.state,
+                        createLobby: online.createLobby,
+                        joinLobby: online.joinLobby,
+                        setLinkMode: online.setLinkMode,
+                        disconnect: online.disconnect,
+                      }}
+                      onBattle={() => {
+                        // For now link battle redirects — user can switch to Battle tab
+                        setShowLinkCable(false);
+                      }}
+                      onTrade={() => setLinkView("trade")}
+                      onBack={() => {
+                        online.disconnect();
+                        setShowLinkCable(false);
+                      }}
+                    />
+                  ) : (
+                    <LinkTrade
+                      myBox={box}
+                      trade={online.state.trade}
+                      isHost={online.state.isHost}
+                      onShareBox={online.shareMyBox}
+                      onOfferPokemon={online.sendTradeOffer}
+                      onConfirm={online.confirmTrade}
+                      onReject={online.rejectTrade}
+                      onComplete={(sentPokemon) => {
+                        online.completeTrade(sentPokemon);
+                      }}
+                      onReset={online.resetTrade}
+                      onAddToBox={addToBox}
+                      onRemoveFromBox={removeFromBox}
+                      onBack={() => setLinkView("cable")}
+                    />
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Safari Zone panel */}
+            <AnimatePresence>
+              {showSafariZone && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <SafariZone
+                    state={safari.state}
+                    isSearching={safari.isSearching}
+                    onEnter={safari.enterSafari}
+                    onSearch={safari.search}
+                    onThrowBall={safari.throwBall}
+                    onThrowRock={safari.throwRock}
+                    onThrowBait={safari.throwBait}
+                    onRun={safari.run}
+                    onContinue={safari.continueAfterResult}
+                    onExit={safari.exitSafari}
+                    onReset={() => {
+                      if (safari.state.caughtPokemon.length > 0) {
+                        incrementStat("safariTripsCompleted");
+                      }
+                      safari.reset();
+                    }}
+                    onAddAllToBox={(entries) => {
+                      entries.forEach((entry) => {
+                        const pcPokemon: PCBoxPokemon = {
+                          pokemon: entry.pokemon,
+                          caughtWith: "poke-ball",
+                          caughtInArea: `Safari Zone (${safari.state.region})`,
+                          caughtDate: new Date().toISOString(),
+                          level: entry.level,
+                          nature: NATURES[Math.floor(Math.random() * NATURES.length)],
+                          ivs: generateRandomIVs(),
+                          ability: entry.pokemon.abilities?.[0]?.ability.name ?? "unknown",
+                          isShiny: entry.isShiny,
+                        };
+                        addToBox(pcPokemon);
+                        markCaught(entry.pokemon.id, entry.pokemon.name, "safari");
+                        incrementStat("totalCaught");
+                        incrementStat("safariPokemonCaught");
+                        if (entry.isShiny) incrementStat("shinyCaught");
+                        entry.pokemon.types.forEach((t: { type: { name: string } }) => addUniqueType(t.type.name));
+                        if (entry.pokemon.id <= 151) addKantoSpecies(entry.pokemon.id);
+                      });
+                      incrementStat("safariTripsCompleted");
+                    }}
+                    onClose={() => {
+                      if (safari.state.phase !== "entrance") {
+                        safari.reset();
+                      }
+                      setShowSafariZone(false);
+                    }}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Shiny Chain indicator */}
+            {stats.shinyChainCount > 0 && (
+              <div className="rounded-lg border border-[#f7a838]/30 bg-[#f7a838]/10 p-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px]">&#10024;</span>
+                  <span className="text-[10px] font-pixel text-[#f7a838]">
+                    Shiny Chain: {stats.shinyChainCount}x {stats.shinyChainSpecies}
+                  </span>
+                </div>
+                <span className="text-[9px] text-[#8b9bb4]">
+                  Odds: 1/{Math.max(512, Math.floor(4096 / (1 + stats.shinyChainCount * 0.5)))}
+                </span>
+              </div>
+            )}
 
             {/* Nuzlocke graveyard */}
             {nuzlocke.enabled && nuzlocke.graveyard.length > 0 && (

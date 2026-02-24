@@ -38,6 +38,12 @@ const PokedexTracker = dynamic(() => import("@/components/PokedexTracker"), {
 const AchievementPanel = dynamic(() => import("@/components/AchievementPanel"), {
   loading: () => <SkeletonLoader label="Loading achievements..." lines={3} />,
 });
+const SpeedTierChart = dynamic(() => import("@/components/SpeedTierChart"), {
+  loading: () => <SkeletonLoader label="Loading speed chart..." lines={2} />,
+});
+const PokemonComparison = dynamic(() => import("@/components/PokemonComparison"), {
+  loading: () => <SkeletonLoader label="Loading comparison..." lines={3} />,
+});
 const GBAEmulatorTab = dynamic(() => import("@/components/gba/GBAEmulatorTab"), {
   ssr: false,
   loading: () => (
@@ -307,6 +313,8 @@ export default function Home() {
               {activeTab === "stats" && (
                 <div className="space-y-6">
                   <StatRadar team={team} />
+                  <SpeedTierChart team={team} />
+                  <PokemonComparison team={team} />
                   <TeamSummary team={teamPokemon} />
                 </div>
               )}

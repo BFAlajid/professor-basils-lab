@@ -46,9 +46,14 @@ export function initBattlePokemon(slot: TeamSlot, megaFormeCache?: Map<string, A
     megaFormeData = megaFormeCache.get(slot.pokemon.name) ?? null;
   }
 
+  // HP carry-over for Battle Facility (Elite Four / Battle Tower)
+  const startHp = slot.startingHpPercent != null
+    ? Math.max(1, Math.floor(calc.hp * slot.startingHpPercent))
+    : calc.hp;
+
   return {
     slot,
-    currentHp: calc.hp,
+    currentHp: startHp,
     maxHp: calc.hp,
     status: null,
     statStages: initStatStages(),

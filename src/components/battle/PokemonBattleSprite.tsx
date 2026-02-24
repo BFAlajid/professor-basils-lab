@@ -6,16 +6,20 @@ import { BattlePokemon } from "@/types";
 import HealthBar from "./HealthBar";
 import StatusIcon from "./StatusIcon";
 
+import { SpriteAnimationState } from "@/types";
+
 interface PokemonBattleSpriteProps {
   pokemon: BattlePokemon;
   side: "left" | "right";
   label: string;
+  animationState?: SpriteAnimationState;
 }
 
 export default function PokemonBattleSprite({
   pokemon,
   side,
   label,
+  animationState = "idle",
 }: PokemonBattleSpriteProps) {
   const sprite =
     pokemon.slot.pokemon.sprites.other?.["official-artwork"]?.front_default ??
@@ -37,8 +41,28 @@ export default function PokemonBattleSprite({
       {sprite && (
         <motion.div
           className="relative"
-          animate={pokemon.isFainted ? { rotate: 90, opacity: 0.3 } : pokemon.isDynamaxed ? { rotate: 0, opacity: 1, scale: 1.3 } : { rotate: 0, opacity: 1 }}
-          transition={{ duration: 0.5 }}
+          animate={
+            pokemon.isFainted
+              ? { rotate: 90, opacity: 0.3, y: 20, scale: 1 }
+              : animationState === "attacking"
+              ? { x: side === "left" ? 20 : -20, scale: 1.05, rotate: 0, opacity: 1 }
+              : animationState === "hit"
+              ? { x: [0, -4, 4, -3, 3, 0], opacity: 1, rotate: 0, scale: 1 }
+              : animationState === "fainting"
+              ? { y: 50, opacity: 0, rotate: 0, scale: 1 }
+              : animationState === "entering"
+              ? { scale: [0, 1.1, 1], opacity: 1, rotate: 0 }
+              : pokemon.isDynamaxed
+              ? { rotate: 0, opacity: 1, scale: 1.3, x: 0, y: 0 }
+              : { rotate: 0, opacity: 1, scale: 1, x: 0, y: 0 }
+          }
+          transition={
+            animationState === "hit"
+              ? { duration: 0.3 }
+              : animationState === "entering"
+              ? { duration: 0.5, type: "spring" }
+              : { duration: 0.4 }
+          }
           style={{ transform: side === "right" ? "scaleX(-1)" : undefined }}
         >
           <Image

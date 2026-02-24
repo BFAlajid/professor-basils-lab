@@ -6,6 +6,7 @@ import { useBattle } from "@/hooks/useBattle";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { useTournament } from "@/hooks/useTournament";
 import { useOnlineBattle } from "@/hooks/useOnlineBattle";
+import { useBattleFacility } from "@/hooks/useBattleFacility";
 import BattleSetup from "./BattleSetup";
 import BattleArena from "./BattleArena";
 import BattleResult from "./BattleResult";
@@ -13,6 +14,7 @@ import ReplayViewer from "./ReplayViewer";
 import ReplayList from "./ReplayList";
 import TournamentBracket from "./TournamentBracket";
 import OnlineLobby from "./OnlineLobby";
+import BattleFacilityView from "./BattleFacilityView";
 
 interface BattleTabProps {
   team: TeamSlot[];
@@ -32,17 +34,24 @@ export default function BattleTab({ team }: BattleTabProps) {
     saveReplay,
   } = useBattle();
 
-  const { recordBattleWin, recordBattleLoss, incrementStat } = useAchievementsContext();
+  const { recordBattleWin, recordBattleLoss, incrementStat, setBattleTowerStreak } = useAchievementsContext();
   const tournament = useTournament();
   const online = useOnlineBattle();
+  const facility = useBattleFacility();
   const hasRecorded = useRef(false);
   const prevLogLen = useRef(0);
+  const facilityRecorded = useRef(false);
   const [viewingReplay, setViewingReplay] = useState<BattleReplay | null>(null);
   const [replaySaved, setReplaySaved] = useState(false);
-  const [activeBattleMode, setActiveBattleMode] = useState<"ai" | "pvp" | "tournament" | "online" | null>(null);
+  const [activeBattleMode, setActiveBattleMode] = useState<"ai" | "pvp" | "tournament" | "online" | "facility" | null>(null);
 
-  // Record battle result exactly once when battle ends
+  // Determine which battle state to use
+  const isFacilityMode = activeBattleMode === "facility";
+  const activeBattleState = isFacilityMode ? facility.battle.state : state;
+
+  // Record battle result exactly once when battle ends (non-facility)
   useEffect(() => {
+    if (isFacilityMode) return;
     if (state.phase === "ended" && !hasRecorded.current) {
       hasRecorded.current = true;
       if (state.winner === "player1") {
@@ -61,22 +70,54 @@ export default function BattleTab({ team }: BattleTabProps) {
       hasRecorded.current = false;
       setReplaySaved(false);
     }
-  }, [state.phase, state.winner, recordBattleWin, recordBattleLoss, activeBattleMode, tournament]);
+  }, [state.phase, state.winner, recordBattleWin, recordBattleLoss, activeBattleMode, tournament, isFacilityMode]);
 
-  // Track critical hits and super effective hits from battle log
+  // Record facility battle result when facility battle ends
   useEffect(() => {
-    if (state.log.length > prevLogLen.current) {
-      const newEntries = state.log.slice(prevLogLen.current);
+    if (!isFacilityMode) return;
+    const fBattle = facility.battle.state;
+    if (fBattle.phase === "ended" && !facilityRecorded.current) {
+      facilityRecorded.current = true;
+      const winner = fBattle.winner;
+      if (winner === "player1") {
+        recordBattleWin();
+      } else {
+        recordBattleLoss();
+      }
+      facility.handleBattleEnd(winner ?? "player2");
+
+      // Track E4 / Battle Tower achievements
+      if (winner === "player1") {
+        if (facility.facilityState.mode === "elite_four") {
+          const newWins = facility.facilityState.wins + 1;
+          if (newWins >= facility.facilityState.totalOpponents) {
+            incrementStat("eliteFourCleared", 1);
+          }
+        } else if (facility.facilityState.mode === "battle_tower") {
+          const newStreak = facility.facilityState.streak + 1;
+          setBattleTowerStreak(newStreak);
+        }
+      }
+    }
+    if (fBattle.phase === "setup") {
+      facilityRecorded.current = false;
+    }
+  }, [facility.battle.state.phase, facility.battle.state.winner, isFacilityMode, facility, recordBattleWin, recordBattleLoss, incrementStat]);
+
+  // Track critical hits and super effective hits from active battle log
+  useEffect(() => {
+    if (activeBattleState.log.length > prevLogLen.current) {
+      const newEntries = activeBattleState.log.slice(prevLogLen.current);
       const crits = newEntries.filter((e) => e.kind === "critical").length;
       const supers = newEntries.filter((e) => e.message === "It's super effective!").length;
       if (crits > 0) incrementStat("criticalHits", crits);
       if (supers > 0) incrementStat("superEffectiveHits", supers);
-      prevLogLen.current = state.log.length;
+      prevLogLen.current = activeBattleState.log.length;
     }
-    if (state.phase === "setup") {
+    if (activeBattleState.phase === "setup") {
       prevLogLen.current = 0;
     }
-  }, [state.log, state.phase, incrementStat]);
+  }, [activeBattleState.log, activeBattleState.phase, incrementStat]);
 
   const handleSaveReplay = useCallback(() => {
     const replay = saveReplay(state);
@@ -129,6 +170,12 @@ export default function BattleTab({ team }: BattleTabProps) {
     setActiveBattleMode(null);
   }, [resetBattle]);
 
+  // Facility mode handlers
+  const handleFacilityReset = useCallback(() => {
+    facility.resetFacility();
+    setActiveBattleMode(null);
+  }, [facility]);
+
   // If viewing a replay, show the replay viewer
   if (viewingReplay) {
     return <ReplayViewer replay={viewingReplay} onClose={handleCloseReplay} />;
@@ -142,6 +189,64 @@ export default function BattleTab({ team }: BattleTabProps) {
     );
   }
 
+  // ═══ FACILITY MODE ═══
+  if (isFacilityMode) {
+    const fBattle = facility.battle.state;
+    const fPhase = facility.facilityState.phase;
+
+    // During an active facility battle, show BattleArena
+    if (fPhase === "battling" && fBattle.phase !== "setup" && fBattle.phase !== "ended") {
+      return (
+        <BattleArena
+          state={fBattle}
+          onSubmitAction={facility.battle.submitPlayerAction}
+          onForceSwitch={facility.battle.forceSwitch}
+          onAutoAISwitch={facility.battle.autoAISwitch}
+          onSubmitPvPActions={facility.battle.submitActions}
+        />
+      );
+    }
+
+    // Facility battle ended — show result briefly then route to facility view
+    if (fPhase === "battling" && fBattle.phase === "ended") {
+      return (
+        <BattleResult
+          state={fBattle}
+          onPlayAgain={() => {
+            facility.battle.resetBattle();
+          }}
+          onReset={handleFacilityReset}
+        />
+      );
+    }
+
+    // All other facility phases (lobby, pre_battle, between_battles, victory, defeat)
+    return (
+      <BattleFacilityView
+        facilityState={facility.facilityState}
+        playerTeam={team}
+        isLoading={facility.isLoadingOpponent}
+        onStartEliteFour={() => {
+          facility.startEliteFour();
+        }}
+        onStartBattleTower={() => {
+          facility.startBattleTower();
+        }}
+        onBeginBattle={() => {
+          facility.beginCurrentBattle(team);
+        }}
+        onNextBattle={() => {
+          facility.nextBattle();
+        }}
+        onHeal={() => {
+          facility.healTeam();
+        }}
+        onReset={handleFacilityReset}
+      />
+    );
+  }
+
+  // ═══ STANDARD MODES ═══
   // Setup phase — route to appropriate sub-view
   if (state.phase === "setup") {
     // Tournament mode active
@@ -193,7 +298,7 @@ export default function BattleTab({ team }: BattleTabProps) {
           onStart={handleStartBattle}
           onGenerateOpponent={generateOpponent}
           isLoadingOpponent={isLoadingOpponent}
-          onModeChange={(mode) => setActiveBattleMode(mode)}
+          onModeChange={(mode) => setActiveBattleMode(mode as typeof activeBattleMode)}
         />
         <ReplayList onViewReplay={handleViewReplay} />
       </div>

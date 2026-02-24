@@ -24,6 +24,18 @@ export interface PlayerStats {
   showdownExports: number;
   tournamentsWon: number;
   flawlessTournaments: number;
+  // Batch 1: Wonder Trade, Mystery Gift, Shiny Tracker
+  wonderTradesCompleted: number;
+  mysteryGiftsClaimed: number;
+  shinyChainCount: number;
+  shinyChainSpecies: string;
+  shinyChainBest: number;
+  // Batch 2: Elite Four + Battle Tower
+  eliteFourCleared: number;
+  battleTowerBestStreak: number;
+  // Batch 3: Safari Zone
+  safariPokemonCaught: number;
+  safariTripsCompleted: number;
 }
 
 export type AchievementCategory =
@@ -66,6 +78,15 @@ const DEFAULT_STATS: PlayerStats = {
   showdownExports: 0,
   tournamentsWon: 0,
   flawlessTournaments: 0,
+  wonderTradesCompleted: 0,
+  mysteryGiftsClaimed: 0,
+  shinyChainCount: 0,
+  shinyChainSpecies: "",
+  shinyChainBest: 0,
+  eliteFourCleared: 0,
+  battleTowerBestStreak: 0,
+  safariPokemonCaught: 0,
+  safariTripsCompleted: 0,
 };
 
 // --- Achievement Definitions ---
@@ -291,6 +312,112 @@ function createAchievementDefinitions(): Omit<Achievement, "unlocked" | "unlocke
       category: "battle",
       condition: (stats) => stats.flawlessTournaments >= 1,
     },
+
+    // Wonder Trade
+    {
+      id: "wonder_trader",
+      name: "Wonder Trader",
+      description: "Complete 10 Wonder Trades",
+      icon: "\u{1F500}",
+      category: "special",
+      condition: (stats) => stats.wonderTradesCompleted >= 10,
+    },
+    {
+      id: "trade_addict",
+      name: "Trade Addict",
+      description: "Complete 50 Wonder Trades",
+      icon: "\u{1F4E6}",
+      category: "special",
+      condition: (stats) => stats.wonderTradesCompleted >= 50,
+    },
+
+    // Mystery Gift
+    {
+      id: "gift_collector",
+      name: "Gift Collector",
+      description: "Claim 7 Mystery Gifts",
+      icon: "\u{1F381}",
+      category: "special",
+      condition: (stats) => stats.mysteryGiftsClaimed >= 7,
+    },
+    {
+      id: "daily_devotee",
+      name: "Daily Devotee",
+      description: "Claim 30 Mystery Gifts",
+      icon: "\u{1F4C5}",
+      category: "special",
+      condition: (stats) => stats.mysteryGiftsClaimed >= 30,
+    },
+
+    // Elite Four + Battle Tower
+    {
+      id: "elite_four_champion",
+      name: "Elite Four Champion",
+      description: "Defeat the Elite Four and Champion",
+      icon: "\u{1F3C6}",
+      category: "battle",
+      condition: (stats) => stats.eliteFourCleared >= 1,
+    },
+    {
+      id: "tower_tycoon",
+      name: "Tower Tycoon",
+      description: "Achieve a 21-win Battle Tower streak",
+      icon: "\u{1F3E2}",
+      category: "battle",
+      condition: (stats) => stats.battleTowerBestStreak >= 21,
+    },
+    {
+      id: "tower_legend",
+      name: "Tower Legend",
+      description: "Achieve a 50-win Battle Tower streak",
+      icon: "\u{1F30C}",
+      category: "battle",
+      condition: (stats) => stats.battleTowerBestStreak >= 50,
+    },
+
+    // Shiny Chain
+    {
+      id: "chain_starter",
+      name: "Chain Starter",
+      description: "Build a shiny chain of 10",
+      icon: "\u{1F517}",
+      category: "catching",
+      condition: (stats) => stats.shinyChainBest >= 10,
+    },
+    {
+      id: "chain_master",
+      name: "Chain Master",
+      description: "Build a shiny chain of 40",
+      icon: "\u2728",
+      category: "catching",
+      condition: (stats) => stats.shinyChainBest >= 40,
+    },
+
+    // Safari Zone
+    {
+      id: "safari_novice",
+      name: "Safari Novice",
+      description: "Catch 5 Pokemon in the Safari Zone",
+      icon: "\u{1F333}",
+      category: "catching",
+      condition: (stats) => stats.safariPokemonCaught >= 5,
+    },
+    {
+      id: "safari_expert",
+      name: "Safari Expert",
+      description: "Catch 20 Pokemon in the Safari Zone",
+      icon: "\u{1F3DE}\uFE0F",
+      category: "catching",
+      condition: (stats) => stats.safariPokemonCaught >= 20,
+    },
+    {
+      id: "safari_veteran",
+      name: "Safari Veteran",
+      description: "Complete 5 Safari Zone trips",
+      icon: "\u{1F9ED}",
+      category: "exploration",
+      condition: (stats) => stats.safariTripsCompleted >= 5,
+    },
   ];
 }
 
@@ -332,6 +459,9 @@ type StatsAction =
   | { type: "ADD_KANTO_SPECIES"; speciesId: number }
   | { type: "RECORD_BATTLE_WIN" }
   | { type: "RECORD_BATTLE_LOSS" }
+  | { type: "UPDATE_SHINY_CHAIN"; species: string }
+  | { type: "RESET_SHINY_CHAIN" }
+  | { type: "SET_BATTLE_TOWER_STREAK"; streak: number }
   | { type: "SET_STATS"; stats: PlayerStats };
 
 function statsReducer(state: PlayerStats, action: StatsAction): PlayerStats {
@@ -385,6 +515,32 @@ function statsReducer(state: PlayerStats, action: StatsAction): PlayerStats {
         totalBattlesPlayed: state.totalBattlesPlayed + 1,
         winStreak: 0,
       };
+    }
+    case "UPDATE_SHINY_CHAIN": {
+      if (state.shinyChainSpecies === action.species) {
+        const newCount = state.shinyChainCount + 1;
+        return {
+          ...state,
+          shinyChainCount: newCount,
+          shinyChainBest: Math.max(state.shinyChainBest, newCount),
+        };
+      }
+      return {
+        ...state,
+        shinyChainCount: 1,
+        shinyChainSpecies: action.species,
+      };
+    }
+    case "RESET_SHINY_CHAIN": {
+      return {
+        ...state,
+        shinyChainCount: 0,
+        shinyChainSpecies: "",
+      };
+    }
+    case "SET_BATTLE_TOWER_STREAK": {
+      if (action.streak <= state.battleTowerBestStreak) return state;
+      return { ...state, battleTowerBestStreak: action.streak };
     }
     case "SET_STATS":
       return action.stats;
@@ -508,6 +664,18 @@ export function useAchievements() {
     dispatchStats({ type: "RECORD_BATTLE_LOSS" });
   }, []);
 
+  const updateShinyChain = useCallback((species: string) => {
+    dispatchStats({ type: "UPDATE_SHINY_CHAIN", species });
+  }, []);
+
+  const resetShinyChain = useCallback(() => {
+    dispatchStats({ type: "RESET_SHINY_CHAIN" });
+  }, []);
+
+  const setBattleTowerStreak = useCallback((streak: number) => {
+    dispatchStats({ type: "SET_BATTLE_TOWER_STREAK", streak });
+  }, []);
+
   const getUnlockedCount = useCallback((): number => {
     return Object.keys(unlockedMap).length;
   }, [unlockedMap]);
@@ -532,6 +700,9 @@ export function useAchievements() {
     addKantoSpecies,
     recordBattleWin,
     recordBattleLoss,
+    updateShinyChain,
+    resetShinyChain,
+    setBattleTowerStreak,
     checkAchievements,
     getUnlockedCount,
     getTotalCount,

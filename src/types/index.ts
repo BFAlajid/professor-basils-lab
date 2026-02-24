@@ -95,6 +95,7 @@ export interface TeamSlot {
   selectedMoves?: string[];
   teraConfig?: TeraConfig;
   formeOverride?: string | null;
+  startingHpPercent?: number;
 }
 
 export interface Move {
@@ -244,6 +245,25 @@ export interface BattleLogEntry {
   kind: "damage" | "status" | "switch" | "faint" | "info" | "critical" | "miss" | "heal" | "mega" | "tera" | "dynamax" | "weather" | "terrain";
 }
 
+// ── Move Animations ────────────────────────────────────────────────────
+
+export type SpriteAnimationState = "idle" | "attacking" | "hit" | "fainting" | "entering";
+
+export interface MoveAnimationConfig {
+  damageClass: "physical" | "special" | "status";
+  typeColor: string;
+  duration: number; // ms
+}
+
+export interface ActiveAnimation {
+  id: string;
+  config: MoveAnimationConfig;
+  attacker: "left" | "right";
+  isCritical: boolean;
+  isSuperEffective: boolean;
+  startTime: number;
+}
+
 export interface BattleMoveData {
   name: string;
   power: number | null;
@@ -390,6 +410,7 @@ export interface PCBoxPokemon {
   nature: Nature;
   ivs: IVSpread;
   ability: string;
+  isShiny?: boolean;
 }
 
 export type WildEncounterAction =
@@ -498,11 +519,31 @@ export type TournamentAction =
 // --- Online Multiplayer Types ---
 
 export type OnlinePhase = "idle" | "creating_lobby" | "waiting" | "joining" | "connected" | "team_preview" | "battling" | "disconnected";
+export type LinkMode = "idle" | "battle" | "trade";
 
 export interface OnlineMessage {
-  type: "TEAM_SUBMIT" | "ACTION" | "FORCE_SWITCH_ACTION" | "READY" | "PING" | "PONG" | "DISCONNECT";
+  type: "TEAM_SUBMIT" | "ACTION" | "FORCE_SWITCH_ACTION" | "READY" | "PING" | "PONG" | "DISCONNECT"
+    | "LINK_MODE" | "PC_BOX_SHARE" | "TRADE_OFFER" | "TRADE_ACCEPT" | "TRADE_REJECT" | "TRADE_CONFIRM" | "TRADE_COMPLETE";
   payload: unknown;
   timestamp: number;
+}
+
+export interface TradeOffer {
+  fromHost: boolean;
+  pokemonIndex: number;
+  pokemon: PCBoxPokemon;
+}
+
+export interface LinkTradeState {
+  mode: LinkMode;
+  myBoxShared: boolean;
+  opponentBox: PCBoxPokemon[];
+  myOffer: TradeOffer | null;
+  opponentOffer: TradeOffer | null;
+  myConfirmed: boolean;
+  opponentConfirmed: boolean;
+  tradeComplete: boolean;
+  lastTradedReceived: PCBoxPokemon | null;
 }
 
 export interface OnlineState {
@@ -512,4 +553,130 @@ export interface OnlineState {
   opponentTeam: TeamSlot[] | null;
   lastPing: number;
   error: string | null;
+  trade: LinkTradeState;
+}
+
+// --- Wonder Trade Types ---
+
+export interface WonderTradeRecord {
+  id: string;
+  offeredPokemon: PCBoxPokemon;
+  receivedPokemon: PCBoxPokemon;
+  timestamp: string;
+}
+
+export type WonderTradePhase = "idle" | "selecting" | "searching" | "result";
+
+export interface WonderTradeState {
+  phase: WonderTradePhase;
+  selectedBoxIndex: number | null;
+  receivedPokemon: PCBoxPokemon | null;
+  history: WonderTradeRecord[];
+}
+
+export type WonderTradeAction =
+  | { type: "SELECT_POKEMON"; index: number }
+  | { type: "START_TRADE" }
+  | { type: "TRADE_COMPLETE"; received: PCBoxPokemon; record: WonderTradeRecord }
+  | { type: "RESET" }
+  | { type: "LOAD"; history: WonderTradeRecord[] };
+
+// --- Mystery Gift Types ---
+
+export interface MysteryGiftDefinition {
+  pokemonId: number;
+  level: number;
+  nature?: string;
+  perfectIvStats?: (keyof IVSpread)[];
+  specialMoves?: string[];
+  isShiny?: boolean;
+  ballType: BallType;
+  ribbonText?: string;
+}
+
+export interface MysteryGiftState {
+  claimedDates: string[];
+  totalClaimed: number;
+}
+
+export type MysteryGiftAction =
+  | { type: "CLAIM"; date: string }
+  | { type: "LOAD"; claimedDates: string[]; totalClaimed: number };
+
+// --- Battle Facility Types (Elite Four + Battle Tower) ---
+
+export interface EliteFourMember {
+  name: string;
+  title: string;
+  specialty: TypeName | "mixed";
+  quote: string;
+  team: {
+    pokemonId: number;
+    moves: string[];
+    ability?: string;
+    nature?: string;
+    evSpread?: EVSpread;
+    heldItem?: string;
+  }[];
+}
+
+export type BattleFacilityMode = "elite_four" | "battle_tower";
+export type BattleFacilityPhase =
+  | "lobby"
+  | "pre_battle"
+  | "battling"
+  | "between_battles"
+  | "victory"
+  | "defeat";
+
+export interface BattleFacilityState {
+  mode: BattleFacilityMode;
+  phase: BattleFacilityPhase;
+  currentOpponentIndex: number;
+  totalOpponents: number;
+  wins: number;
+  streak: number;
+  bestStreak: number;
+  teamHpPercents: number[];
+  teamStatuses: (StatusCondition)[];
+  opponents: EliteFourMember[];
+}
+
+// ── Safari Zone ───────────────────────────────────────────────────────
+
+export type SafariPhase =
+  | "entrance"
+  | "walking"
+  | "encounter"
+  | "throwing"
+  | "catch_result"
+  | "summary";
+
+export type SafariAction = "ball" | "rock" | "bait" | "run";
+
+export interface SafariPokemonState {
+  pokemon: Pokemon;
+  level: number;
+  catchModifier: number;
+  fleeModifier: number;
+  isShiny: boolean;
+}
+
+export interface SafariCaughtEntry {
+  pokemon: Pokemon;
+  level: number;
+  isShiny: boolean;
+}
+
+export interface SafariZoneState {
+  phase: SafariPhase;
+  ballsRemaining: number;
+  stepsRemaining: number;
+  currentPokemon: SafariPokemonState | null;
+  caughtPokemon: SafariCaughtEntry[];
+  lastAction: SafariAction | null;
+  lastResult: string | null;
+  isCaught: boolean;
+  isFled: boolean;
+  region: string;
 }
