@@ -1,74 +1,126 @@
 # Professor Basil's Lab
 
-A Pokemon team builder that got out of hand. What started as a team builder turned into a battle simulator, then a wild encounter system, then I embedded an actual GBA emulator, then I wrote a binary parser to rip Pokemon out of Gen 3 save files. It's all client-side, no backend.
+A full-stack-in-the-browser Pokemon platform. Team builder, battle simulator, wild encounters, GBA/NDS emulators, binary save parser, and more -- all running client-side with zero backend.
 
-**Stack:** Next.js 16, React 19, TypeScript, Tailwind v4, PokeAPI
-
-**[Live Demo](#)** (coming soon)
+**Live:** [professor-basils-lab.vercel.app](https://professor-basils-lab.vercel.app)
 
 ---
 
-## What's in here
+## Features
 
-**Team Builder** — Search the full National Pokedex (Gens 1–9, 1025 Pokemon), customize EVs/IVs/natures/abilities/items/moves/Tera types, swap between alternate formes. Import and export teams in Pokemon Showdown format. Share teams via URL.
+**Team Builder** -- Search and customize all 1,025 Pokemon. Natures, EVs, IVs, abilities, held items, moves, Tera types. Share via URL or Showdown import/export.
 
-**Battle Simulator** — Turn-based fights against an AI or a friend (local PvP). Full Gen V+ damage formula with STAB, crits, stat stages, status conditions, weather, terrain, held items. Pick one generational mechanic per battle: Mega Evolution, Terastallization, or Dynamax. The AI isn't brilliant but it'll punish bad type matchups.
+**Battle Simulator** -- Turn-based engine with damage formula, status conditions, stat stages, weather, terrain, 50+ held items, and AI opponent. Supports Mega Evolution, Terastallization, and Dynamax. Battle replays with playback controls and timeline scrubbing.
 
-**Wild Encounters** — Pick a region (Kanto/Johto/Hoenn/Sinnoh), pick an area, walk through grass. The catch system uses the real Gen V+ formula with all 14 ball types and their context-sensitive modifiers. Shiny odds are 1/4096. Caught Pokemon go into a PC box.
+**Wild Encounters** -- Walk through Kanto, Johto, Hoenn, and Sinnoh. Gen V+ catch formula, 14 ball types, shiny odds (1/4096), fishing, repels, day/night cycle, weather. Caught Pokemon go into a PC box system.
 
-**GBA Emulator** — Embedded mGBA compiled to WebAssembly. Drop in a GBA, GBC, or GB ROM you legally own and play it in the browser. Save states, speed controls, auto-save to IndexedDB. The "Import Pokemon" button reads the emulator's save data, decrypts the Gen 3 binary format, and pulls your party/box Pokemon into the app's PC box alongside anything caught in-app.
+**GBA Emulator** -- Embedded mGBA (compiled to WASM) running real GBA ROMs in the browser. Save states, ROM persistence via IndexedDB, save export/import, and on-screen touch controls for mobile.
 
-**Analysis Tools** — Type coverage matrix, stat radar chart, damage calculator, and a team weakness panel that scores your defensive holes and suggests types to patch them.
+**NDS Emulator** -- RetroArch with melonDS WASM core for Nintendo DS games. Dual-screen rendering, touch input on bottom screen, keyboard and gamepad support.
 
-**Pokedex & Achievements** — Tracks what you've seen/caught across all sources. 23 achievements for various milestones.
+**Binary Save Parser** -- Reads Gen 3 save files (Ruby/Sapphire/Emerald/FireRed/LeafGreen). XOR decryption, substructure permutation, IV bit extraction. Implemented in both TypeScript and Rust/WASM with automatic fallback.
 
----
+**Coverage Analysis** -- Defensive/offensive team analysis, type weakness charts, suggested types, and threat scoring.
 
-## The interesting engineering
+**Damage Calculator** -- Full damage formula with STAB, type effectiveness, abilities, held items, weather, and terrain modifiers.
 
-Most of this is standard React/TypeScript. The parts that aren't:
+**Pokedex** -- Track 1,025 Pokemon across all sources (wild catches, battle wins, GBA imports). Habitat filters, fossil revival, and type quiz minigame.
 
-**The GBA emulator** runs mGBA's C++ core compiled to WASM. Getting it working in Next.js was a pain — Turbopack hangs forever if it tries to bundle the WASM binary, so I serve it from `public/` and load it at runtime with a dynamic import that bypasses static analysis. The app also needs `SharedArrayBuffer` for threading, which requires COOP/COEP headers.
+**PokeMart** -- In-game shop for balls, potions, and battle items using earned currency.
 
-**The save file parser** reads raw Gen 3 save data (Ruby/Sapphire/Emerald). Pokemon data in these saves is XOR-encrypted with a key derived from the personality value and trainer ID. The 48-byte data block is split into 4 sub-structures that get shuffled into one of 24 permutations based on `PID % 24`. IVs are bit-packed into a single 32-bit integer (5 bits per stat). I had to implement all of this from the binary spec to extract species, moves, EVs, IVs, nature, and shiny status.
+**Move Tutor & EV Training** -- Teach moves and train EVs for caught Pokemon.
 
-**The battle engine** is a pure `useReducer` state machine — every action goes through a reducer that returns a new state with no side effects. This matters because it means the engine is deterministic and could support replays or multiplayer (just sync the action stream). Three generational mechanics coexist in the same reducer with unified action types and mechanic-specific sub-handlers.
-
-**The catch formula** is the actual Gen V+ math: modified rate calculation, four independent shake checks, context-aware ball modifiers (Quick Ball checks turn count, Dusk Ball checks time of day, Net Ball checks typing), status bonuses, and flee probability.
+**Trainer Card** -- Track stats and achievements. PNG export for sharing.
 
 ---
 
-## Project structure
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Framework | Next.js 16 (App Router, Turbopack) |
+| UI | React 19, Tailwind CSS v4, Framer Motion |
+| Language | TypeScript 5, Rust (9 WASM crates) |
+| Data | PokeAPI v2, TanStack React Query v5 |
+| Charts | Recharts 3 |
+| Emulation | mGBA WASM, RetroArch melonDS WASM |
+| Storage | localStorage, IndexedDB |
+| Testing | Vitest (63 tests), Rust unit tests |
+| Hosting | Vercel |
+
+---
+
+## Architecture
+
+All game logic lives in `src/utils/` as pure functions. Components dispatch actions and render state. No backend, no database, no authentication.
 
 ```
 src/
-├── components/          # UI — battle, wild encounters, GBA emulator, team builder, etc.
-├── data/                # Type chart, natures, items, balls, routes, formes, Max Moves
-├── hooks/               # useTeam, useBattle, useWildEncounter, useGBAEmulator, usePokedex, etc.
-├── types/               # TypeScript definitions
-└── utils/               # Pure logic — damage calc, AI, catch rate, Gen 3 parser, Showdown format
+  app/page.tsx          Single-page app with tab navigation
+  components/           UI components (no business logic)
+  hooks/                useReducer state machines + React Query
+  utils/                Pure functions: damage, catch rate, AI, parsers
+  data/                 Lookup tables (type chart, natures, items, maps)
+  contexts/             React Context for shared state
+
+rust/                   9 Rust/WASM crates
+  pkmn-type-chart/      Type effectiveness engine
+  pkmn-stats/           Stat calculator
+  pkmn-damage/          Damage formula
+  pkmn-catch-rate/      Catch probability + flee logic
+  pkmn-analysis/        Team analysis + defensive coverage
+  pkmn-battle/          AI scoring, turn order, mechanic decisions
+  pkmn-breeding/        Egg compatibility + IV inheritance
+  pkmn-showdown/        Showdown paste parser/serializer
+  gen3-parser/          Gen 3 binary save file parser
+
+public/wasm/            Compiled WASM binaries
+public/mgba/            mGBA emulator core
+public/nds/             melonDS RetroArch core
 ```
 
-All game logic lives in `utils/` as pure functions with no React dependencies. Components just dispatch actions and render state.
+Every WASM module has a TypeScript wrapper (`src/utils/*Wasm.ts`) that lazy-loads the binary, falls back to a pure JS implementation if WASM fails, and exports the same API either way.
 
 ---
 
-## Run it
+## Development
 
 ```bash
-git clone https://github.com/BFAlajid/professor-basils-lab.git
-cd professor-basils-lab
 npm install
 npm run dev
 ```
 
-Opens at [localhost:3000](http://localhost:3000).
+### Build WASM crates (requires Rust + wasm-pack)
+
+```bash
+npm run build:wasm
+```
+
+### Run tests
+
+```bash
+npm test
+```
 
 ---
 
-## Credits
+## Scale
 
-- Pokemon data from [PokeAPI](https://pokeapi.co/)
-- GBA emulation via [mGBA](https://mgba.io/) ([@thenick775/mgba-wasm](https://www.npmjs.com/package/@thenick775/mgba-wasm))
+| Metric | Value |
+|--------|-------|
+| Source files | 90+ |
+| Pokemon supported | 1,025 (all 9 generations) |
+| WASM crates | 9 |
+| Test count | 63 JS + Rust unit tests |
+| Battle engine | ~800 lines, pure state machine |
+| Regions | 4 (Kanto, Johto, Hoenn, Sinnoh) |
+| Ball types | 14 with context-sensitive modifiers |
+| Held items | 50+ with battle effects |
+| Achievements | 23 across 5 categories |
+| Backend | None |
 
-Pokemon is a trademark of Nintendo / Game Freak / The Pokemon Company. This is a fan project for educational and personal use. No ROMs are included or distributed.
+---
+
+## License
+
+This project is for educational and portfolio purposes. Pokemon is a trademark of Nintendo/Game Freak/The Pokemon Company. No ROMs or copyrighted assets are included or distributed.

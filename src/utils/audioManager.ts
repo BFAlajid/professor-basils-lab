@@ -105,32 +105,45 @@ function startSourceFromBuffer(buffer: AudioBuffer, offset: number = 0) {
   trackStartTime = ctx.currentTime - offset;
 }
 
-export async function playTrack(track: AudioTrack): Promise<void> {
+export function playTrack(track: AudioTrack): void {
   if (typeof window === "undefined") return;
 
   // If already playing the same track, don't restart
   if (currentTrack === track && isPlaying) return;
 
-  try {
+  const url = trackSources[track];
+  const cached = bufferCache.get(url);
+
+  // Fast path: buffer already decoded — start immediately
+  if (cached) {
     const ctx = ensureContext();
-    if (ctx.state === "suspended") {
-      await ctx.resume();
-    }
-
-    const url = trackSources[track];
-    const buffer = await fetchAndDecode(url);
-
+    if (ctx.state === "suspended") ctx.resume();
     currentTrack = track;
     pauseOffset = 0;
-    startSourceFromBuffer(buffer, 0);
-
+    startSourceFromBuffer(cached, 0);
     isPlaying = true;
     notify();
-  } catch {
-    // Failed to load/play — file may not exist
-    isPlaying = false;
-    notify();
+    return;
   }
+
+  // Slow path: fetch + decode, then start
+  currentTrack = track;
+  isPlaying = true;
+  notify();
+
+  fetchAndDecode(url).then((buffer) => {
+    // Only start if still the same track (user may have stopped/switched)
+    if (currentTrack !== track) return;
+    const ctx = ensureContext();
+    if (ctx.state === "suspended") ctx.resume();
+    pauseOffset = 0;
+    startSourceFromBuffer(buffer, 0);
+  }).catch(() => {
+    if (currentTrack === track) {
+      isPlaying = false;
+      notify();
+    }
+  });
 }
 
 export function stopTrack(): void {
@@ -150,18 +163,16 @@ export function pauseTrack(): void {
   notify();
 }
 
-export async function resumeTrack(): Promise<void> {
+export function resumeTrack(): void {
   if (!currentTrack || isPlaying) return;
 
-  try {
-    const url = trackSources[currentTrack];
-    const buffer = await fetchAndDecode(url);
-    startSourceFromBuffer(buffer, pauseOffset);
-    isPlaying = true;
-    notify();
-  } catch {
-    // ignore
-  }
+  const url = trackSources[currentTrack];
+  const buffer = bufferCache.get(url);
+  if (!buffer) return;
+
+  startSourceFromBuffer(buffer, pauseOffset);
+  isPlaying = true;
+  notify();
 }
 
 export function setVolume(v: number): void {
@@ -180,24 +191,19 @@ export function setMuted(m: boolean): void {
   notify();
 }
 
-export async function loadCustomTrack(track: AudioTrack, file: File): Promise<void> {
-  // Revoke old custom blob URL
+export function loadCustomTrack(track: AudioTrack, file: File): void {
   const oldBlob = customBlobUrls.get(track);
-  if (oldBlob) {
-    URL.revokeObjectURL(oldBlob);
-  }
+  if (oldBlob) URL.revokeObjectURL(oldBlob);
 
   const blobUrl = URL.createObjectURL(file);
   customBlobUrls.set(track, blobUrl);
   trackSources[track] = blobUrl;
-
-  // Clear cached buffer for this track so it re-decodes
   bufferCache.delete(blobUrl);
 
   // If this track is currently playing, restart with new source
   if (currentTrack === track) {
     isPlaying = false;
-    await playTrack(track);
+    playTrack(track);
   }
   notify();
 }
