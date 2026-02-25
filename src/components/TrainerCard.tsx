@@ -329,8 +329,7 @@ export default function TrainerCard({ team, stats }: TrainerCardProps) {
         <div className="flex items-center justify-between bg-[#262b44] rounded-lg px-3 py-2">
           <div className="flex items-center gap-2">
             <span
-              className="font-pixel text-[10px] font-bold"
-              style={{ color: rankColors[cardData.rankTier] ?? "#8b9bb4" }}
+              className={`font-pixel text-[10px] font-bold text-[${rankColors[cardData.rankTier] ?? "#8b9bb4"}]`}
             >
               {cardData.rankTier} Ball
             </span>

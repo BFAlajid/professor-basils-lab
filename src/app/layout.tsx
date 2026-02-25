@@ -23,6 +23,11 @@ export const metadata: Metadata = {
   title: "Pokemon Team Builder",
   description:
     "Build your Pokemon team with type coverage analysis and battle simulation",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -33,7 +38,6 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
-        <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#1a1c2c" />
       </head>
       <body

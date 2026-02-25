@@ -301,7 +301,7 @@ export default function Home() {
         aria-labelledby={`tab-${activeTab}`}
       >
         {/* Emulator stays mounted to preserve WASM state across tab switches */}
-        <div style={{ display: activeTab === "emulator" ? "block" : "none" }}>
+        <div className={activeTab === "emulator" ? "block" : "hidden"}>
           <UnifiedEmulatorTab />
         </div>
 
