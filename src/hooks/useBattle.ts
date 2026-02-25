@@ -5,7 +5,7 @@ import { BattleTurnAction, TeamSlot, BattleMode, GenerationalMechanic, AltFormeD
 import { isMegaStone, getMegaStone } from "@/data/megaStones";
 import { battleReducer, initialBattleState } from "@/utils/battle";
 import { fetchAndCacheMoves } from "@/utils/moveCache";
-import { selectAIAction, generateRandomTeam, getBestSwitchIn } from "@/utils/ai";
+import { selectAIAction, generateRandomTeam, getBestSwitchIn } from "@/utils/aiWasm";
 import { useReplayRecorder } from "./useReplayRecorder";
 
 export function useBattle() {

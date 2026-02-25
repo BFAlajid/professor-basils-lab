@@ -2,7 +2,7 @@
 
 import { useReducer, useEffect, useRef, useCallback, useState } from "react";
 import { DayCareState, DayCareAction, BreedingPair, PCBoxPokemon, BreedingEgg } from "@/types";
-import { fetchEggGroups, checkCompatibility, getOffspringSpeciesId, createEgg } from "@/utils/breeding";
+import { fetchEggGroups, checkCompatibility, getOffspringSpeciesId, createEgg } from "@/utils/breedingWasm";
 import { NATURES } from "@/data/natures";
 import { generateRandomIVs } from "@/utils/wildBattle";
 

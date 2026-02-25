@@ -10,7 +10,7 @@ import {
   getWeaknesses,
   getResistances,
   getOffensiveCoverage,
-} from "@/utils/coverage";
+} from "@/utils/teamAnalysisWasm";
 import TypeBadge from "./TypeBadge";
 
 interface TypeCoverageProps {

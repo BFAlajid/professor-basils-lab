@@ -7,7 +7,7 @@ import { Pokemon, Move } from "@/types";
 import { useMove } from "@/hooks/useMove";
 import { usePokemonList } from "@/hooks/usePokemonList";
 import { fetchPokemon } from "@/hooks/usePokemon";
-import { calculateDamage, getEffectivenessText } from "@/utils/damage";
+import { calculateDamage, getEffectivenessText } from "@/utils/damageWasm";
 import LoadingSpinner from "./LoadingSpinner";
 import TypeBadge from "./TypeBadge";
 

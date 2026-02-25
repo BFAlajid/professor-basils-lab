@@ -2,9 +2,8 @@
 
 import { motion } from "framer-motion";
 import { TeamSlot, Nature, EVSpread, IVSpread, TypeName } from "@/types";
-import { extractBaseStats } from "@/utils/damage";
-import { calculateAllStats } from "@/utils/stats";
-import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
+import { extractBaseStats } from "@/utils/damageWasm";
+import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
 import NatureSelector from "./NatureSelector";
 import EVEditor from "./EVEditor";
 import IVEditor from "./IVEditor";

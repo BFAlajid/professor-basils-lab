@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { TeamSlot, TypeName } from "@/types";
 import { TYPE_LIST } from "@/data/typeChart";
-import { analyzeTeam, TeamWeaknessReport } from "@/utils/teamAnalysis";
+import { analyzeTeam, TeamWeaknessReport } from "@/utils/teamAnalysisWasm";
 import { typeColors } from "@/data/typeColors";
 import { capitalize } from "@/utils/format";
 

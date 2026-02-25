@@ -11,7 +11,7 @@ import {
   Legend,
 } from "recharts";
 import { TeamSlot } from "@/types";
-import { extractBaseStats } from "@/utils/damage";
+import { extractBaseStats } from "@/utils/damageWasm";
 
 const STAT_LABELS = ["HP", "Attack", "Defense", "Sp.Atk", "Sp.Def", "Speed"];
 const COLORS = ["#e8433f", "#3B82F6", "#38b764", "#F59E0B", "#8B5CF6", "#EC4899"];

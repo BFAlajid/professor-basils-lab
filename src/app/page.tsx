@@ -154,6 +154,19 @@ export default function Home() {
     prevTeamSize.current = team.length;
   }, [team, markSeen, incrementStat]);
 
+  // Preload all WASM modules in background
+  useEffect(() => {
+    Promise.allSettled([
+      import("@/utils/damageWasm").then((m) => m.ensureWasmReady()),
+      import("@/utils/statsWasm").then((m) => m.ensureWasmReady()),
+      import("@/utils/teamAnalysisWasm").then((m) => m.ensureWasmReady()),
+      import("@/utils/aiWasm").then((m) => m.ensureWasmReady()),
+      import("@/utils/catchRateWasm").then((m) => m.ensureWasmReady()),
+      import("@/utils/breedingWasm").then((m) => m.ensureWasmReady()),
+      import("@/utils/showdownFormatWasm").then((m) => m.ensureWasmReady()),
+    ]);
+  }, []);
+
   const handleShare = useCallback(() => {
     if (team.length === 0) return;
     const encoded = encodeTeam(team);

@@ -7,6 +7,10 @@
 import { calculateHP as calculateHP_JS, calculateStat as calculateStat_JS, calculateAllStats as calculateAllStats_JS } from "./stats";
 import type { CalculatedStats } from "./stats";
 import type { BaseStats, EVSpread, IVSpread, Nature, StatKey } from "@/types";
+
+// Re-export constants and types so consumers can switch to a single import
+export { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
+export type { CalculatedStats } from "./stats";
 import { getNatureModifier } from "@/data/natures";
 
 let wasmModule: {

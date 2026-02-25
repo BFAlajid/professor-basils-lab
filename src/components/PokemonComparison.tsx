@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { TeamSlot, BaseStats } from "@/types";
-import { calculateAllStats, CalculatedStats, DEFAULT_IVS, DEFAULT_EVS } from "@/utils/stats";
+import { calculateAllStats, CalculatedStats, DEFAULT_IVS, DEFAULT_EVS } from "@/utils/statsWasm";
 import { typeColors } from "@/data/typeColors";
 
 // ── Constants ────────────────────────────────────────────────────────

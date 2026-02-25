@@ -293,4 +293,4 @@ export function determineTurnOrder(
 }
 
 // Re-export team generation (stays in JS, uses PokeAPI fetch)
-export { generateRandomTeam, getBestSwitchIn } from "./ai";
+export { generateRandomTeam, getBestSwitchIn, generateScaledTeam } from "./ai";

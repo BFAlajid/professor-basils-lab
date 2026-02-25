@@ -5,7 +5,7 @@ import Image from "next/image";
 import { TeamSlot } from "@/types";
 import { typeColors } from "@/data/typeColors";
 import TypeBadge from "./TypeBadge";
-import { extractBaseStats } from "@/utils/damage";
+import { extractBaseStats } from "@/utils/damageWasm";
 import { getHeldItem } from "@/data/heldItems";
 import { playCry } from "@/utils/cryPlayer";
 

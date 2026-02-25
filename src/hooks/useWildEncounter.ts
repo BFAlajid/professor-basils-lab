@@ -14,7 +14,7 @@ import {
 } from "@/types";
 import { initBattlePokemon, initStatStages } from "@/utils/battle";
 import { createWildBattlePokemon, preloadWildMoves, fetchCaptureRate, executeWildTurn, randomInt } from "@/utils/wildBattle";
-import { calculateCatchProbability, shouldWildFlee } from "@/utils/catchRate";
+import { calculateCatchProbability, shouldWildFlee } from "@/utils/catchRateWasm";
 import { fetchAndCacheMove } from "@/utils/moveCache";
 
 const initialState: WildEncounterState = {

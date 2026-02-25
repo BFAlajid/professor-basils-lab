@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import { Pokemon, TypeName } from "@/types";
 import { typeColors } from "@/data/typeColors";
-import { extractBaseStats } from "@/utils/damage";
+import { extractBaseStats } from "@/utils/damageWasm";
 
 interface TeamSummaryProps {
   team: Pokemon[];

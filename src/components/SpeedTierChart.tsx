@@ -3,8 +3,8 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { TeamSlot } from "@/types";
-import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
-import { extractBaseStats } from "@/utils/damage";
+import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
+import { extractBaseStats } from "@/utils/damageWasm";
 // ── Props ─────────────────────────────────────────────────────────────
 
 interface SpeedTierChartProps {

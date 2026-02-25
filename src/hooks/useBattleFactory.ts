@@ -2,7 +2,7 @@
 
 import { useReducer, useCallback, useEffect, useRef, useState } from "react";
 import { TeamSlot } from "@/types";
-import { generateScaledTeam } from "@/utils/ai";
+import { generateScaledTeam } from "@/utils/aiWasm";
 
 // ── State ────────────────────────────────────────────────────────────
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot } from "@/types";
-import { exportToShowdown } from "@/utils/showdownFormat";
+import { exportToShowdown } from "@/utils/showdownFormatWasm";
 
 interface QRExportProps {
   team: TeamSlot[];

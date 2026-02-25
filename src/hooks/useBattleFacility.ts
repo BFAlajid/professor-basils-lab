@@ -13,7 +13,7 @@ import {
 import { useBattle } from "./useBattle";
 import { ELITE_FOUR } from "@/data/eliteFour";
 import { GYM_LEADERS, GYM_BADGE_NAMES } from "@/data/gymLeaders";
-import { generateScaledTeam } from "@/utils/ai";
+import { generateScaledTeam } from "@/utils/aiWasm";
 
 // ── Action types ──────────────────────────────────────────────────────
 

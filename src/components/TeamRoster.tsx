@@ -6,7 +6,7 @@ import { TeamSlot, Pokemon, Nature, EVSpread, IVSpread, TypeName } from "@/types
 import PokemonCard from "./PokemonCard";
 import PokemonSearch from "./PokemonSearch";
 import PokemonDetailPanel from "./PokemonDetailPanel";
-import { exportToShowdown, importFromShowdown } from "@/utils/showdownFormat";
+import { exportToShowdown, importFromShowdown } from "@/utils/showdownFormatWasm";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { TEAM_PRESETS } from "@/data/teamPresets";
 import QRExport from "./QRExport";
