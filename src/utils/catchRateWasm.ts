@@ -32,7 +32,7 @@ async function initWasm(): Promise<boolean> {
 
   try {
     // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import("../../rust/pkmn-catch-rate/pkg/pkmn_catch_rate.js");
+    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-catch-rate/pkg/pkmn_catch_rate.js");
     await mod.default("/wasm/pkmn_catch_rate_bg.wasm");
     wasmModule = {
       calculate_catch_probability: mod.calculate_catch_probability,

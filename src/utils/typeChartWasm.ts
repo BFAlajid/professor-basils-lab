@@ -15,7 +15,7 @@ async function initWasm(): Promise<boolean> {
 
   try {
     // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import("../../rust/pkmn-type-chart/pkg/pkmn_type_chart.js");
+    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-type-chart/pkg/pkmn_type_chart.js");
     await mod.default("/wasm/pkmn_type_chart_bg.wasm");
     wasmModule = {
       get_effectiveness: mod.get_effectiveness,

@@ -27,7 +27,7 @@ async function initWasm(): Promise<boolean> {
 
   try {
     // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import("../../rust/pkmn-analysis/pkg/pkmn_analysis.js");
+    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-analysis/pkg/pkmn_analysis.js");
     await mod.default("/wasm/pkmn_analysis_bg.wasm");
     wasmModule = {
       analyze_team: mod.analyze_team,

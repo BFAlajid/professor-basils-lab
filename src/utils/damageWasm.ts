@@ -43,7 +43,7 @@ async function initWasm(): Promise<boolean> {
 
   try {
     // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import("../../rust/pkmn-damage/pkg/pkmn_damage.js");
+    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-damage/pkg/pkmn_damage.js");
     await mod.default("/wasm/pkmn_damage_bg.wasm");
     wasmModule = {
       calculate_damage: mod.calculate_damage,
