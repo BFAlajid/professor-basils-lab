@@ -86,9 +86,11 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       // mGBA uses pthreads (Web Workers + SharedArrayBuffer).
       // Check that the environment supports it before attempting to load.
       if (typeof SharedArrayBuffer === "undefined") {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         throw new Error(
-          "GBA emulator requires SharedArrayBuffer which is not available in this browser. " +
-          "Try Chrome, Firefox, or Safari 15.2+."
+          isIOS
+            ? "GBA emulator requires features not available in this browser. On iOS, please use Safari instead."
+            : "GBA emulator requires SharedArrayBuffer which is not available in this browser. Try Chrome, Firefox, or Safari."
         );
       }
 
