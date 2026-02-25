@@ -154,17 +154,25 @@ export default function Home() {
     prevTeamSize.current = team.length;
   }, [team, markSeen, incrementStat]);
 
-  // Preload all WASM modules in background
+  // Preload WASM modules after the page is idle to avoid blocking mobile
   useEffect(() => {
-    Promise.allSettled([
-      import("@/utils/damageWasm").then((m) => m.ensureWasmReady()),
-      import("@/utils/statsWasm").then((m) => m.ensureWasmReady()),
-      import("@/utils/teamAnalysisWasm").then((m) => m.ensureWasmReady()),
-      import("@/utils/aiWasm").then((m) => m.ensureWasmReady()),
-      import("@/utils/catchRateWasm").then((m) => m.ensureWasmReady()),
-      import("@/utils/breedingWasm").then((m) => m.ensureWasmReady()),
-      import("@/utils/showdownFormatWasm").then((m) => m.ensureWasmReady()),
-    ]);
+    const load = () => {
+      Promise.allSettled([
+        import("@/utils/damageWasm").then((m) => m.ensureWasmReady()),
+        import("@/utils/statsWasm").then((m) => m.ensureWasmReady()),
+        import("@/utils/teamAnalysisWasm").then((m) => m.ensureWasmReady()),
+        import("@/utils/aiWasm").then((m) => m.ensureWasmReady()),
+        import("@/utils/catchRateWasm").then((m) => m.ensureWasmReady()),
+        import("@/utils/breedingWasm").then((m) => m.ensureWasmReady()),
+        import("@/utils/showdownFormatWasm").then((m) => m.ensureWasmReady()),
+      ]);
+    };
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(load);
+      return () => cancelIdleCallback(id);
+    }
+    const t = setTimeout(load, 2000);
+    return () => clearTimeout(t);
   }, []);
 
   const handleShare = useCallback(() => {

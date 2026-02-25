@@ -65,12 +65,23 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
     savedROMs: [],
   });
 
-  // Initialize emulator
+  // Lightweight init: just list saved ROMs so the UI can render immediately
   const initialize = useCallback(async () => {
-    if (emulatorRef.current || !canvasRef.current) return;
+    try {
+      const roms = await listROMs();
+      setState((s) => ({ ...s, isReady: true, savedROMs: roms }));
+    } catch {
+      setState((s) => ({ ...s, isReady: true, savedROMs: [] }));
+    }
+  }, []);
+
+  // Heavy init: download and compile mGBA WASM (called lazily on first ROM load)
+  const ensureModule = useCallback(async () => {
+    if (emulatorRef.current) return true;
+    if (!canvasRef.current) return false;
 
     try {
-      // Load mGBA from public/ at runtime to bypass Turbopack bundling the WASM
+      setState((s) => ({ ...s, isLoading: true }));
       const scriptUrl = "/mgba/mgba.js";
       const mod = await (new Function("url", "return import(url)")(scriptUrl));
       const mGBA = mod.default;
@@ -81,26 +92,24 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       // Disable mGBA's built-in Emscripten keyboard handlers — they register
       // global keydown/keyup listeners that call preventDefault() on every key,
       // which blocks typing in ALL input/textarea elements across the site.
-      // We use our own React keyboard handlers (in GBAEmulatorTab) that have
-      // an isTyping() guard to skip events when the user is focused on an input.
       Module.toggleInput(false);
 
       emulatorRef.current = Module;
-
-      // Load list of saved ROMs from IndexedDB
-      const roms = await listROMs();
-
-      setState((s) => ({ ...s, isReady: true, savedROMs: roms }));
+      return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to initialize emulator";
-      setState((s) => ({ ...s, error: msg }));
+      setState((s) => ({ ...s, isLoading: false, error: msg }));
+      return false;
     }
   }, [canvasRef]);
 
   // Load ROM from File
   const loadROMFile = useCallback(async (file: File) => {
-    const emu = emulatorRef.current;
-    if (!emu) return;
+    if (!emulatorRef.current) {
+      const ok = await ensureModule();
+      if (!ok) return;
+    }
+    const emu = emulatorRef.current!;
 
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
@@ -149,8 +158,11 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
 
   // Load ROM from IndexedDB (previously stored)
   const loadSavedROM = useCallback(async (romName: string) => {
-    const emu = emulatorRef.current;
-    if (!emu) return;
+    if (!emulatorRef.current) {
+      const ok = await ensureModule();
+      if (!ok) return;
+    }
+    const emu = emulatorRef.current!;
 
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {

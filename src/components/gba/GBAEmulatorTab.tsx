@@ -368,11 +368,11 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
             </div>
           )}
 
-          {/* ROM loading overlay */}
+          {/* ROM / emulator loading overlay */}
           {state.isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
               <p className="text-[#8b9bb4] font-pixel text-xs animate-pulse">
-                Loading ROM...
+                Loading emulator...
               </p>
             </div>
           )}
