@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 import { Pokemon, Move } from "@/types";
 import { useMove } from "@/hooks/useMove";
 import { usePokemonList } from "@/hooks/usePokemonList";

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Pokemon, BallType } from "@/types";
 import { POKE_BALLS } from "@/data/pokeBalls";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 
 interface CatchResultProps {
   pokemon: Pokemon;

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Pokemon, BallType, StatusCondition, TeamSlot } from "@/types";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 import WildActionPanel from "./WildActionPanel";
 
 interface WildBattleProps {

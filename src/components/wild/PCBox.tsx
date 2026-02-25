@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PCBoxPokemon, TeamSlot } from "@/types";
 import { POKE_BALLS } from "@/data/pokeBalls";
 import PCBoxSlot from "./PCBoxSlot";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 
 interface PCBoxProps {
   box: PCBoxPokemon[];

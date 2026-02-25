@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 import { TeamSlot } from "@/types";
 import { typeColors } from "@/data/typeColors";
 import TypeBadge from "./TypeBadge";

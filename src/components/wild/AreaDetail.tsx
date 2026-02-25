@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { RouteArea } from "@/types";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 
 interface AreaDetailProps {
   area: RouteArea;

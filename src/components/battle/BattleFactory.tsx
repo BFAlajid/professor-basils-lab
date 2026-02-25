@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 import { TeamSlot } from "@/types";
 import { typeColors } from "@/data/typeColors";
 import type { BattleFactoryState } from "@/hooks/useBattleFactory";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePokedexContext } from "@/contexts/PokedexContext";
 import HabitatDex from "./HabitatDex";

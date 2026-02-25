@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 import type { TeamSlot } from "@/types";
 import type { PlayerStats } from "@/hooks/useAchievements";
 import { useTrainerCard } from "@/hooks/useTrainerCard";

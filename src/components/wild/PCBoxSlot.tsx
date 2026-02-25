@@ -2,7 +2,7 @@
 
 import { PCBoxPokemon } from "@/types";
 import { POKE_BALLS } from "@/data/pokeBalls";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 
 interface PCBoxSlotProps {
   pokemon: PCBoxPokemon;
