@@ -139,6 +139,7 @@ export default function AudioPlayer() {
         accept="audio/*"
         onChange={handleFileChange}
         className="hidden"
+        aria-label="Upload custom music"
       />
     </div>
   );

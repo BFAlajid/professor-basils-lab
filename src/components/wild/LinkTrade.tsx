@@ -47,7 +47,7 @@ function PokemonCard({
   const sprite = pokemon.pokemon.sprites.front_default;
   return (
     <div
-      role={readonly ? undefined : "button"}
+      {...(!readonly && { role: "button" })}
       tabIndex={readonly ? undefined : 0}
       onClick={readonly ? undefined : onClick}
       onKeyDown={readonly ? undefined : (e) => { if (e.key === "Enter" || e.key === " ") onClick?.(); }}
