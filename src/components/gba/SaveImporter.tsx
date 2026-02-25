@@ -217,6 +217,7 @@ export default function SaveImporter({ saveData, onImport, onClose }: SaveImport
           type="file"
           accept=".sav"
           className="hidden"
+          aria-label="Load save file"
           onChange={handleFileUpload}
         />
       </div>
