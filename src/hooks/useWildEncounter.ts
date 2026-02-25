@@ -13,7 +13,8 @@ import {
   StatusCondition,
 } from "@/types";
 import { initBattlePokemon, initStatStages } from "@/utils/battle";
-import { createWildBattlePokemon, preloadWildMoves, fetchCaptureRate, executeWildTurn, randomInt } from "@/utils/wildBattle";
+import { createWildBattlePokemon, preloadWildMoves, fetchCaptureRate, executeWildTurn } from "@/utils/wildBattle";
+import { randomInt } from "@/utils/random";
 import { calculateCatchProbability, shouldWildFlee } from "@/utils/catchRateWasm";
 import { fetchAndCacheMove } from "@/utils/moveCache";
 

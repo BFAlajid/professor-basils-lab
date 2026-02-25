@@ -1,12 +1,3 @@
-/**
- * WASM-powered AI action selection with JS fallback.
- *
- * Follows the gen3ParserWasm.ts pattern: lazy init, JS fallback, ensureWasmReady().
- * The TS wrapper extracts type indices and numeric values from BattlePokemon objects,
- * then calls Rust for the pure-math scoring. Complex JS-specific lookups (ability hooks,
- * move cache) are resolved in TS before passing to WASM.
- */
-
 import type { BattleState, BattleTurnAction, BattlePokemon, BattleTeam, DifficultyLevel, TypeName } from "@/types";
 import { getAbilityHooks } from "@/data/abilities";
 import { randomSeed } from "./random";
@@ -77,10 +68,6 @@ function difficultyToNum(d: DifficultyLevel | undefined): number {
   return 1; // normal
 }
 
-/**
- * Select AI action using WASM scoring if available, otherwise JS fallback.
- * Same signature as the original from ai.ts.
- */
 export function selectAIAction(state: BattleState): BattleTurnAction {
   if (!wasmModule) {
     return selectAIAction_JS(state);
@@ -92,7 +79,6 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
     const opponentActive = getActivePokemon(state.player1);
     const difficulty = difficultyToNum(state.difficulty);
 
-    // If fainted, need forced switch
     if (aiActive.isFainted) {
       const bestSwitch = getBestSwitchIn_WASM(state, "player2");
       return { type: "SWITCH", pokemonIndex: bestSwitch };
@@ -103,7 +89,6 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
       return { type: "MOVE", moveIndex: 0 };
     }
 
-    // Score each move using WASM
     const [atkT1, atkT2] = getTypePair(aiActive);
     const [defT1, defT2] = getTypePair(opponentActive);
 
@@ -127,7 +112,7 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
         moveData.damage_class.name === "status",
       );
 
-      // Hard difficulty: penalize moves absorbed by abilities
+      // Penalize moves absorbed by abilities on hard difficulty
       if (difficulty === 2 && moveData) {
         const oppAbility = getAbilityHooks(opponentActive.slot.ability);
         if (oppAbility?.modifyIncomingDamage) {
@@ -141,7 +126,7 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
             score = 0;
           }
         }
-        // Priority move bonus when opponent is low
+        // Priority finisher bonus
         if (moveData.priority && moveData.priority > 0 && opponentActive.currentHp / opponentActive.maxHp < 0.25) {
           score *= 1.5;
         }
@@ -150,7 +135,6 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
       moveScores[i] = score;
     }
 
-    // Score switch-ins using WASM
     const aliveSwitchIns = aiTeam.pokemon
       .map((p, i) => ({ pokemon: p, index: i }))
       .filter((p) => !p.pokemon.isFainted && p.index !== aiTeam.activePokemonIndex);
@@ -164,7 +148,6 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
       switchScoresFlat[i * 2 + 1] = wasmModule.score_matchup(swT1, swT2, defT1, defT2, hpRatio);
     }
 
-    // Determine mechanic availability
     const mechanic = aiTeam.selectedMechanic;
     const mechanicUsed = aiTeam.pokemon.some(p => {
       if (mechanic === "mega") return p.hasMegaEvolved;
@@ -192,7 +175,6 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
       shouldDmax = wasmModule.should_dynamax(hpRatio, aliveCount, difficulty, randomSeed()) > 0;
     }
 
-    // Select action via WASM
     const result = wasmModule.select_ai_action(
       moveScores,
       moves.length,
@@ -200,7 +182,7 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
       aliveSwitchIns.length,
       difficulty,
       randomSeed(),
-      false, // not fainted (handled above)
+      false,
       canMega,
       canTera,
       shouldTera,
@@ -224,9 +206,6 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
   }
 }
 
-/**
- * Get best switch-in using WASM scoring. Falls back to JS.
- */
 function getBestSwitchIn_WASM(state: BattleState, player: "player1" | "player2"): number {
   if (!wasmModule) return getBestSwitchIn_JS(state, player);
 
@@ -257,10 +236,7 @@ function getBestSwitchIn_WASM(state: BattleState, player: "player1" | "player2")
   return bestIndex;
 }
 
-/**
- * Determine turn order using WASM.
- * Returns true if player 1 goes first.
- */
+/** Returns true if player 1 goes first */
 export function determineTurnOrder(
   p1Priority: number,
   p2Priority: number,
@@ -274,7 +250,6 @@ export function determineTurnOrder(
       // fall through
     }
   }
-  // JS fallback
   if (p1Priority > p2Priority) return true;
   if (p2Priority > p1Priority) return false;
   if (p1Speed > p2Speed) return true;
@@ -282,5 +257,4 @@ export function determineTurnOrder(
   return Math.random() < 0.5;
 }
 
-// Re-export team generation (stays in JS, uses PokeAPI fetch)
 export { generateRandomTeam, getBestSwitchIn, generateScaledTeam } from "./ai";

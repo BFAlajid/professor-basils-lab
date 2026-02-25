@@ -1,7 +1,8 @@
 "use client";
 
 import { useReducer, useCallback, useEffect, useRef } from "react";
-import { TYPE_LIST, getEffectiveness } from "@/data/typeChart";
+import { TYPE_LIST } from "@/data/typeChart";
+import { getEffectiveness } from "@/utils/typeChartWasm";
 
 // ── State ───────────────────────────────────────────────────────────────
 

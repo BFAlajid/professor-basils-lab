@@ -1,10 +1,3 @@
-/**
- * WASM-powered type chart with JS fallback.
- *
- * Follows the gen3ParserWasm.ts pattern: lazy init, JS fallback, ensureWasmReady().
- * The TS wrapper converts TypeName strings to u8 indices for the Rust crate.
- */
-
 import { TypeName } from "@/types";
 import { TYPE_LIST, getEffectiveness as getEffectiveness_JS, getDefensiveMultiplier as getDefensiveMultiplier_JS } from "@/data/typeChart";
 
@@ -54,10 +47,6 @@ export function typeToIndex(type: TypeName | string): number {
   return idx === -1 ? 0 : idx;
 }
 
-/**
- * Get effectiveness of attackType vs defendType.
- * Uses WASM if loaded, otherwise JS fallback (synchronous).
- */
 export function getEffectiveness(attackType: TypeName, defendType: TypeName): number {
   if (wasmModule) {
     try {
@@ -69,10 +58,6 @@ export function getEffectiveness(attackType: TypeName, defendType: TypeName): nu
   return getEffectiveness_JS(attackType, defendType);
 }
 
-/**
- * Get combined defensive multiplier of attackType vs defender's types.
- * Uses WASM if loaded, otherwise JS fallback (synchronous).
- */
 export function getDefensiveMultiplier(attackType: TypeName, defenderTypes: TypeName[]): number {
   if (wasmModule) {
     try {

@@ -1,11 +1,3 @@
-/**
- * WASM-powered Gen 3 save parser with JS fallback.
- *
- * Loads the Rust-compiled WASM module on first use. If WASM fails to
- * initialize (e.g. server-side rendering, missing file), falls back
- * to the pure TypeScript implementation transparently.
- */
-
 import type { Gen3SaveData } from "./gen3SaveParser";
 import { parseGen3Save as parseGen3SaveJS } from "./gen3SaveParser";
 
@@ -21,10 +13,8 @@ async function initWasm(): Promise<boolean> {
   if (wasmFailed) return false;
 
   try {
-    // Dynamic import of the wasm-bindgen generated JS glue
     // @ts-ignore — WASM pkg only exists locally after wasm-pack build
     const mod = await import("../../rust/gen3-parser/pkg/gen3_parser.js");
-    // Initialize the WASM module by fetching the binary from public/
     await mod.default("/wasm/gen3_parser_bg.wasm");
     wasmModule = {
       parseGen3Save: mod.parseGen3Save,
@@ -37,10 +27,7 @@ async function initWasm(): Promise<boolean> {
   }
 }
 
-/**
- * Ensure WASM is initialized. Call this early (e.g. on component mount)
- * to avoid latency on first parse.
- */
+/** Call early to avoid latency on first parse */
 export async function ensureWasmReady(): Promise<boolean> {
   if (wasmModule) return true;
   if (wasmFailed) return false;
@@ -50,9 +37,6 @@ export async function ensureWasmReady(): Promise<boolean> {
   return wasmInitPromise;
 }
 
-/**
- * Parse a Gen 3 save file. Uses WASM if available, otherwise falls back to JS.
- */
 export async function parseGen3SaveWasm(
   buffer: ArrayBuffer
 ): Promise<Gen3SaveData | null> {
@@ -67,11 +51,9 @@ export async function parseGen3SaveWasm(
     }
   }
 
-  // Fallback to pure TypeScript implementation
   return parseGen3SaveJS(buffer);
 }
 
-/** Whether the WASM module is currently loaded and active. */
 export function isWasmActive(): boolean {
   return wasmModule !== null;
 }

@@ -1,14 +1,7 @@
-/**
- * WASM-powered stat calculator with JS fallback.
- *
- * Follows the gen3ParserWasm.ts pattern: lazy init, JS fallback, ensureWasmReady().
- */
-
 import { calculateHP as calculateHP_JS, calculateStat as calculateStat_JS, calculateAllStats as calculateAllStats_JS } from "./stats";
 import type { CalculatedStats } from "./stats";
 import type { BaseStats, EVSpread, IVSpread, Nature, StatKey } from "@/types";
 
-// Re-export constants and types so consumers can switch to a single import
 export { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 export type { CalculatedStats } from "./stats";
 import { getNatureModifier } from "@/data/natures";
@@ -61,9 +54,6 @@ export function isWasmActive(): boolean {
   return wasmModule !== null;
 }
 
-/**
- * Calculate HP stat. Uses WASM if loaded, otherwise JS fallback (synchronous).
- */
 export function calculateHP(base: number, iv: number, ev: number, level: number = 50): number {
   if (wasmModule) {
     try {
@@ -75,9 +65,6 @@ export function calculateHP(base: number, iv: number, ev: number, level: number 
   return calculateHP_JS(base, iv, ev, level);
 }
 
-/**
- * Calculate a single stat. Uses WASM if loaded, otherwise JS fallback (synchronous).
- */
 export function calculateStat(
   base: number,
   iv: number,
@@ -97,9 +84,6 @@ export function calculateStat(
   return calculateStat_JS(base, iv, ev, nature, statKey, level);
 }
 
-/**
- * Calculate all 6 stats. Uses WASM if loaded, otherwise JS fallback (synchronous).
- */
 export function calculateAllStats(
   baseStats: BaseStats,
   ivs: IVSpread,

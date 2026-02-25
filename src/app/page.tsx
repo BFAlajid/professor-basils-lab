@@ -7,7 +7,7 @@ import { fetchPokemon } from "@/hooks/usePokemon";
 import { usePokedexContext } from "@/contexts/PokedexContext";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { NATURES } from "@/data/natures";
-import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
+import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
 import type { TeamSlot } from "@/types";
 import dynamic from "next/dynamic";
 import SkeletonLoader from "@/components/SkeletonLoader";

@@ -1,13 +1,6 @@
-/**
- * WASM-powered catch rate calculator with JS fallback.
- *
- * Follows the gen3ParserWasm.ts pattern: lazy init, JS fallback, ensureWasmReady().
- * The TS wrapper resolves BallType/CatchContext to numeric modifiers
- * before calling into Rust. Rust handles the math + deterministic PRNG.
- */
-
 import type { StatusCondition, BallType, CatchContext } from "@/types";
 import { getBallModifier } from "@/data/pokeBalls";
+import { randomSeed } from "./random";
 import {
   calculateCatchProbability as calculateCatchProbability_JS,
   shouldWildFlee as shouldWildFlee_JS,
@@ -66,15 +59,6 @@ export function isWasmActive(): boolean {
   return wasmModule !== null;
 }
 
-/** Generate a u32 seed from Math.random() */
-function randomSeed(): number {
-  return (Math.random() * 0xFFFFFFFF) >>> 0;
-}
-
-/**
- * Calculate catch probability. Uses WASM if loaded, otherwise JS fallback.
- * Same signature as the original from catchRate.ts.
- */
 export function calculateCatchProbability(
   captureRate: number,
   currentHp: number,
@@ -85,7 +69,6 @@ export function calculateCatchProbability(
 ): { shakeChecks: boolean[]; isCaught: boolean } {
   if (wasmModule) {
     try {
-      // Master ball shortcut (handled in Rust too, but avoid unnecessary work)
       if (ball === "master-ball") {
         return { shakeChecks: [true, true, true, true], isCaught: true };
       }
@@ -103,7 +86,7 @@ export function calculateCatchProbability(
         seed,
       );
 
-      // Result: [is_caught, num_shakes, shake1, shake2, shake3, shake4]
+      // [is_caught, num_shakes, shake1, shake2, shake3, shake4]
       const isCaught = result[0] > 0;
       const numShakes = result[1];
       const shakeChecks: boolean[] = [];
@@ -119,15 +102,10 @@ export function calculateCatchProbability(
   return calculateCatchProbability_JS(captureRate, currentHp, maxHp, status, ball, context);
 }
 
-/**
- * Determine if a wild Pokemon should flee. Uses WASM if loaded, otherwise JS fallback.
- * Same signature as the original from catchRate.ts.
- */
 export function shouldWildFlee(captureRate: number, turn: number): boolean {
   if (wasmModule) {
     try {
-      const seed = randomSeed();
-      return wasmModule.should_wild_flee(captureRate, turn, seed) > 0;
+      return wasmModule.should_wild_flee(captureRate, turn, randomSeed()) > 0;
     } catch {
       // fall through
     }
@@ -135,5 +113,4 @@ export function shouldWildFlee(captureRate: number, turn: number): boolean {
   return shouldWildFlee_JS(captureRate, turn);
 }
 
-// Re-export helper
 export { getStatusModifier } from "./catchRate";

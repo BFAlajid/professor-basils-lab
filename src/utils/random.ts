@@ -1,5 +1,3 @@
-/** Shared random utility functions used across battle, AI, breeding, and WASM modules. */
-
 export function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -18,7 +16,6 @@ export function shuffleArray<T>(arr: T[]): T[] {
   return shuffled;
 }
 
-/** Generate a u32 seed from Math.random() for WASM PRNG. */
 export function randomSeed(): number {
   return (Math.random() * 0xFFFFFFFF) >>> 0;
 }

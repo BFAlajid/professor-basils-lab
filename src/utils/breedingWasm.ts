@@ -1,12 +1,6 @@
-/**
- * WASM-powered breeding calculator with JS fallback.
- *
- * Pure computation (IV inheritance, nature, compatibility) runs in Rust.
- * PokeAPI-fetching functions (egg groups, offspring species) stay in JS.
- */
-
 import type { PCBoxPokemon, IVSpread, Nature } from "@/types";
 import { NATURES } from "@/data/natures";
+import { randomSeed } from "./random";
 import {
   checkCompatibility as checkCompatibility_JS,
   inheritIVs as inheritIVs_JS,
@@ -16,7 +10,6 @@ import {
   createEgg,
 } from "./breeding";
 
-// Egg group name → numeric ID for Rust
 const EGG_GROUP_MAP: Record<string, number> = {
   monster: 0, water1: 1, bug: 2, flying: 3, field: 4,
   fairy: 5, grass: 6, "human-like": 7, water3: 8, mineral: 9,
@@ -68,13 +61,6 @@ export function isWasmActive(): boolean {
   return wasmModule !== null;
 }
 
-function randomSeed(): number {
-  return (Math.random() * 0xFFFFFFFF) >>> 0;
-}
-
-/**
- * Check egg group compatibility. Uses WASM if loaded, otherwise JS fallback.
- */
 export function checkCompatibility(
   groups1: string[],
   groups2: string[],
@@ -99,9 +85,6 @@ export function checkCompatibility(
   return checkCompatibility_JS(groups1, groups2, isDitto1, isDitto2);
 }
 
-/**
- * Determine which IVs are inherited from which parent. Uses WASM if loaded.
- */
 export function inheritIVs(
   p1: PCBoxPokemon,
   p2: PCBoxPokemon,
@@ -114,7 +97,7 @@ export function inheritIVs(
       const ivs2 = new Uint8Array(statKeys.map((k) => p2.ivs[k]));
       const result = wasmModule.inherit_ivs(ivs1, ivs2, hasDestinyKnot, randomSeed());
 
-      // Result layout: [stat0, parent0, stat1, parent1, ..., iv_hp, ..., iv_spe]
+      // [stat0, parent0, stat1, parent1, ..., iv_hp, ..., iv_spe]
       const numPairs = hasDestinyKnot ? 5 : 3;
       const inherited: { stat: keyof IVSpread; fromParent: 1 | 2 }[] = [];
       for (let i = 0; i < numPairs; i++) {
@@ -128,9 +111,6 @@ export function inheritIVs(
   return inheritIVs_JS(p1, p2, hasDestinyKnot);
 }
 
-/**
- * Determine offspring nature. Uses WASM if loaded.
- */
 export function inheritNature(
   p1: PCBoxPokemon,
   p2: PCBoxPokemon,
@@ -152,5 +132,4 @@ export function inheritNature(
   return inheritNature_JS(p1, p2, everstoneHolder);
 }
 
-// Re-export functions that stay in JS (PokeAPI fetching)
 export { fetchEggGroups, getOffspringSpeciesId, createEgg };

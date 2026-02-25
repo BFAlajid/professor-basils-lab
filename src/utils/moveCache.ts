@@ -2,10 +2,6 @@ import { cacheBattleMove, getCachedMoves } from "./battle";
 
 const pendingFetches = new Map<string, Promise<void>>();
 
-/**
- * Fetch a move from PokeAPI and cache it as BattleMoveData.
- * Skips if already cached. Deduplicates concurrent requests for the same move.
- */
 export async function fetchAndCacheMove(moveName: string): Promise<void> {
   const cached = getCachedMoves();
   if (cached.has(moveName)) return;
@@ -53,9 +49,6 @@ async function fetchMoveImpl(moveName: string): Promise<void> {
   }
 }
 
-/**
- * Fetch and cache multiple moves in parallel.
- */
 export async function fetchAndCacheMoves(moveNames: string[]): Promise<void> {
   await Promise.all(moveNames.map(fetchAndCacheMove));
 }

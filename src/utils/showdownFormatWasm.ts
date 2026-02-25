@@ -1,10 +1,3 @@
-/**
- * WASM-powered Showdown format parser/exporter with JS fallback.
- *
- * Rust handles pure string parsing and formatting.
- * PokeAPI fetching and move validation stay in JS.
- */
-
 import type { TeamSlot, EVSpread, IVSpread, Nature, TypeName } from "@/types";
 import { NATURES } from "@/data/natures";
 import { fetchPokemon } from "@/hooks/usePokemon";
@@ -66,9 +59,6 @@ interface ParsedBlock {
   moves: string[];
 }
 
-/**
- * Import a Showdown paste. Uses WASM for parsing, JS for PokeAPI fetching.
- */
 export async function importFromShowdown(text: string): Promise<TeamSlot[]> {
   if (wasmModule) {
     try {
@@ -122,9 +112,6 @@ export async function importFromShowdown(text: string): Promise<TeamSlot[]> {
   return importFromShowdown_JS(text);
 }
 
-/**
- * Export a team to Showdown paste format. Uses WASM if loaded.
- */
 export function exportToShowdown(team: TeamSlot[]): string {
   if (wasmModule) {
     try {

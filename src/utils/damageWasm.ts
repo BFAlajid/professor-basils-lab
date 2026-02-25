@@ -1,14 +1,6 @@
-/**
- * WASM-powered damage calculator with JS fallback.
- *
- * Follows the gen3ParserWasm.ts pattern: lazy init, JS fallback, ensureWasmReady().
- * The TS wrapper resolves complex JS objects (items, abilities, Pokemon) into
- * flat numeric args for the Rust crate. Rust handles the pure math.
- */
-
 import type { Pokemon, Move, TypeName, BattlePokemon } from "@/types";
-import { TYPE_LIST } from "@/data/typeChart";
 import { getDefensiveMultiplier } from "@/data/typeChart";
+import { typeToIndex } from "./typeChartWasm";
 import { getHeldItem } from "@/data/heldItems";
 import { getAbilityHooks } from "@/data/abilities";
 import {
@@ -77,15 +69,6 @@ export function isWasmActive(): boolean {
   return wasmModule !== null;
 }
 
-function typeToIndex(type: string): number {
-  const idx = TYPE_LIST.indexOf(type as TypeName);
-  return idx === -1 ? 0 : idx;
-}
-
-/**
- * Calculate damage using WASM if loaded, otherwise JS fallback.
- * Same signature as the original calculateDamage from damage.ts.
- */
 export function calculateDamage(
   attacker: Pokemon,
   defender: Pokemon,
@@ -96,7 +79,6 @@ export function calculateDamage(
     return calculateDamage_JS(attacker, defender, move, options);
   }
 
-  // Status moves / no power → shortcut
   if (move.power === null || move.damage_class.name === "status") {
     return { min: 0, max: 0, effectiveness: 1, stab: false, isCritical: false };
   }
@@ -105,7 +87,6 @@ export function calculateDamage(
     const isCritical = options?.isCritical ?? false;
     const isPhysical = move.damage_class.name === "physical";
 
-    // --- Resolve atk/def stats ---
     let atk: number;
     let def: number;
 
@@ -133,7 +114,6 @@ export function calculateDamage(
       def = isPhysical ? defenderStats.defense : defenderStats.spDef;
     }
 
-    // --- Resolve ability modifiers ---
     const abilityHooks = options?.attackerAbility ? getAbilityHooks(options.attackerAbility) : null;
     const gutsActive = abilityHooks?.modifyAttackStat &&
       options?.attackerBattlePokemon?.status &&
@@ -150,7 +130,6 @@ export function calculateDamage(
 
     const isBurnedPhysical = options?.attackerStatus === "burn" && isPhysical && !gutsActive;
 
-    // --- Resolve STAB ---
     const attackerTypes = options?.attackerEffectiveTypes ?? attacker.types.map((t) => t.type.name);
     const defenderTypes = options?.defenderEffectiveTypes ?? defender.types.map((t) => t.type.name);
 
@@ -165,12 +144,11 @@ export function calculateDamage(
       stab = 1.5;
     }
 
-    // Ability STAB modifier (Adaptability)
+    // Adaptability
     if (stab > 1 && abilityHooks?.modifySTAB && options?.attackerBattlePokemon) {
       stab = abilityHooks.modifySTAB({ attacker: options.attackerBattlePokemon, stab });
     }
 
-    // --- Resolve item modifier ---
     let itemDamageMult = 1.0;
     if (options?.attackerItem) {
       const item = getHeldItem(options.attackerItem);
@@ -196,7 +174,6 @@ export function calculateDamage(
       }
     }
 
-    // --- Resolve defender item SpDef modifier ---
     let defItemSpdefMult = 1.0;
     if (options?.defenderItem && !isPhysical) {
       const defItem = getHeldItem(options.defenderItem);
@@ -205,12 +182,10 @@ export function calculateDamage(
       }
     }
 
-    // --- Resolve weather ---
     let weather = 0;
     if (options?.fieldWeather === "sun") weather = 1;
     else if (options?.fieldWeather === "rain") weather = 2;
 
-    // --- Call WASM ---
     const result = wasmModule.calculate_damage(
       atk,
       def,
@@ -240,11 +215,9 @@ export function calculateDamage(
       isCritical: result[4] > 0,
     };
   } catch {
-    // Fall through to JS
     return calculateDamage_JS(attacker, defender, move, options);
   }
 }
 
-// Re-export helpers unchanged
 export { extractBaseStats, getEffectivenessText } from "./damage";
 export type { DamageCalcOptions, DamageResult } from "./damage";

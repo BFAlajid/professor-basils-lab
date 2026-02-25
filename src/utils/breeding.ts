@@ -1,6 +1,7 @@
 import { IVSpread, PCBoxPokemon, BreedingEgg, Nature } from "@/types";
 import { NATURES } from "@/data/natures";
-import { generateRandomIVs, randomInt } from "./wildBattle";
+import { generateRandomIVs } from "./wildBattle";
+import { randomInt } from "./random";
 
 // --- Egg Group fetching ---
 
