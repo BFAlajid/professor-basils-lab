@@ -1,6 +1,7 @@
 import { calculateHP as calculateHP_JS, calculateStat as calculateStat_JS, calculateAllStats as calculateAllStats_JS } from "./stats";
 import type { CalculatedStats } from "./stats";
 import type { BaseStats, EVSpread, IVSpread, Nature, StatKey } from "@/types";
+import { loadWasmModule } from "./wasmLoader";
 
 export { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 export type { CalculatedStats } from "./stats";
@@ -27,7 +28,8 @@ async function initWasm(): Promise<boolean> {
   try {
     // @ts-ignore — WASM pkg only exists locally after wasm-pack build
     const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-stats/pkg/pkmn_stats.js");
-    await mod.default("/wasm/pkmn_stats_bg.wasm");
+    const wasmInput = await loadWasmModule("/wasm/pkmn_stats_bg.wasm");
+    await mod.default(wasmInput);
     wasmModule = {
       calculate_hp: mod.calculate_hp,
       calculate_stat: mod.calculate_stat,

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { PlayerStats } from "@/hooks/useAchievements";
+import { embedWatermark } from "@/utils/steganography";
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -148,6 +149,7 @@ export function useTrainerCard(stats: PlayerStats) {
       if (!canvas) return;
 
       try {
+        embedWatermark(canvas);
         const dataUrl = canvas.toDataURL("image/png");
         const link = document.createElement("a");
         link.download = `trainer-card-${trainerId}.png`;

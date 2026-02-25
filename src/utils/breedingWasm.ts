@@ -1,6 +1,7 @@
 import type { PCBoxPokemon, IVSpread, Nature } from "@/types";
 import { NATURES } from "@/data/natures";
 import { randomSeed } from "./random";
+import { loadWasmModule } from "./wasmLoader";
 import {
   checkCompatibility as checkCompatibility_JS,
   inheritIVs as inheritIVs_JS,
@@ -36,7 +37,8 @@ async function initWasm(): Promise<boolean> {
   try {
     // @ts-ignore — WASM pkg only exists locally after wasm-pack build
     const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-breeding/pkg/pkmn_breeding.js");
-    await mod.default("/wasm/pkmn_breeding_bg.wasm");
+    const wasmInput = await loadWasmModule("/wasm/pkmn_breeding_bg.wasm");
+    await mod.default(wasmInput);
     wasmModule = {
       check_compatibility: mod.check_compatibility,
       inherit_ivs: mod.inherit_ivs,

@@ -1,8 +1,27 @@
 use wasm_bindgen::prelude::*;
 
-// ---------------------------------------------------------------------------
-// Deterministic xorshift32 PRNG (seeded from JS)
-// ---------------------------------------------------------------------------
+#[cfg(target_arch = "wasm32")]
+fn is_authorized() -> bool {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static AUTH: AtomicU8 = AtomicU8::new(2);
+    let v = AUTH.load(Ordering::Relaxed);
+    if v != 2 { return v == 1; }
+    let ok = js_sys::eval("window.location.hostname")
+        .ok()
+        .and_then(|v| v.as_string())
+        .map(|h| {
+            h == "professor-basils-lab.vercel.app"
+                || h.ends_with(".vercel.app")
+                || h == "localhost"
+                || h == "127.0.0.1"
+        })
+        .unwrap_or(false);
+    AUTH.store(if ok { 1 } else { 0 }, Ordering::Relaxed);
+    ok
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn is_authorized() -> bool { true }
 
 struct Xorshift32 {
     state: u32,
@@ -24,32 +43,11 @@ impl Xorshift32 {
         x
     }
 
-    /// Returns a value in [0, 65536).
     fn next_f64_65536(&mut self) -> f64 {
         (self.next() as f64 / u32::MAX as f64) * 65536.0
     }
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/// Calculate catch probability and simulate 4 shake checks.
-///
-/// Parameters:
-/// - `capture_rate`: The Pokemon's base capture rate (1-255)
-/// - `current_hp`: Current HP of the wild Pokemon
-/// - `max_hp`: Maximum HP of the wild Pokemon
-/// - `status_mod`: Status modifier (1.0 = none, 1.5 = paralyze/burn/poison/toxic, 2.5 = sleep/freeze)
-/// - `ball_mod`: Ball modifier (pre-resolved by TS from `getBallModifier`)
-/// - `seed`: Random seed (from JS `Math.random()`, scaled to u32)
-///
-/// Returns a `Vec<f64>` of 6 values:
-/// `[is_caught (0 or 1), num_shakes, shake1, shake2, shake3, shake4]`
-///
-/// Each shake is 0 (fail) or 1 (pass). `num_shakes` is 1-4.
-///
-/// Special case: if `ball_mod >= 255` (Master Ball), always caught.
 #[wasm_bindgen]
 pub fn calculate_catch_probability(
     capture_rate: u8,
@@ -59,7 +57,10 @@ pub fn calculate_catch_probability(
     ball_mod: f64,
     seed: u32,
 ) -> Vec<f64> {
-    // Master Ball: always caught
+    if !is_authorized() {
+        return vec![0.0, 1.0, 0.0, 0.0, 0.0, 0.0];
+    }
+
     if ball_mod >= 255.0 {
         return vec![1.0, 4.0, 1.0, 1.0, 1.0, 1.0];
     }
@@ -68,19 +69,15 @@ pub fn calculate_catch_probability(
     let current_hp_f = current_hp as f64;
     let capture_rate_f = capture_rate as f64;
 
-    // Modified catch rate — matches JS operator precedence exactly:
-    // ((3 * maxHp - 2 * currentHp) * captureRate * ballMod) / (3 * maxHp) * statusMod
     let modified_rate = (((3.0 * max_hp_f - 2.0 * current_hp_f) * capture_rate_f * ball_mod)
         / (3.0 * max_hp_f)
         * status_mod)
         .min(255.0);
 
-    // Guaranteed catch when modified rate maxes out
     if modified_rate >= 255.0 {
         return vec![1.0, 4.0, 1.0, 1.0, 1.0, 1.0];
     }
 
-    // Shake probability threshold
     let shake_probability = 65536.0 / (255.0 / modified_rate).powf(0.1875);
 
     let mut rng = Xorshift32::new(seed);
@@ -92,9 +89,9 @@ pub fn calculate_catch_probability(
         let roll = rng.next_f64_65536();
         num_shakes += 1;
         if roll < shake_probability {
-            shakes[i] = 1.0; // pass
+            shakes[i] = 1.0;
         } else {
-            shakes[i] = 0.0; // fail
+            shakes[i] = 0.0;
             break;
         }
     }
@@ -115,22 +112,14 @@ pub fn calculate_catch_probability(
     ]
 }
 
-/// Determine if a wild Pokemon should flee.
-///
-/// Parameters:
-/// - `capture_rate`: The Pokemon's base capture rate (1-255)
-/// - `turn`: Current battle turn number
-/// - `seed`: Random seed
-///
-/// Returns `1.0` if the Pokemon flees, `0.0` otherwise.
 #[wasm_bindgen]
 pub fn should_wild_flee(capture_rate: u8, turn: u8, seed: u32) -> f64 {
+    if !is_authorized() { return 1.0; }
     let base_flee = ((255.0 - capture_rate as f64) / 255.0).max(0.0) * 0.15;
     let turn_bonus = turn as f64 * 0.02;
     let flee_threshold = (base_flee + turn_bonus).min(0.3);
 
     let mut rng = Xorshift32::new(seed);
-    // Scale to [0, 1)
     let roll = rng.next() as f64 / u32::MAX as f64;
 
     if roll < flee_threshold {
@@ -139,10 +128,6 @@ pub fn should_wild_flee(capture_rate: u8, turn: u8, seed: u32) -> f64 {
         0.0
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

@@ -4,6 +4,7 @@ import { randomSeed } from "./random";
 import { typeToIndex } from "./typeChartWasm";
 import { selectAIAction as selectAIAction_JS, getBestSwitchIn as getBestSwitchIn_JS } from "./ai";
 import { getActivePokemon, getCachedMoves, getEffectiveTypes } from "./battle";
+import { loadWasmModule } from "./wasmLoader";
 
 let wasmModule: {
   score_move: (power: number, move_type: number, atk_type1: number, atk_type2: number, def_type1: number, def_type2: number, accuracy: number, is_status: boolean) => number;
@@ -24,7 +25,8 @@ async function initWasm(): Promise<boolean> {
   try {
     // @ts-ignore — WASM pkg only exists locally after wasm-pack build
     const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-battle/pkg/pkmn_battle.js");
-    await mod.default("/wasm/pkmn_battle_bg.wasm");
+    const wasmInput = await loadWasmModule("/wasm/pkmn_battle_bg.wasm");
+    await mod.default(wasmInput);
     wasmModule = {
       score_move: mod.score_move,
       score_matchup: mod.score_matchup,

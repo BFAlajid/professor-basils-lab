@@ -2,6 +2,7 @@ import type { TeamSlot, EVSpread, IVSpread, Nature, TypeName } from "@/types";
 import { NATURES } from "@/data/natures";
 import { fetchPokemon } from "@/hooks/usePokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
+import { loadWasmModule } from "./wasmLoader";
 import {
   exportToShowdown as exportToShowdown_JS,
   importFromShowdown as importFromShowdown_JS,
@@ -24,7 +25,8 @@ async function initWasm(): Promise<boolean> {
   try {
     // @ts-ignore — WASM pkg only exists locally after wasm-pack build
     const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-showdown/pkg/pkmn_showdown.js");
-    await mod.default("/wasm/pkmn_showdown_bg.wasm");
+    const wasmInput = await loadWasmModule("/wasm/pkmn_showdown_bg.wasm");
+    await mod.default(wasmInput);
     wasmModule = {
       parse_showdown_paste: mod.parse_showdown_paste,
       export_showdown_paste: mod.export_showdown_paste,

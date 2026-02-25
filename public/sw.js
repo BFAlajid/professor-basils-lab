@@ -68,6 +68,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (url.origin === self.location.origin && url.pathname.startsWith("/wasm/") && url.pathname.endsWith(".wasm.enc")) {
+    event.respondWith(cacheFirst(event.request, APP_SHELL_CACHE));
+    return;
+  }
+
   // Strategy 4: HTML pages and other same-origin requests — network-first
   // Ensures users always get the latest deployment
   if (url.origin === self.location.origin) {

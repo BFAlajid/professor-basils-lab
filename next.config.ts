@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_BUILD_TIMESTAMP: String(Date.now()),
+    NEXT_PUBLIC_DEPLOY_ID: process.env.VERCEL_DEPLOYMENT_ID || "local",
+    NEXT_PUBLIC_INTEGRITY_KEY: process.env.INTEGRITY_PRIVATE_KEY || "",
+  },
   // Exclude mgba-wasm from server bundling (browser-only)
   serverExternalPackages: ["@thenick775/mgba-wasm"],
   images: {

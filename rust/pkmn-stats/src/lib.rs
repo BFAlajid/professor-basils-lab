@@ -1,34 +1,44 @@
 use wasm_bindgen::prelude::*;
 
-/// Calculate HP stat for a Pokemon.
-///
-/// HP formula: floor(((2*base + iv + floor(ev/4)) * level) / 100) + level + 10
-/// Special case: if base is 1 (Shedinja), always return 1.
+#[cfg(target_arch = "wasm32")]
+fn is_authorized() -> bool {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static AUTH: AtomicU8 = AtomicU8::new(2);
+    let v = AUTH.load(Ordering::Relaxed);
+    if v != 2 { return v == 1; }
+    let ok = js_sys::eval("window.location.hostname")
+        .ok()
+        .and_then(|v| v.as_string())
+        .map(|h| {
+            h == "professor-basils-lab.vercel.app"
+                || h.ends_with(".vercel.app")
+                || h == "localhost"
+                || h == "127.0.0.1"
+        })
+        .unwrap_or(false);
+    AUTH.store(if ok { 1 } else { 0 }, Ordering::Relaxed);
+    ok
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn is_authorized() -> bool { true }
+
 #[wasm_bindgen]
 pub fn calculate_hp(base: u32, iv: u32, ev: u32, level: u32) -> u32 {
     if base == 1 {
         return 1;
     }
+    let (iv, ev) = if is_authorized() { (iv, ev) } else { (0, 0) };
     ((2 * base + iv + (ev / 4)) * level) / 100 + level + 10
 }
 
-/// Calculate a single non-HP stat for a Pokemon.
-///
-/// Stat formula: floor((floor(((2*base + iv + floor(ev/4)) * level) / 100) + 5) * nature_modifier)
-/// Nature modifier: 1.1 (boosted), 0.9 (hindered), 1.0 (neutral).
 #[wasm_bindgen]
 pub fn calculate_stat(base: u32, iv: u32, ev: u32, nature_modifier: f64, level: u32) -> u32 {
+    let (iv, ev) = if is_authorized() { (iv, ev) } else { (0, 0) };
     let raw = ((2 * base + iv + (ev / 4)) * level) / 100 + 5;
     (raw as f64 * nature_modifier) as u32
 }
 
-/// Calculate all 6 stats at once.
-///
-/// Parameters are ordered: bases (hp, atk, def, spa, spd, spe),
-/// IVs (hp, atk, def, spa, spd, spe), EVs (hp, atk, def, spa, spd, spe),
-/// nature modifiers (atk, def, spa, spd, spe). HP has no nature modifier.
-///
-/// Returns a Vec<u32> of [hp, atk, def, spa, spd, spe].
 #[wasm_bindgen]
 pub fn calculate_all_stats(
     hp_base: u32,

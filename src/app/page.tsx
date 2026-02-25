@@ -11,6 +11,9 @@ import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
 import type { TeamSlot } from "@/types";
 import dynamic from "next/dynamic";
 import SkeletonLoader from "@/components/SkeletonLoader";
+import { startHeartbeat } from "@/utils/heartbeat";
+import { verifyIntegrity } from "@/utils/integrity";
+import { checkTampering } from "@/utils/tamperDetect";
 
 // Lightweight — keep eager
 import TeamRoster from "@/components/TeamRoster";
@@ -154,8 +157,11 @@ export default function Home() {
     prevTeamSize.current = team.length;
   }, [team, markSeen, incrementStat]);
 
-  // Preload WASM modules after the page is idle to avoid blocking mobile
+  // Start heartbeat + preload WASM modules after idle
   useEffect(() => {
+    startHeartbeat();
+    checkTampering();
+    verifyIntegrity();
     const load = () => {
       Promise.allSettled([
         import("@/utils/damageWasm").then((m) => m.ensureWasmReady()),

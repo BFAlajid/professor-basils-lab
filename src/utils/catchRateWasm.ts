@@ -1,6 +1,7 @@
 import type { StatusCondition, BallType, CatchContext } from "@/types";
 import { getBallModifier } from "@/data/pokeBalls";
 import { randomSeed } from "./random";
+import { loadWasmModule } from "./wasmLoader";
 import {
   calculateCatchProbability as calculateCatchProbability_JS,
   shouldWildFlee as shouldWildFlee_JS,
@@ -33,7 +34,8 @@ async function initWasm(): Promise<boolean> {
   try {
     // @ts-ignore — WASM pkg only exists locally after wasm-pack build
     const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-catch-rate/pkg/pkmn_catch_rate.js");
-    await mod.default("/wasm/pkmn_catch_rate_bg.wasm");
+    const wasmInput = await loadWasmModule("/wasm/pkmn_catch_rate_bg.wasm");
+    await mod.default(wasmInput);
     wasmModule = {
       calculate_catch_probability: mod.calculate_catch_probability,
       should_wild_flee: mod.should_wild_flee,

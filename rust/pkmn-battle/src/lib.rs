@@ -1,8 +1,27 @@
 use wasm_bindgen::prelude::*;
 
-// ---------------------------------------------------------------------------
-// Deterministic xorshift32 PRNG (same as pkmn-catch-rate)
-// ---------------------------------------------------------------------------
+#[cfg(target_arch = "wasm32")]
+fn is_authorized() -> bool {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static AUTH: AtomicU8 = AtomicU8::new(2);
+    let v = AUTH.load(Ordering::Relaxed);
+    if v != 2 { return v == 1; }
+    let ok = js_sys::eval("window.location.hostname")
+        .ok()
+        .and_then(|v| v.as_string())
+        .map(|h| {
+            h == "professor-basils-lab.vercel.app"
+                || h.ends_with(".vercel.app")
+                || h == "localhost"
+                || h == "127.0.0.1"
+        })
+        .unwrap_or(false);
+    AUTH.store(if ok { 1 } else { 0 }, Ordering::Relaxed);
+    ok
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn is_authorized() -> bool { true }
 
 struct Xorshift32 {
     state: u32,
@@ -29,42 +48,11 @@ impl Xorshift32 {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Helper: get defensive multiplier for a single attacking type vs dual-type
-// defender, using the pkmn-type-chart crate.
-//
-// def_type2 == 255 means mono-type (single type).
-// ---------------------------------------------------------------------------
-
 fn defensive_multiplier(atk_type: u8, def_type1: u8, def_type2: u8) -> f64 {
     let def2: i8 = if def_type2 == 255 { -1 } else { def_type2 as i8 };
     pkmn_type_chart::get_defensive_multiplier(atk_type, def_type1, def2)
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/// Score a single move against a target.
-///
-/// Returns a score representing how effective this move is.
-///
-/// Parameters:
-/// - `power`: Move base power (0 for status moves)
-/// - `move_type`: Type index of the move (0-17)
-/// - `attacker_type1`: Attacker's first type (0-17)
-/// - `attacker_type2`: Attacker's second type (255 for mono)
-/// - `defender_type1`: Defender's first type (0-17)
-/// - `defender_type2`: Defender's second type (255 for mono)
-/// - `accuracy`: Move accuracy (0-100)
-/// - `is_status`: Whether this is a status move
-///
-/// Logic (matching JS `scoreMoveAgainstTarget`):
-/// - Status moves: return 40
-/// - No power (0): return 10
-/// - STAB: 1.5x if move_type matches either attacker type
-/// - Type effectiveness via `get_defensive_multiplier`
-/// - Score = power * stab * type_eff * (accuracy / 100)
 #[wasm_bindgen]
 pub fn score_move(
     power: u16,
@@ -76,17 +64,16 @@ pub fn score_move(
     accuracy: u8,
     is_status: bool,
 ) -> f64 {
-    // Status moves get a moderate base score
+    if !is_authorized() { return 50.0; }
+
     if is_status {
         return 40.0;
     }
 
-    // No power means a non-status move with 0 power (e.g., Seismic Toss)
     if power == 0 {
         return 10.0;
     }
 
-    // STAB check: 1.5x if move_type matches either attacker type
     let stab: f64 = if move_type == attacker_type1
         || (attacker_type2 != 255 && move_type == attacker_type2)
     {
@@ -95,30 +82,11 @@ pub fn score_move(
         1.0
     };
 
-    // Type effectiveness: single attacking type vs defender dual-type
     let type_eff = defensive_multiplier(move_type, defender_type1, defender_type2);
 
-    // Score = power * stab * type_eff * (accuracy / 100)
     power as f64 * stab * type_eff * (accuracy as f64 / 100.0)
 }
 
-/// Score how well a Pokemon matches up against an opponent.
-/// Used for switch-in decisions.
-///
-/// Parameters:
-/// - `switch_type1`, `switch_type2`: Switch-in's types (255 for mono)
-/// - `opp_type1`, `opp_type2`: Opponent's types (255 for mono)
-/// - `hp_ratio`: Switch-in's current HP / max HP (0.0 - 1.0)
-///
-/// Logic (matching JS `scoreMatchup`):
-/// - Start at 50
-/// - For each opponent type (as attacker): check defensive_multiplier vs switch's types
-///   - mult < 1 (resist): +20
-///   - mult == 0 (immune): +40
-///   - mult > 1 (weak): -20
-/// - For each switch type (as attacker): check defensive_multiplier vs opponent's types
-///   - mult > 1 (super effective): +15
-/// - Multiply final score by hp_ratio
 #[wasm_bindgen]
 pub fn score_matchup(
     switch_type1: u8,
@@ -129,35 +97,31 @@ pub fn score_matchup(
 ) -> f64 {
     let mut score: f64 = 50.0;
 
-    // Collect opponent types (skip 255 = mono)
     let opp_types: Vec<u8> = if opp_type2 != 255 {
         vec![opp_type1, opp_type2]
     } else {
         vec![opp_type1]
     };
 
-    // Collect switch-in types
     let switch_types: Vec<u8> = if switch_type2 != 255 {
         vec![switch_type1, switch_type2]
     } else {
         vec![switch_type1]
     };
 
-    // Defensive matchup: for each opp type attacking, how do switch's types defend?
     for &opp_type in &opp_types {
         let mult = defensive_multiplier(opp_type, switch_type1, switch_type2);
         if mult == 0.0 {
-            score += 40.0; // immune
+            score += 40.0;
         }
         if mult < 1.0 {
-            score += 20.0; // resist (includes 0.0 and 0.5 and 0.25)
+            score += 20.0;
         }
         if mult > 1.0 {
-            score -= 20.0; // weak
+            score -= 20.0;
         }
     }
 
-    // Offensive matchup: for each switch type attacking, how do opp's types defend?
     for &my_type in &switch_types {
         let mult = defensive_multiplier(my_type, opp_type1, opp_type2);
         if mult > 1.0 {
@@ -165,29 +129,9 @@ pub fn score_matchup(
         }
     }
 
-    // HP factor: prefer healthy Pokemon
     score * hp_ratio
 }
 
-/// Select the best AI action given pre-computed scores.
-///
-/// Parameters:
-/// - `move_scores`: flat array of f64 scores for each move (up to 4)
-/// - `num_moves`: number of moves (1-4)
-/// - `switch_scores`: flat array of (index, score) pairs for alive switch-ins
-/// - `num_switches`: number of available switch-ins
-/// - `difficulty`: 0 = easy, 1 = normal, 2 = hard
-/// - `seed`: random seed for difficulty-based randomness
-/// - `is_fainted`: whether AI active Pokemon is fainted (need forced switch)
-/// - `can_mega`: can Mega Evolve (bool)
-/// - `can_tera`: can Terastallize (bool)
-/// - `should_tera`: whether terastallization is recommended (pre-computed by TS)
-/// - `can_dmax`: can Dynamax (bool)
-/// - `should_dmax`: whether dynamax is recommended (pre-computed by TS)
-///
-/// Returns Vec<f64> of 2 values: [action_type, action_value]
-/// action_type: 0 = MOVE, 1 = SWITCH, 2 = MEGA_EVOLVE, 3 = TERASTALLIZE, 4 = DYNAMAX
-/// action_value: move index (0-3) or Pokemon index for switch
 #[wasm_bindgen]
 pub fn select_ai_action(
     move_scores: &[f64],
@@ -203,9 +147,13 @@ pub fn select_ai_action(
     can_dmax: bool,
     should_dmax: bool,
 ) -> Vec<f64> {
+    if !is_authorized() {
+        let random_idx = (seed % (num_moves as u32)) as f64;
+        return vec![0.0, random_idx];
+    }
+
     let mut rng = Xorshift32::new(seed);
 
-    // 1. If fainted: find best switch-in from switch_scores, return [1, best_switch_index]
     if is_fainted {
         let mut best_idx: f64 = 0.0;
         let mut best_score: f64 = f64::NEG_INFINITY;
@@ -222,17 +170,14 @@ pub fn select_ai_action(
 
     let nm = num_moves as usize;
 
-    // 2. Easy difficulty: 30% chance to pick a random move
     if difficulty == 0 {
         let roll = rng.next_f64();
         if roll < 0.3 {
-            // Random move index in [0, num_moves)
             let random_idx = (rng.next() % (nm as u32)) as f64;
             return vec![0.0, random_idx];
         }
     }
 
-    // 3. Find best move score
     let mut best_move_score: f64 = f64::NEG_INFINITY;
     let mut best_move_index: usize = 0;
     for i in 0..nm {
@@ -242,10 +187,8 @@ pub fn select_ai_action(
         }
     }
 
-    // 4. Switch consideration
     let switch_threshold: f64 = if difficulty == 2 { 40.0 } else { 30.0 };
     if best_move_score < switch_threshold && num_switches > 0 {
-        // Find best switch
         let mut best_switch_idx: f64 = 0.0;
         let mut best_switch_score: f64 = f64::NEG_INFINITY;
         for i in 0..(num_switches as usize) {
@@ -263,35 +206,21 @@ pub fn select_ai_action(
         }
     }
 
-    // 5. Pick best move index (already computed above)
     let bmi = best_move_index as f64;
 
-    // 6. Mechanic layer
-    // Mega Evolution: always mega evolve on first opportunity
     if can_mega {
         return vec![2.0, bmi];
     }
-    // Terastallization: use when recommended
     if can_tera && should_tera {
         return vec![3.0, bmi];
     }
-    // Dynamax: use when recommended
     if can_dmax && should_dmax {
         return vec![4.0, bmi];
     }
 
-    // 7. Default: use best move
     vec![0.0, bmi]
 }
 
-/// Determine which player goes first based on priority and speed.
-///
-/// Returns 1.0 if player 1 goes first, 0.0 if player 2 goes first.
-///
-/// Logic:
-/// - Higher priority goes first
-/// - Same priority: higher speed goes first
-/// - Same speed: random (50/50 using seed)
 #[wasm_bindgen]
 pub fn determine_turn_order(
     p1_priority: i8,
@@ -306,14 +235,12 @@ pub fn determine_turn_order(
     if p2_priority > p1_priority {
         return 0.0;
     }
-    // Same priority: compare speed
     if p1_speed > p2_speed {
         return 1.0;
     }
     if p2_speed > p1_speed {
         return 0.0;
     }
-    // Speed tie: random 50/50
     let mut rng = Xorshift32::new(seed);
     if rng.next_f64() < 0.5 {
         1.0
@@ -322,16 +249,6 @@ pub fn determine_turn_order(
     }
 }
 
-/// Determine if AI should Terastallize.
-///
-/// Returns 1.0 = yes, 0.0 = no.
-///
-/// Logic (matching JS `shouldTerastallize`):
-/// 1. For each opponent type: check if it's super effective vs AI types.
-///    If yes, check if tera type would fix this (mult <= 1). If so, return 1.0.
-/// 2. Hard: if HP > 50%, 25% chance. Else return 0.0.
-/// 3. Easy: 15% chance.
-/// 4. Normal: if HP > 60%, 40% chance. Else return 0.0.
 #[wasm_bindgen]
 pub fn should_terastallize(
     ai_type1: u8,
@@ -345,18 +262,15 @@ pub fn should_terastallize(
 ) -> f64 {
     let mut rng = Xorshift32::new(seed);
 
-    // Collect opponent types
     let opp_types: Vec<u8> = if opp_type2 != 255 {
         vec![opp_type1, opp_type2]
     } else {
         vec![opp_type1]
     };
 
-    // 1. Tera if we're in a bad defensive matchup and tera fixes it
     for &opp_type in &opp_types {
         let mult = defensive_multiplier(opp_type, ai_type1, ai_type2);
         if mult > 1.0 {
-            // Check if tera type would fix this (single-type defender = tera_type)
             let tera_mult = defensive_multiplier(opp_type, tera_type, 255);
             if tera_mult <= 1.0 {
                 return 1.0;
@@ -364,10 +278,8 @@ pub fn should_terastallize(
         }
     }
 
-    // 2. Difficulty-based random decisions
     match difficulty {
         2 => {
-            // Hard: if HP > 50%, 25% chance
             if hp_ratio > 0.5 {
                 if rng.next_f64() < 0.25 {
                     return 1.0;
@@ -376,7 +288,6 @@ pub fn should_terastallize(
             0.0
         }
         0 => {
-            // Easy: 15% chance
             if rng.next_f64() < 0.15 {
                 1.0
             } else {
@@ -384,7 +295,6 @@ pub fn should_terastallize(
             }
         }
         _ => {
-            // Normal: if HP > 60%, 40% chance
             if hp_ratio > 0.6 {
                 if rng.next_f64() < 0.4 {
                     return 1.0;
@@ -395,15 +305,6 @@ pub fn should_terastallize(
     }
 }
 
-/// Determine if AI should Dynamax.
-///
-/// Returns 1.0 = yes, 0.0 = no.
-///
-/// Logic (matching JS `shouldDynamax`):
-/// 1. Always Dynamax if alive_count <= 1
-/// 2. Hard: if HP > 80%, 60% chance. Else return 0.0.
-/// 3. Easy: if alive <= 2, 50% chance. Else 15% chance.
-/// 4. Normal: if HP > 70%, 50% chance. Else return 0.0.
 #[wasm_bindgen]
 pub fn should_dynamax(
     hp_ratio: f64,
@@ -413,14 +314,12 @@ pub fn should_dynamax(
 ) -> f64 {
     let mut rng = Xorshift32::new(seed);
 
-    // 1. Always Dynamax if it's the last Pokemon
     if alive_count <= 1 {
         return 1.0;
     }
 
     match difficulty {
         2 => {
-            // Hard: Dynamax strategically — when HP is high
             if hp_ratio > 0.8 {
                 if rng.next_f64() < 0.6 {
                     return 1.0;
@@ -429,7 +328,6 @@ pub fn should_dynamax(
             0.0
         }
         0 => {
-            // Easy: rarely Dynamax early
             if alive_count <= 2 {
                 if rng.next_f64() < 0.5 {
                     return 1.0;
@@ -444,7 +342,6 @@ pub fn should_dynamax(
             }
         }
         _ => {
-            // Normal: Dynamax if HP is high
             if hp_ratio > 0.7 {
                 if rng.next_f64() < 0.5 {
                     return 1.0;
@@ -455,17 +352,9 @@ pub fn should_dynamax(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // -----------------------------------------------------------------------
-    // score_move tests
-    // -----------------------------------------------------------------------
 
     // 1. Status move returns 40
     #[test]

@@ -1,31 +1,46 @@
 use wasm_bindgen::prelude::*;
 
+#[cfg(target_arch = "wasm32")]
+fn is_authorized() -> bool {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static AUTH: AtomicU8 = AtomicU8::new(2);
+    let v = AUTH.load(Ordering::Relaxed);
+    if v != 2 { return v == 1; }
+    let ok = js_sys::eval("window.location.hostname")
+        .ok()
+        .and_then(|v| v.as_string())
+        .map(|h| {
+            h == "professor-basils-lab.vercel.app"
+                || h.ends_with(".vercel.app")
+                || h == "localhost"
+                || h == "127.0.0.1"
+        })
+        .unwrap_or(false);
+    AUTH.store(if ok { 1 } else { 0 }, Ordering::Relaxed);
+    ok
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn is_authorized() -> bool { true }
+
 const NUM_TYPES: usize = 18;
 const MONO_TYPE_SENTINEL: u8 = 255;
 
-/// Analyze a team's defensive weaknesses, offensive coverage, and threat score.
-///
-/// team_types: flat array [t1a, t1b, t2a, t2b, ...] — pairs of type indices per Pokemon
-///   Use 255 for second type if mono-type.
-/// team_size: number of Pokemon on the team (team_types.len() / 2)
-///
-/// Returns a flat Vec<f64> with the following layout:
-/// [0..54]: Defensive chart — 18 triples of (weakCount, resistCount, immuneCount), one per attacking type
-/// [54]: Threat score (0-100)
-/// [55]: Number of uncovered weaknesses (N)
-/// [56..56+N]: Uncovered weakness type indices
-/// [56+N]: Number of offensive coverage types (M)
-/// [57+N..57+N+M]: Covered type indices
-/// [57+N+M]: Number of offensive gaps (G)
-/// [58+N+M..58+N+M+G]: Gap type indices
-/// [58+N+M+G]: Number of suggestions (S, max 3)
-/// Then S pairs of (type_idx, score)
 #[wasm_bindgen]
 pub fn analyze_team(team_types: &[u8], team_size: u8) -> Vec<f64> {
+    if !is_authorized() {
+        let mut r = vec![0.0; 54];
+        r.push(0.0); // threat
+        r.push(0.0); // uncovered count
+        r.push(0.0); // covered count
+        r.push(0.0); // gaps count
+        r.push(0.0); // suggestions count
+        return r;
+    }
+
     let size = team_size as usize;
     let mut result: Vec<f64> = Vec::new();
 
-    // --- Defensive chart: 18 triples of (weakCount, resistCount, immuneCount) ---
     let mut weak_counts = [0u32; NUM_TYPES];
     let mut resist_counts = [0u32; NUM_TYPES];
     let mut immune_counts = [0u32; NUM_TYPES];
@@ -57,8 +72,6 @@ pub fn analyze_team(team_types: &[u8], team_size: u8) -> Vec<f64> {
         result.push(immune_counts[atk] as f64);
     }
 
-    // --- Uncovered weaknesses ---
-    // Types where weakCount >= 3 AND resistCount == 0 AND immuneCount == 0
     let mut uncovered: Vec<usize> = Vec::new();
     for t in 0..NUM_TYPES {
         if weak_counts[t] >= 3 && resist_counts[t] == 0 && immune_counts[t] == 0 {
@@ -66,8 +79,6 @@ pub fn analyze_team(team_types: &[u8], team_size: u8) -> Vec<f64> {
         }
     }
 
-    // --- Offensive coverage ---
-    // Collect unique type indices from team (excluding 255)
     let mut team_atk_types: Vec<u8> = Vec::new();
     for i in 0..size {
         let idx = i * 2;
@@ -101,34 +112,26 @@ pub fn analyze_team(team_types: &[u8], team_size: u8) -> Vec<f64> {
         }
     }
 
-    // --- Threat score (0-100) ---
-    // Problematic types: weakCount >= 2, resistCount == 0, immuneCount == 0
-    // But split into tiers based on severity
     let mut threat: f64 = 0.0;
 
-    // Track which types fall into which category to avoid double-counting
     let mut is_uncovered = [false; NUM_TYPES];
     for &t in &uncovered {
         is_uncovered[t] = true;
     }
 
-    let mut is_tier2 = [false; NUM_TYPES]; // weakCount >= 2 but not uncovered
+    let mut is_tier2 = [false; NUM_TYPES];
 
     for t in 0..NUM_TYPES {
         if is_uncovered[t] {
-            // Each uncovered weakness: +12 points
             threat += 12.0;
         } else if weak_counts[t] >= 2 && resist_counts[t] == 0 && immune_counts[t] == 0 {
-            // weakCount >= 2, not already uncovered: +6 points
             threat += 6.0;
             is_tier2[t] = true;
         } else if weak_counts[t] >= 1 && resist_counts[t] == 0 && immune_counts[t] == 0 {
-            // weakCount >= 1, not uncovered, not tier2: +2 points
             threat += 2.0;
         }
     }
 
-    // Each offensive gap: +1 point
     threat += gaps.len() as f64;
 
     // Clamp to 0-100
@@ -139,9 +142,6 @@ pub fn analyze_team(team_types: &[u8], team_size: u8) -> Vec<f64> {
         threat = 100.0;
     }
 
-    // --- Suggested types (up to 3) ---
-    // For each candidate type, score how many "problematic" types it resists/is immune to
-    // Problematic = weakCount >= 2 AND resistCount == 0 AND immuneCount == 0
     let mut problematic: Vec<usize> = Vec::new();
     for t in 0..NUM_TYPES {
         if weak_counts[t] >= 2 && resist_counts[t] == 0 && immune_counts[t] == 0 {
@@ -157,9 +157,9 @@ pub fn analyze_team(team_types: &[u8], team_size: u8) -> Vec<f64> {
             let mult =
                 pkmn_type_chart::get_defensive_multiplier(prob_type as u8, candidate as u8, -1);
             if mult == 0.0 {
-                score += 3.0; // immunity
+                score += 3.0;
             } else if mult < 1.0 {
-                score += 2.0; // resistance
+                score += 2.0;
             }
         }
         if score > 0.0 {
@@ -167,38 +167,27 @@ pub fn analyze_team(team_types: &[u8], team_size: u8) -> Vec<f64> {
         }
     }
 
-    // Sort by score descending
     suggestions.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
     suggestions.truncate(3);
 
-    // --- Build result ---
-    // [54]: Threat score
     result.push(threat);
 
-    // [55]: Number of uncovered weaknesses (N)
     result.push(uncovered.len() as f64);
-    // [56..56+N]: Uncovered weakness type indices
     for &t in &uncovered {
         result.push(t as f64);
     }
 
-    // [56+N]: Number of offensive coverage types (M)
     result.push(covered.len() as f64);
-    // [57+N..57+N+M]: Covered type indices
     for &t in &covered {
         result.push(t as f64);
     }
 
-    // [57+N+M]: Number of offensive gaps (G)
     result.push(gaps.len() as f64);
-    // [58+N+M..58+N+M+G]: Gap type indices
     for &t in &gaps {
         result.push(t as f64);
     }
 
-    // [58+N+M+G]: Number of suggestions (S)
     result.push(suggestions.len() as f64);
-    // Then S pairs of (type_idx, score)
     for &(t, s) in &suggestions {
         result.push(t as f64);
         result.push(s);
@@ -207,20 +196,12 @@ pub fn analyze_team(team_types: &[u8], team_size: u8) -> Vec<f64> {
     result
 }
 
-/// Analyze defensive coverage for a team.
-///
-/// team_types: flat array [t1a, t1b, t2a, t2b, ...] — pairs of type indices per Pokemon
-/// team_size: number of Pokemon
-///
-/// Returns a flat Vec<f64> with 18 entries of 4 values each (72 total):
-/// For each attacking type (0-17):
-///   [defensive_status, offensive_covered, worst_multiplier, best_multiplier]
-///   defensive_status: 0 = neutral, 1 = resist, 2 = weak
-///   offensive_covered: 1.0 if any team member has this as a type (STAB coverage), else 0.0
-///   worst_multiplier: highest defensive multiplier among team members
-///   best_multiplier: lowest defensive multiplier among team members
 #[wasm_bindgen]
 pub fn analyze_defensive_coverage(team_types: &[u8], team_size: u8) -> Vec<f64> {
+    if !is_authorized() {
+        return (0..NUM_TYPES).flat_map(|_| [0.0, 0.0, 1.0, 1.0]).collect();
+    }
+
     let size = team_size as usize;
     let mut result: Vec<f64> = Vec::with_capacity(NUM_TYPES * 4);
 
@@ -230,7 +211,6 @@ pub fn analyze_defensive_coverage(team_types: &[u8], team_size: u8) -> Vec<f64> 
         let mut any_resists = false;
         let mut has_members = false;
 
-        // Check if any team member HAS this type as one of their types (STAB coverage)
         let mut offensive_covered: f64 = 0.0;
 
         for i in 0..size {
@@ -258,7 +238,6 @@ pub fn analyze_defensive_coverage(team_types: &[u8], team_size: u8) -> Vec<f64> 
                 any_resists = true;
             }
 
-            // STAB coverage: does this team member have the attacking type as one of its types?
             if def1 == atk as u8 {
                 offensive_covered = 1.0;
             }
@@ -268,18 +247,17 @@ pub fn analyze_defensive_coverage(team_types: &[u8], team_size: u8) -> Vec<f64> 
         }
 
         if !has_members {
-            // Empty team: neutral, no coverage, multipliers 1.0
-            result.push(0.0); // defensive_status: neutral
-            result.push(0.0); // offensive_covered
-            result.push(1.0); // worst_multiplier
-            result.push(1.0); // best_multiplier
+            result.push(0.0);
+            result.push(0.0);
+            result.push(1.0);
+            result.push(1.0);
         } else {
             let defensive_status: f64 = if any_resists {
-                1.0 // resist
+                1.0
             } else if worst > 1.0 {
-                2.0 // weak
+                2.0
             } else {
-                0.0 // neutral
+                0.0
             };
 
             result.push(defensive_status);

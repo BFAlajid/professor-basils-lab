@@ -1,5 +1,28 @@
 use wasm_bindgen::prelude::*;
 
+#[cfg(target_arch = "wasm32")]
+fn is_authorized() -> bool {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static AUTH: AtomicU8 = AtomicU8::new(2);
+    let v = AUTH.load(Ordering::Relaxed);
+    if v != 2 { return v == 1; }
+    let ok = js_sys::eval("window.location.hostname")
+        .ok()
+        .and_then(|v| v.as_string())
+        .map(|h| {
+            h == "professor-basils-lab.vercel.app"
+                || h.ends_with(".vercel.app")
+                || h == "localhost"
+                || h == "127.0.0.1"
+        })
+        .unwrap_or(false);
+    AUTH.store(if ok { 1 } else { 0 }, Ordering::Relaxed);
+    ok
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn is_authorized() -> bool { true }
+
 // Stat abbreviation mappings
 const STAT_NAMES: [&str; 6] = ["HP", "Atk", "Def", "SpA", "SpD", "Spe"];
 
@@ -28,14 +51,10 @@ fn to_display_name(api_name: &str) -> String {
     api_name.split('-').map(|w| capitalize(w)).collect::<Vec<_>>().join(" ")
 }
 
-/// Parse a Showdown paste block (single Pokemon) into a JSON string.
-///
-/// Returns JSON: `{"species":"...", "item":"...", "ability":"...", "evs":[6], "ivs":[6],
-///   "nature":"...", "teraType":"...", "moves":["..."]}`
-///
-/// PokeAPI fetching and move validation happen on the JS side.
 #[wasm_bindgen]
 pub fn parse_showdown_block(block: &str) -> String {
+    if !is_authorized() { return "null".into(); }
+
     let lines: Vec<&str> = block.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
     if lines.is_empty() {
         return "null".into();
@@ -51,7 +70,6 @@ pub fn parse_showdown_block(block: &str) -> String {
     let mut has_ivs = false;
     let mut moves: Vec<String> = Vec::new();
 
-    // Line 1: Species / Nickname @ Item
     let first = lines[0];
     let (name_part, item_part) = if let Some(at_idx) = first.find(" @ ") {
         (&first[..at_idx], Some(&first[at_idx + 3..]))
@@ -63,7 +81,6 @@ pub fn parse_showdown_block(block: &str) -> String {
         item = to_api_name(it);
     }
 
-    // Check for Nickname (Species) pattern
     if let Some(open) = name_part.rfind('(') {
         if let Some(close) = name_part.rfind(')') {
             if close > open {
@@ -75,7 +92,6 @@ pub fn parse_showdown_block(block: &str) -> String {
         species = to_api_name(name_part);
     }
 
-    // Remaining lines
     for line in &lines[1..] {
         if let Some(rest) = line.strip_prefix("Ability:") {
             ability = to_api_name(rest);
@@ -96,7 +112,6 @@ pub fn parse_showdown_block(block: &str) -> String {
         }
     }
 
-    // Build JSON manually (no serde dependency for minimal size)
     let mut json = String::with_capacity(256);
     json.push('{');
     json.push_str(&format!("\"species\":\"{}\",", escape_json(&species)));
@@ -125,10 +140,8 @@ pub fn parse_showdown_block(block: &str) -> String {
     json
 }
 
-/// Parse a full Showdown paste (multiple Pokemon) into a JSON array string.
 #[wasm_bindgen]
 pub fn parse_showdown_paste(input: &str) -> String {
-    // Split on blank lines
     let mut blocks: Vec<String> = Vec::new();
     let mut current = String::new();
 
@@ -147,7 +160,6 @@ pub fn parse_showdown_paste(input: &str) -> String {
         blocks.push(current.trim().to_string());
     }
 
-    // Merge orphan blocks (blocks that start with move lines)
     let mut merged: Vec<String> = Vec::new();
     for block in blocks {
         let first = block.lines().next().unwrap_or("");
@@ -177,19 +189,14 @@ pub fn parse_showdown_paste(input: &str) -> String {
     json
 }
 
-/// Export a team from JSON to Showdown paste format.
-/// Input: JSON array of `{"species", "item", "ability", "evs", "ivs", "nature", "teraType", "moves"}`.
-/// This is a simple formatter — the heavy lifting is name→display conversion.
 #[wasm_bindgen]
 pub fn export_showdown_paste(team_json: &str) -> String {
-    // Minimal JSON array parser for our known schema
     let mut result = String::new();
     let entries = parse_json_array(team_json);
 
     for (i, entry) in entries.iter().enumerate() {
         if i > 0 { result.push_str("\n\n"); }
 
-        // Line 1: Species @ Item
         let species = to_display_name(entry.get("species").map(|s| s.as_str()).unwrap_or(""));
         let item = entry.get("item").map(|s| s.as_str()).unwrap_or("");
         if !item.is_empty() {
@@ -198,21 +205,18 @@ pub fn export_showdown_paste(team_json: &str) -> String {
             result.push_str(&format!("{}\n", species));
         }
 
-        // Ability
         if let Some(ability) = entry.get("ability") {
             if !ability.is_empty() {
                 result.push_str(&format!("Ability: {}\n", to_display_name(ability)));
             }
         }
 
-        // Tera Type
         if let Some(tera) = entry.get("teraType") {
             if !tera.is_empty() {
                 result.push_str(&format!("Tera Type: {}\n", capitalize(tera)));
             }
         }
 
-        // EVs
         if let Some(evs_str) = entry.get("evs") {
             let ev_vals = parse_int_array(evs_str);
             let mut parts = Vec::new();
@@ -226,14 +230,12 @@ pub fn export_showdown_paste(team_json: &str) -> String {
             }
         }
 
-        // Nature
         if let Some(nature) = entry.get("nature") {
             if !nature.is_empty() {
                 result.push_str(&format!("{} Nature\n", capitalize(nature)));
             }
         }
 
-        // IVs
         if let Some(ivs_str) = entry.get("ivs") {
             let iv_vals = parse_int_array(ivs_str);
             let has_non_max = iv_vals.iter().any(|v| *v != 31);
@@ -246,7 +248,6 @@ pub fn export_showdown_paste(team_json: &str) -> String {
             }
         }
 
-        // Moves
         if let Some(moves_str) = entry.get("moves") {
             let moves = parse_string_array(moves_str);
             for m in moves {
@@ -257,8 +258,6 @@ pub fn export_showdown_paste(team_json: &str) -> String {
 
     result
 }
-
-// ── Helpers ──
 
 fn parse_spread(raw: &str, out: &mut [u16; 6]) {
     for part in raw.split('/') {
@@ -281,8 +280,6 @@ fn escape_json(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
-/// Minimal JSON array-of-objects parser for our known export schema.
-/// Returns Vec<HashMap<String, String>> where values are raw JSON strings for arrays.
 fn parse_json_array(json: &str) -> Vec<std::collections::HashMap<String, String>> {
     let json = json.trim();
     let json = json.strip_prefix('[').unwrap_or(json);
@@ -399,4 +396,128 @@ fn parse_string_array(raw: &str) -> Vec<String> {
         .map(|s| s.trim().trim_matches('"').to_string())
         .filter(|s| !s.is_empty())
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_basic_pokemon() {
+        let block = "Garchomp @ Choice Scarf\nAbility: Rough Skin\nEVs: 252 Atk / 4 SpD / 252 Spe\nJolly Nature\n- Earthquake\n- Outrage";
+        let result = parse_showdown_block(block);
+        assert!(result.contains("\"species\":\"garchomp\""));
+        assert!(result.contains("\"item\":\"choice-scarf\""));
+        assert!(result.contains("\"ability\":\"rough-skin\""));
+        assert!(result.contains("\"nature\":\"jolly\""));
+        assert!(result.contains("\"earthquake\""));
+        assert!(result.contains("\"outrage\""));
+    }
+
+    #[test]
+    fn parse_evs() {
+        let block = "Pikachu\nEVs: 252 SpA / 252 Spe / 4 HP";
+        let result = parse_showdown_block(block);
+        assert!(result.contains("\"evs\":[4,0,0,252,0,252]"));
+    }
+
+    #[test]
+    fn parse_ivs_present() {
+        let block = "Pikachu\nIVs: 0 Atk";
+        let result = parse_showdown_block(block);
+        assert!(result.contains("\"ivs\":[31,0,31,31,31,31]"));
+    }
+
+    #[test]
+    fn parse_no_ivs_returns_null() {
+        let block = "Pikachu";
+        let result = parse_showdown_block(block);
+        assert!(result.contains("\"ivs\":null"));
+    }
+
+    #[test]
+    fn parse_nickname() {
+        let block = "Sparky (Pikachu) @ Light Ball";
+        let result = parse_showdown_block(block);
+        assert!(result.contains("\"species\":\"pikachu\""));
+    }
+
+    #[test]
+    fn parse_tera_type() {
+        let block = "Pikachu\nTera Type: Fairy";
+        let result = parse_showdown_block(block);
+        assert!(result.contains("\"teraType\":\"fairy\""));
+    }
+
+    #[test]
+    fn parse_empty_block_returns_null() {
+        let result = parse_showdown_block("");
+        assert_eq!(result, "null");
+    }
+
+    #[test]
+    fn parse_paste_multiple_pokemon() {
+        let paste = "Garchomp @ Choice Scarf\nAbility: Rough Skin\n- Earthquake\n\nPikachu @ Light Ball\nAbility: Static\n- Thunderbolt";
+        let result = parse_showdown_paste(paste);
+        assert!(result.starts_with('['));
+        assert!(result.ends_with(']'));
+        assert!(result.contains("\"garchomp\""));
+        assert!(result.contains("\"pikachu\""));
+    }
+
+    #[test]
+    fn export_basic_pokemon() {
+        let json = r#"[{"species":"garchomp","item":"choice-scarf","ability":"rough-skin","nature":"jolly","teraType":"","evs":[0,252,0,0,4,252],"moves":["earthquake","outrage"]}]"#;
+        let result = export_showdown_paste(json);
+        assert!(result.contains("Garchomp @ Choice Scarf"));
+        assert!(result.contains("Ability: Rough Skin"));
+        assert!(result.contains("Jolly Nature"));
+        assert!(result.contains("- Earthquake"));
+        assert!(result.contains("- Outrage"));
+    }
+
+    #[test]
+    fn export_evs_formatting() {
+        let json = r#"[{"species":"pikachu","item":"","ability":"","nature":"","teraType":"","evs":[0,252,0,0,4,252],"moves":[]}]"#;
+        let result = export_showdown_paste(json);
+        assert!(result.contains("EVs: 252 Atk / 4 SpD / 252 Spe"));
+    }
+
+    #[test]
+    fn export_omits_max_ivs() {
+        let json = r#"[{"species":"pikachu","item":"","ability":"","nature":"","teraType":"","evs":[0,0,0,0,0,0],"ivs":[31,31,31,31,31,31],"moves":[]}]"#;
+        let result = export_showdown_paste(json);
+        assert!(!result.contains("IVs:"));
+    }
+
+    #[test]
+    fn export_shows_non_max_ivs() {
+        let json = r#"[{"species":"pikachu","item":"","ability":"","nature":"","teraType":"","evs":[0,0,0,0,0,0],"ivs":[31,0,31,31,31,31],"moves":[]}]"#;
+        let result = export_showdown_paste(json);
+        assert!(result.contains("IVs:"));
+        assert!(result.contains("0 Atk"));
+    }
+
+    #[test]
+    fn roundtrip_parse_export() {
+        let original = "Garchomp @ Choice Scarf\nAbility: Rough Skin\nEVs: 252 Atk / 4 SpD / 252 Spe\nJolly Nature\n- Earthquake\n- Outrage";
+        let parsed = parse_showdown_paste(original);
+        let exported = export_showdown_paste(&parsed);
+        assert!(exported.contains("Garchomp @ Choice Scarf"));
+        assert!(exported.contains("Ability: Rough Skin"));
+        assert!(exported.contains("Jolly Nature"));
+        assert!(exported.contains("- Earthquake"));
+    }
+
+    #[test]
+    fn to_api_name_handles_special_chars() {
+        assert_eq!(to_api_name("Choice Scarf"), "choice-scarf");
+        assert_eq!(to_api_name("King's Rock"), "kings-rock");
+    }
+
+    #[test]
+    fn to_display_name_capitalizes() {
+        assert_eq!(to_display_name("choice-scarf"), "Choice Scarf");
+        assert_eq!(to_display_name("rough-skin"), "Rough Skin");
+    }
 }

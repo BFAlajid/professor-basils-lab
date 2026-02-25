@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:secure": "next build && node scripts/scramble-typechart.mjs && node scripts/encrypt-wasm.mjs && node scripts/sign-manifest.mjs && node scripts/obfuscate.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
@@ -37,6 +38,7 @@
     "jsdom": "^28.1.0",
     "tailwindcss": "^4",
     "typescript": "^5",
+    "javascript-obfuscator": "^4.1.1",
     "vitest": "^4.0.18"
   }
 }
