@@ -118,6 +118,10 @@ function getOrCreateCanvas(): HTMLCanvasElement {
     persistentCanvas.style.display = "block";
     persistentCanvas.style.width = "100%";
     persistentCanvas.style.aspectRatio = "2/3";
+    persistentCanvas.tabIndex = 0;
+    persistentCanvas.style.outline = "none";
+    // Re-focus canvas on click so keyboard input resumes after interacting elsewhere
+    persistentCanvas.addEventListener("mousedown", () => persistentCanvas?.focus());
   }
   return persistentCanvas;
 }
@@ -243,6 +247,9 @@ export function useNDSEmulator() {
 
               // Start RetroArch
               win.Module.callMain(win.Module.arguments);
+
+              // Focus canvas so it receives keyboard events
+              canvas.focus();
 
               // Track save writes for auto-persist
               try {
@@ -395,11 +402,12 @@ export function useNDSEmulator() {
     setState((s) => ({ ...s, isPaused: false }));
   }, []);
 
-  // ── On-screen button press/release → dispatch keyboard events to RetroArch ──
+  // Dispatch to the canvas element so Emscripten's keyboard handler receives it
   const buttonPress = useCallback((bit: number) => {
     const kv = BIT_TO_KEY[bit];
     if (!kv) return;
-    window.dispatchEvent(
+    const target = persistentCanvas || document;
+    target.dispatchEvent(
       new KeyboardEvent("keydown", {
         key: kv.key,
         code: kv.code,
@@ -413,7 +421,8 @@ export function useNDSEmulator() {
   const buttonUnpress = useCallback((bit: number) => {
     const kv = BIT_TO_KEY[bit];
     if (!kv) return;
-    window.dispatchEvent(
+    const target = persistentCanvas || document;
+    target.dispatchEvent(
       new KeyboardEvent("keyup", {
         key: kv.key,
         code: kv.code,
