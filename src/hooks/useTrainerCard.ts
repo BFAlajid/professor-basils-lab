@@ -14,6 +14,18 @@ export interface TrainerCardData {
   bestTowerStreak: number;
   hallOfFameEntries: number;
   playTime: string;
+  eloRating: number;
+  rankTier: string;
+  money: number;
+}
+
+function getRankTier(elo: number): string {
+  if (elo >= 2000) return "Master";
+  if (elo >= 1800) return "Ultra";
+  if (elo >= 1600) return "Hyper";
+  if (elo >= 1400) return "Great";
+  if (elo >= 1200) return "Poke";
+  return "Beginner";
 }
 
 // ── Storage Keys ────────────────────────────────────────────────────────
@@ -160,6 +172,9 @@ export function useTrainerCard(stats: PlayerStats) {
     bestTowerStreak: stats.battleTowerBestStreak,
     hallOfFameEntries: stats.hallOfFameEntries,
     playTime,
+    eloRating: stats.eloRating,
+    rankTier: getRankTier(stats.eloRating),
+    money: stats.money,
   };
 
   return { cardData, setTrainerName, exportAsImage };

@@ -169,7 +169,7 @@ export default function PokemonComparison({ team }: PokemonComparisonProps) {
   );
 
   // Find max value per stat row for highlighting
-  const maxPerStat = STAT_KEYS.map((key, si) => {
+  const maxPerStat = STAT_KEYS.map((key) => {
     let max = 0;
     statsData.forEach(({ calc }) => {
       const v = calc[key];

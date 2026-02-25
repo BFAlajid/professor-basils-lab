@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { BattleState } from "@/types";
 
@@ -12,10 +13,20 @@ interface BattleResultProps {
   trainerName?: string;
   prizeMoney?: number;
   badgeEarned?: string;
+  onPrizeMoney?: (amount: number) => void;
 }
 
-export default function BattleResult({ state, onPlayAgain, onReset, onSaveReplay, replaySaved, trainerName, prizeMoney, badgeEarned }: BattleResultProps) {
+export default function BattleResult({ state, onPlayAgain, onReset, onSaveReplay, replaySaved, trainerName, prizeMoney, badgeEarned, onPrizeMoney }: BattleResultProps) {
   const isPlayer1Winner = state.winner === "player1";
+
+  // Award prize money once when result is shown
+  const prizeAwarded = useRef(false);
+  useEffect(() => {
+    if (isPlayer1Winner && prizeMoney && prizeMoney > 0 && onPrizeMoney && !prizeAwarded.current) {
+      prizeAwarded.current = true;
+      onPrizeMoney(prizeMoney);
+    }
+  }, [isPlayer1Winner, prizeMoney, onPrizeMoney]);
   const winnerLabel = state.mode === "ai"
     ? (isPlayer1Winner
         ? (trainerName ? `You defeated ${trainerName}!` : "You Win!")

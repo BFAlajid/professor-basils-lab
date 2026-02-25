@@ -37,7 +37,7 @@ export default function BattleTab({ team }: BattleTabProps) {
     saveReplay,
   } = useBattle();
 
-  const { recordBattleWin, recordBattleLoss, incrementStat, setBattleTowerStreak } = useAchievementsContext();
+  const { recordBattleWin, recordBattleLoss, incrementStat, setBattleTowerStreak, addMoney, updateElo } = useAchievementsContext();
   const tournament = useTournament();
   const online = useOnlineBattle();
   const facility = useBattleFacility();
@@ -60,11 +60,13 @@ export default function BattleTab({ team }: BattleTabProps) {
       hasRecorded.current = true;
       if (state.winner === "player1") {
         recordBattleWin();
+        updateElo(true);
         if (activeBattleMode === "tournament") {
           tournament.reportWin();
         }
       } else {
         recordBattleLoss();
+        updateElo(false);
         if (activeBattleMode === "tournament") {
           tournament.reportLoss();
         }
@@ -74,7 +76,7 @@ export default function BattleTab({ team }: BattleTabProps) {
       hasRecorded.current = false;
       setReplaySaved(false);
     }
-  }, [state.phase, state.winner, recordBattleWin, recordBattleLoss, activeBattleMode, tournament, isFacilityMode]);
+  }, [state.phase, state.winner, recordBattleWin, recordBattleLoss, updateElo, activeBattleMode, tournament, isFacilityMode]);
 
   // Record facility battle result when facility battle ends
   useEffect(() => {
@@ -243,6 +245,7 @@ export default function BattleTab({ team }: BattleTabProps) {
           trainerName={currentOpp?.name}
           prizeMoney={currentOpp?.prizeMoney}
           badgeEarned={badgeName ?? undefined}
+          onPrizeMoney={addMoney}
         />
       );
     }
@@ -412,6 +415,8 @@ export default function BattleTab({ team }: BattleTabProps) {
         onReset={handleResetBattle}
         onSaveReplay={handleSaveReplay}
         replaySaved={replaySaved}
+        prizeMoney={state.mode === "ai" && state.winner === "player1" ? 500 + state.turn * 50 : undefined}
+        onPrizeMoney={addMoney}
       />
     );
   }

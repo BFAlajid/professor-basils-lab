@@ -22,10 +22,8 @@ async function initWasm(): Promise<boolean> {
 
   try {
     // Dynamic import of the wasm-bindgen generated JS glue
-    const mod = await import(
-      /* webpackIgnore: true */
-      "../../rust/gen3-parser/pkg/gen3_parser.js"
-    );
+    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
+    const mod = await import("../../rust/gen3-parser/pkg/gen3_parser.js");
     // Initialize the WASM module by fetching the binary from public/
     await mod.default("/wasm/gen3_parser_bg.wasm");
     wasmModule = {

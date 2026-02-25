@@ -115,6 +115,7 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
               value={selectedMove ?? ""}
               onChange={(e) => setSelectedMove(e.target.value || null)}
               className="w-full rounded-lg border border-[#3a4466] bg-[#1a1c2c] px-3 py-2 text-sm text-[#f0f0e8] outline-none focus:border-[#e8433f]"
+              aria-label="Select a move"
             >
               <option value="">Select a move...</option>
               {attackerMoves.map((m) => (

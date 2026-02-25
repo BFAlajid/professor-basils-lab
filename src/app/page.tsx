@@ -338,7 +338,7 @@ export default function Home() {
                 <BattleTab team={team} />
               )}
               {activeTab === "wild" && (
-                <WildTab team={team} onAddToTeam={addPokemon} />
+                <WildTab team={team} onAddToTeam={addPokemon} onSetEvs={setEvs} onSetMoves={setMoves} />
               )}
               {activeTab === "pokedex" && (
                 <PokedexTracker />

@@ -1,13 +1,28 @@
 import { cacheBattleMove, getCachedMoves } from "./battle";
 
+const pendingFetches = new Map<string, Promise<void>>();
+
 /**
  * Fetch a move from PokeAPI and cache it as BattleMoveData.
- * Skips if already cached. Returns silently on failure.
+ * Skips if already cached. Deduplicates concurrent requests for the same move.
  */
 export async function fetchAndCacheMove(moveName: string): Promise<void> {
   const cached = getCachedMoves();
   if (cached.has(moveName)) return;
 
+  const existing = pendingFetches.get(moveName);
+  if (existing) return existing;
+
+  const promise = fetchMoveImpl(moveName);
+  pendingFetches.set(moveName, promise);
+  try {
+    await promise;
+  } finally {
+    pendingFetches.delete(moveName);
+  }
+}
+
+async function fetchMoveImpl(moveName: string): Promise<void> {
   try {
     const res = await fetch(
       `https://pokeapi.co/api/v2/move/${moveName.toLowerCase()}`

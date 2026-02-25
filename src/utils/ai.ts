@@ -311,12 +311,12 @@ function scoreMoveAgainstTarget(
 
   if (!moveData.power) return 10;
 
-  const attackerTypes = attacker.slot.pokemon.types.map((t) => t.type.name);
-  const defenderTypes = defender.slot.pokemon.types.map((t) => t.type.name);
-  const moveType = moveData.type.name;
+  const attackerTypes = attacker.slot.pokemon.types.map((t) => t.type.name as TypeName);
+  const defenderTypes = defender.slot.pokemon.types.map((t) => t.type.name as TypeName);
+  const moveType = moveData.type.name as TypeName;
 
-  const stab = attackerTypes.includes(moveType as any) ? 1.5 : 1;
-  const typeEff = getDefensiveMultiplier(moveType as any, defenderTypes as any[]);
+  const stab = attackerTypes.includes(moveType) ? 1.5 : 1;
+  const typeEff = getDefensiveMultiplier(moveType, defenderTypes);
   const accuracy = (moveData.accuracy ?? 100) / 100;
 
   return moveData.power * stab * typeEff * accuracy;
@@ -326,13 +326,13 @@ function scoreMatchup(
   switchIn: import("@/types").BattlePokemon,
   opponent: import("@/types").BattlePokemon
 ): number {
-  const switchTypes = switchIn.slot.pokemon.types.map((t) => t.type.name);
-  const opponentTypes = opponent.slot.pokemon.types.map((t) => t.type.name);
+  const switchTypes = switchIn.slot.pokemon.types.map((t) => t.type.name as TypeName);
+  const opponentTypes = opponent.slot.pokemon.types.map((t) => t.type.name as TypeName);
 
   // Score based on defensive matchup (how well does the switch-in resist the opponent's types?)
   let score = 50;
   for (const oppType of opponentTypes) {
-    const mult = getDefensiveMultiplier(oppType as any, switchTypes as any[]);
+    const mult = getDefensiveMultiplier(oppType, switchTypes);
     if (mult < 1) score += 20; // resist
     if (mult === 0) score += 40; // immune
     if (mult > 1) score -= 20; // weak
@@ -340,7 +340,7 @@ function scoreMatchup(
 
   // Bonus for offensive matchup
   for (const myType of switchTypes) {
-    const mult = getDefensiveMultiplier(myType as any, opponentTypes as any[]);
+    const mult = getDefensiveMultiplier(myType, opponentTypes);
     if (mult > 1) score += 15;
   }
 
@@ -371,15 +371,15 @@ export function getBestSwitchIn(state: BattleState, player: "player1" | "player2
 
 function shouldTerastallize(ai: BattlePokemon, opponent: BattlePokemon, difficulty: DifficultyLevel = "normal"): boolean {
   if (!ai.teraType) return false;
-  const aiTypes = ai.slot.pokemon.types.map(t => t.type.name);
-  const oppTypes = opponent.slot.pokemon.types.map(t => t.type.name);
+  const aiTypes = ai.slot.pokemon.types.map(t => t.type.name as TypeName);
+  const oppTypes = opponent.slot.pokemon.types.map(t => t.type.name as TypeName);
 
   // Tera if we're in a bad defensive matchup
   for (const oppType of oppTypes) {
-    const mult = getDefensiveMultiplier(oppType as any, aiTypes as any[]);
+    const mult = getDefensiveMultiplier(oppType, aiTypes);
     if (mult > 1) {
       // Check if tera type would fix this
-      const teraMult = getDefensiveMultiplier(oppType as any, [ai.teraType] as any[]);
+      const teraMult = getDefensiveMultiplier(oppType, [ai.teraType as TypeName]);
       if (teraMult <= 1) return true;
     }
   }

@@ -29,10 +29,8 @@ async function initWasm(): Promise<boolean> {
   if (wasmFailed) return false;
 
   try {
-    const mod = await import(
-      /* webpackIgnore: true */
-      "../../rust/pkmn-showdown/pkg/pkmn_showdown.js"
-    );
+    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
+    const mod = await import("../../rust/pkmn-showdown/pkg/pkmn_showdown.js");
     await mod.default("/wasm/pkmn_showdown_bg.wasm");
     wasmModule = {
       parse_showdown_paste: mod.parse_showdown_paste,

@@ -30,10 +30,8 @@ async function initWasm(): Promise<boolean> {
   if (wasmFailed) return false;
 
   try {
-    const mod = await import(
-      /* webpackIgnore: true */
-      "../../rust/pkmn-battle/pkg/pkmn_battle.js"
-    );
+    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
+    const mod = await import("../../rust/pkmn-battle/pkg/pkmn_battle.js");
     await mod.default("/wasm/pkmn_battle_bg.wasm");
     wasmModule = {
       score_move: mod.score_move,

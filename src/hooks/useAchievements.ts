@@ -47,6 +47,15 @@ export interface PlayerStats {
   quizBestScore: number;
   quizPerfectRounds: number;
   fossilsRevived: number;
+  // Economy & Ranked
+  money: number;
+  eloRating: number;
+  totalMoneyEarned: number;
+  totalMoneySpent: number;
+  // EV Training
+  evTrainingSessions: number;
+  // Move Tutor
+  heartScalesUsed: number;
 }
 
 export type AchievementCategory =
@@ -107,6 +116,12 @@ const DEFAULT_STATS: PlayerStats = {
   quizBestScore: 0,
   quizPerfectRounds: 0,
   fossilsRevived: 0,
+  money: 3000,
+  eloRating: 1000,
+  totalMoneyEarned: 0,
+  totalMoneySpent: 0,
+  evTrainingSessions: 0,
+  heartScalesUsed: 0,
 };
 
 // --- Achievement Definitions ---
@@ -553,6 +568,56 @@ function createAchievementDefinitions(): Omit<Achievement, "unlocked" | "unlocke
       condition: (stats) => stats.quizBestScore >= 50,
     },
 
+    // Economy
+    {
+      id: "first_paycheck",
+      name: "First Paycheck",
+      description: "Earn your first prize money",
+      icon: "\u{1F4B0}",
+      category: "exploration",
+      condition: (stats) => stats.totalMoneyEarned > 0,
+    },
+    {
+      id: "big_spender",
+      name: "Big Spender",
+      description: "Spend ¥10,000 at the PokeMart",
+      icon: "\u{1F6CD}\uFE0F",
+      category: "exploration",
+      condition: (stats) => stats.totalMoneySpent >= 10000,
+    },
+    {
+      id: "rising_star_elo",
+      name: "Rising Trainer",
+      description: "Reach 1200 ELO rating",
+      icon: "\u{1F4C8}",
+      category: "battle",
+      condition: (stats) => stats.eloRating >= 1200,
+    },
+    {
+      id: "ace_trainer",
+      name: "Ace Trainer",
+      description: "Reach 1500 ELO rating",
+      icon: "\u{1F31F}",
+      category: "battle",
+      condition: (stats) => stats.eloRating >= 1500,
+    },
+    {
+      id: "ev_trainer",
+      name: "EV Trainer",
+      description: "Complete 10 EV training sessions",
+      icon: "\u{1F4AA}",
+      category: "exploration",
+      condition: (stats) => stats.evTrainingSessions >= 10,
+    },
+    {
+      id: "move_tutor_fan",
+      name: "Move Tutor Fan",
+      description: "Use the Move Tutor 5 times",
+      icon: "\u{1F4DA}",
+      category: "exploration",
+      condition: (stats) => stats.heartScalesUsed >= 5,
+    },
+
     // Fossil Revival
     {
       id: "fossil_finder",
@@ -614,6 +679,9 @@ type StatsAction =
   | { type: "UPDATE_SHINY_CHAIN"; species: string }
   | { type: "RESET_SHINY_CHAIN" }
   | { type: "SET_BATTLE_TOWER_STREAK"; streak: number }
+  | { type: "ADD_MONEY"; amount: number }
+  | { type: "SPEND_MONEY"; amount: number }
+  | { type: "UPDATE_ELO"; won: boolean; opponentRating?: number }
   | { type: "SET_STATS"; stats: PlayerStats };
 
 function statsReducer(state: PlayerStats, action: StatsAction): PlayerStats {
@@ -693,6 +761,29 @@ function statsReducer(state: PlayerStats, action: StatsAction): PlayerStats {
     case "SET_BATTLE_TOWER_STREAK": {
       if (action.streak <= state.battleTowerBestStreak) return state;
       return { ...state, battleTowerBestStreak: action.streak };
+    }
+    case "ADD_MONEY": {
+      return {
+        ...state,
+        money: state.money + action.amount,
+        totalMoneyEarned: state.totalMoneyEarned + action.amount,
+      };
+    }
+    case "SPEND_MONEY": {
+      if (state.money < action.amount) return state;
+      return {
+        ...state,
+        money: state.money - action.amount,
+        totalMoneySpent: state.totalMoneySpent + action.amount,
+      };
+    }
+    case "UPDATE_ELO": {
+      const oppRating = action.opponentRating ?? state.eloRating;
+      const expected = 1 / (1 + Math.pow(10, (oppRating - state.eloRating) / 400));
+      const kFactor = state.eloRating < 1200 ? 40 : state.eloRating < 1600 ? 32 : 24;
+      const score = action.won ? 1 : 0;
+      const newElo = Math.max(100, Math.round(state.eloRating + kFactor * (score - expected)));
+      return { ...state, eloRating: newElo };
     }
     case "SET_STATS":
       return action.stats;
@@ -828,6 +919,20 @@ export function useAchievements() {
     dispatchStats({ type: "SET_BATTLE_TOWER_STREAK", streak });
   }, []);
 
+  const addMoney = useCallback((amount: number) => {
+    dispatchStats({ type: "ADD_MONEY", amount });
+  }, []);
+
+  const spendMoney = useCallback((amount: number): boolean => {
+    if (stats.money < amount) return false;
+    dispatchStats({ type: "SPEND_MONEY", amount });
+    return true;
+  }, [stats.money]);
+
+  const updateElo = useCallback((won: boolean, opponentRating?: number) => {
+    dispatchStats({ type: "UPDATE_ELO", won, opponentRating });
+  }, []);
+
   const getUnlockedCount = useCallback((): number => {
     return Object.keys(unlockedMap).length;
   }, [unlockedMap]);
@@ -855,6 +960,9 @@ export function useAchievements() {
     updateShinyChain,
     resetShinyChain,
     setBattleTowerStreak,
+    addMoney,
+    spendMoney,
+    updateElo,
     checkAchievements,
     getUnlockedCount,
     getTotalCount,

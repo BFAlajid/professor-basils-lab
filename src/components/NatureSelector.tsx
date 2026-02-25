@@ -18,6 +18,7 @@ export default function NatureSelector({ value, onChange }: NatureSelectorProps)
           const nature = NATURES.find((n) => n.name === e.target.value);
           if (nature) onChange(nature);
         }}
+        aria-label="Select nature"
         className="w-full rounded-lg border border-[#3a4466] bg-[#1a1c2c] px-3 py-2 text-sm text-[#f0f0e8] outline-none focus:border-[#e8433f]"
       >
         <option value="">Select nature...</option>

@@ -25,6 +25,9 @@ import SafariZone from "./SafariZone";
 import VoltorbFlip from "./VoltorbFlip";
 import TypeQuiz from "./TypeQuiz";
 import FossilLab from "./FossilLab";
+import PokeMart from "./PokeMart";
+import EVTraining from "./EVTraining";
+import MoveTutor from "./MoveTutor";
 import { useNuzlocke } from "@/hooks/useNuzlocke";
 import { useOnlineBattle } from "@/hooks/useOnlineBattle";
 import { useSafariZone } from "@/hooks/useSafariZone";
@@ -36,9 +39,11 @@ import { playCry } from "@/utils/cryPlayer";
 interface WildTabProps {
   team: TeamSlot[];
   onAddToTeam: (pokemon: Pokemon) => void;
+  onSetEvs?: (position: number, evs: import("@/types").EVSpread) => void;
+  onSetMoves?: (position: number, moves: string[]) => void;
 }
 
-export default function WildTab({ team, onAddToTeam }: WildTabProps) {
+export default function WildTab({ team, onAddToTeam, onSetEvs, onSetMoves }: WildTabProps) {
   const {
     state: encounter,
     battleLog,
@@ -65,7 +70,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
   } = usePCBox();
 
   const { markSeen, markCaught } = usePokedexContext();
-  const { incrementStat, addUniqueBall, addUniqueType, addKantoSpecies, updateShinyChain, resetShinyChain, stats } = useAchievementsContext();
+  const { incrementStat, addUniqueBall, addUniqueType, addKantoSpecies, updateShinyChain, resetShinyChain, addMoney, spendMoney, stats } = useAchievementsContext();
 
   const {
     state: nuzlocke,
@@ -91,6 +96,9 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
   const [showGameCorner, setShowGameCorner] = useState(false);
   const [showTypeQuiz, setShowTypeQuiz] = useState(false);
   const [showFossilLab, setShowFossilLab] = useState(false);
+  const [showPokeMart, setShowPokeMart] = useState(false);
+  const [showEVTraining, setShowEVTraining] = useState(false);
+  const [showMoveTutor, setShowMoveTutor] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [showCatchFailure, setShowCatchFailure] = useState(false);
 
@@ -105,6 +113,30 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
   const fossilInventoryRef = useRef(fossilInventory);
   fossilInventoryRef.current = fossilInventory;
 
+  // Owned items (special items from PokeMart: heart-scale, macho-brace, power items, held items)
+  const [ownedItems, setOwnedItems] = useState<Record<string, number>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const saved = localStorage.getItem("pokemon-owned-items");
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("pokemon-owned-items", JSON.stringify(ownedItems)); } catch {}
+  }, [ownedItems]);
+
+  // Battle item inventory (medicine)
+  const [battleItemInventory, setBattleItemInventory] = useState<Record<string, number>>(() => {
+    if (typeof window === "undefined") return { potion: 3, "super-potion": 2, "hyper-potion": 1, "full-restore": 1, revive: 1 };
+    try {
+      const saved = localStorage.getItem("pokemon-battle-items");
+      return saved ? JSON.parse(saved) : { potion: 3, "super-potion": 2, "hyper-potion": 1, "full-restore": 1, revive: 1 };
+    } catch { return { potion: 3, "super-potion": 2, "hyper-potion": 1, "full-restore": 1, revive: 1 }; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("pokemon-battle-items", JSON.stringify(battleItemInventory)); } catch {}
+  }, [battleItemInventory]);
+
   // Persist fossil inventory
   useEffect(() => {
     try { localStorage.setItem("pokemon-fossil-inventory", JSON.stringify(fossilInventory)); } catch {}
@@ -115,6 +147,7 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
     setShowPCBox(false); setShowDayCare(false); setShowWonderTrade(false);
     setShowMysteryGift(false); setShowLinkCable(false); setShowSafariZone(false);
     setShowGameCorner(false); setShowTypeQuiz(false); setShowFossilLab(false);
+    setShowPokeMart(false); setShowEVTraining(false); setShowMoveTutor(false);
   }, []);
 
   // Roll fossil drop after a successful catch in cave/mountain/desert areas
@@ -190,6 +223,32 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
       // fetch failed — silently ignore
     }
   }, [addToBox, markCaught, incrementStat]);
+
+  // PokeMart buy handler
+  const handlePokeMartBuy = useCallback((item: { id: string; price: number; category: string; ballType?: BallType }, quantity: number): boolean => {
+    const totalCost = item.price * quantity;
+    if (stats.money < totalCost) return false;
+    spendMoney(totalCost);
+
+    if (item.ballType) {
+      // Add balls — we update via the PC box hook's internal state
+      // Since usePCBox doesn't expose addBalls, we write directly to localStorage
+      const key = "pokemon-team-builder-ball-inventory";
+      try {
+        const raw = localStorage.getItem(key);
+        const inv = raw ? JSON.parse(raw) : {};
+        inv[item.ballType] = (inv[item.ballType] ?? 0) + quantity;
+        localStorage.setItem(key, JSON.stringify(inv));
+        // Force reload by toggling any panel
+        window.dispatchEvent(new Event("storage"));
+      } catch {}
+    } else if (item.category === "medicine") {
+      setBattleItemInventory((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? 0) + quantity }));
+    } else {
+      setOwnedItems((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? 0) + quantity }));
+    }
+    return true;
+  }, [stats.money, spendMoney]);
 
   const handleStartEncounter = useCallback(async () => {
     // Nuzlocke: block encounters in already-encountered areas
@@ -416,6 +475,36 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                   }`}
                 >
                   Fossil{Object.values(fossilInventory).reduce((a, b) => a + b, 0) > 0 ? ` (${Object.values(fossilInventory).reduce((a, b) => a + b, 0)})` : ""}
+                </button>
+                <button
+                  onClick={() => { const next = !showPokeMart; closeAllPanels(); if (next) setShowPokeMart(true); }}
+                  className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
+                    showPokeMart
+                      ? "text-[#38b764] border-[#38b764] bg-[#38b764]/10"
+                      : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"
+                  }`}
+                >
+                  Mart{stats.money > 0 ? ` (¥${stats.money.toLocaleString()})` : ""}
+                </button>
+                <button
+                  onClick={() => { const next = !showEVTraining; closeAllPanels(); if (next) setShowEVTraining(true); }}
+                  className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
+                    showEVTraining
+                      ? "text-[#f06292] border-[#f06292] bg-[#f06292]/10"
+                      : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"
+                  }`}
+                >
+                  EV Train
+                </button>
+                <button
+                  onClick={() => { const next = !showMoveTutor; closeAllPanels(); if (next) setShowMoveTutor(true); }}
+                  className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
+                    showMoveTutor
+                      ? "text-[#4a90d9] border-[#4a90d9] bg-[#4a90d9]/10"
+                      : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"
+                  }`}
+                >
+                  Tutor
                 </button>
                 <button
                   onClick={() => { const next = !showMysteryGift; closeAllPanels(); if (next) setShowMysteryGift(true); }}
@@ -713,6 +802,60 @@ export default function WildTab({ team, onAddToTeam }: WildTabProps) {
                     fossilInventory={fossilInventory}
                     onRevive={handleReviveFossil}
                     onClose={() => setShowFossilLab(false)}
+                  />
+                </motion.div>
+              )}
+              {showPokeMart && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <PokeMart
+                    money={stats.money}
+                    onBuy={handlePokeMartBuy}
+                    ballInventory={ballInventory}
+                    battleItemInventory={battleItemInventory}
+                    ownedItems={ownedItems}
+                  />
+                </motion.div>
+              )}
+              {showEVTraining && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <EVTraining
+                    team={team}
+                    ownedItems={ownedItems}
+                    onUpdateEvs={(position, evs) => onSetEvs?.(position, evs)}
+                    onSessionComplete={() => incrementStat("evTrainingSessions")}
+                  />
+                </motion.div>
+              )}
+              {showMoveTutor && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <MoveTutor
+                    team={team}
+                    heartScales={ownedItems["heart-scale"] ?? 0}
+                    onTeachMove={(position, moveName) => {
+                      const slot = team[position];
+                      if (!slot) return;
+                      const moves = slot.selectedMoves ?? [];
+                      if (moves.length >= 4) return;
+                      onSetMoves?.(position, [...moves, moveName]);
+                    }}
+                    onSpendHeartScale={() => {
+                      if ((ownedItems["heart-scale"] ?? 0) <= 0) return false;
+                      setOwnedItems((prev) => ({ ...prev, "heart-scale": (prev["heart-scale"] ?? 0) - 1 }));
+                      incrementStat("heartScalesUsed");
+                      return true;
+                    }}
                   />
                 </motion.div>
               )}

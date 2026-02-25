@@ -915,13 +915,3 @@ export function getSmogonSets(pokemonId: number): SmogonSet[] {
   return SMOGON_SETS.find((s) => s.pokemonId === pokemonId)?.sets ?? [];
 }
 
-/** Get all unique format tags present in the data set. */
-export function getAvailableFormats(): string[] {
-  const formats = new Set<string>();
-  for (const entry of SMOGON_SETS) {
-    for (const set of entry.sets) {
-      formats.add(set.format);
-    }
-  }
-  return Array.from(formats).sort();
-}

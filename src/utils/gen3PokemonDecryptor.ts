@@ -206,8 +206,6 @@ export function decryptPokemonData(data: Uint8Array, isParty: boolean): Gen3Poke
 
   // Read Misc substructure (type 3): IVs packed in 32 bits, ability, etc.
   const miscOffset = positions[3] * 12;
-  const pokeball = decrypted.getUint8(miscOffset); // Pokeball caught in (bits 0-3 of met info)
-  // Met data at misc offset 0-1 (pokeball is part of origins info)
   const originsInfo = decrypted.getUint16(miscOffset + 2, true);
   const ballCaught = (originsInfo >> 11) & 0xF; // bits 11-14
 

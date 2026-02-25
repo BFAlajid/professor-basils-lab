@@ -21,6 +21,7 @@ export function randomInt(min: number, max: number): number {
 }
 
 function randomChoice<T>(arr: T[]): T {
+  if (arr.length === 0) throw new Error("randomChoice called on empty array");
   return arr[Math.floor(Math.random() * arr.length)];
 }
 

@@ -18,7 +18,7 @@ interface TrainerCardProps {
 // ── Canvas Export ────────────────────────────────────────────────────────
 
 const CANVAS_W = 480;
-const CANVAS_H = 270;
+const CANVAS_H = 290;
 
 function drawCardToCanvas(
   canvas: HTMLCanvasElement,
@@ -31,6 +31,9 @@ function drawCardToCanvas(
     bestTowerStreak: number;
     hallOfFameEntries: number;
     playTime: string;
+    eloRating: number;
+    rankTier: string;
+    money: number;
   },
   teamSprites: (string | null)[],
   onComplete: () => void
@@ -82,10 +85,26 @@ function drawCardToCanvas(
   ctx.lineTo(CANVAS_W - 20, 86);
   ctx.stroke();
 
+  // ELO / Rank / Money row
+  ctx.fillStyle = "#262b44";
+  ctx.fillRect(16, 90, CANVAS_W - 32, 22);
+  const rankColorMap: Record<string, string> = {
+    Beginner: "#8b9bb4", Poke: "#78c850", Great: "#6890f0",
+    Hyper: "#f7a838", Ultra: "#f85888", Master: "#f0f0e8",
+  };
+  ctx.fillStyle = rankColorMap[cardData.rankTier] ?? "#8b9bb4";
+  ctx.font = "bold 11px monospace";
+  ctx.fillText(`${cardData.rankTier} Ball`, 24, 106);
+  ctx.fillStyle = "#8b8b8b";
+  ctx.font = "11px monospace";
+  ctx.fillText(`ELO ${cardData.eloRating}`, 130, 106);
+  ctx.fillStyle = "#f7a838";
+  ctx.fillText(`¥${cardData.money.toLocaleString()}`, CANVAS_W - 110, 106);
+
   // Stats section
   ctx.fillStyle = "#f0f0e8";
   ctx.font = "12px monospace";
-  const statsStartY = 106;
+  const statsStartY = 126;
   const lineH = 20;
   const statLabels = [
     ["Pokemon Caught", String(cardData.totalCaught)],
@@ -238,6 +257,16 @@ export default function TrainerCard({ team, stats }: TrainerCardProps) {
     });
   }, [team, cardData, exportAsImage, isExporting]);
 
+  // Rank tier colors
+  const rankColors: Record<string, string> = {
+    Beginner: "#8b9bb4",
+    Poke: "#78c850",
+    Great: "#6890f0",
+    Hyper: "#f7a838",
+    Ultra: "#f85888",
+    Master: "#f0f0e8",
+  };
+
   // Stat display rows
   const statRows = [
     { label: "Pokemon Caught", value: cardData.totalCaught },
@@ -276,6 +305,8 @@ export default function TrainerCard({ team, stats }: TrainerCardProps) {
                 onChange={(e) => setEditValue(e.target.value)}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
+                aria-label="Trainer name"
+                placeholder="Trainer"
                 maxLength={16}
                 className="bg-[#262b44] border border-[#3a4466] rounded px-2 py-0.5 text-sm font-pixel text-[#f7a838] outline-none focus:border-[#f7a838] w-32"
               />
@@ -291,6 +322,24 @@ export default function TrainerCard({ team, stats }: TrainerCardProps) {
           </div>
           <span className="text-xs font-pixel text-[#8b8b8b]">
             Play Time: {cardData.playTime}
+          </span>
+        </div>
+
+        {/* ELO / Rank / Money row */}
+        <div className="flex items-center justify-between bg-[#262b44] rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span
+              className="font-pixel text-[10px] font-bold"
+              style={{ color: rankColors[cardData.rankTier] ?? "#8b9bb4" }}
+            >
+              {cardData.rankTier} Ball
+            </span>
+            <span className="font-pixel text-[9px] text-[#8b9bb4]">
+              ELO {cardData.eloRating}
+            </span>
+          </div>
+          <span className="font-pixel text-[10px] text-[#f7a838]">
+            ¥{cardData.money.toLocaleString()}
           </span>
         </div>
 

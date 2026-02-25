@@ -93,7 +93,8 @@ export function initBattleTeam(
 }
 
 export function getActivePokemon(team: BattleTeam): BattlePokemon {
-  return team.pokemon[team.activePokemonIndex];
+  const idx = Math.max(0, Math.min(team.activePokemonIndex, team.pokemon.length - 1));
+  return team.pokemon[idx];
 }
 
 // --- Stat Stage Multiplier ---
@@ -940,17 +941,13 @@ function executeDamagingMove(
     }
 
     totalDamage += hitDamage;
-
-    if (hitCritical && hitCount === 1) {
-      // Only log crit for single-hit moves (multi-hit logs after loop)
-    }
   }
 
   // Log damage
   if (hitCount > 1) {
     log.push({
       turn: state.turn,
-      message: `Hit ${Math.min(hitCount, newDefender.isFainted ? hitCount : hitCount)} time(s) for ${totalDamage} total damage! (${Math.round((newDefender.currentHp / defender.maxHp) * 100)}% HP remaining)`,
+      message: `Hit ${hitCount} time(s) for ${totalDamage} total damage! (${Math.round((newDefender.currentHp / defender.maxHp) * 100)}% HP remaining)`,
       kind: "damage",
     });
   } else {
@@ -1498,7 +1495,7 @@ function getBattleMove(attacker: BattlePokemon, moveIndex: number): Move {
       accuracy: cached.accuracy,
       pp: cached.pp,
       priority: cached.priority ?? 0,
-      type: { name: cached.type.name as any },
+      type: { name: cached.type.name as TypeName },
       damage_class: { name: cached.damage_class.name },
       meta: cached.meta,
     };
@@ -1512,7 +1509,7 @@ function getBattleMove(attacker: BattlePokemon, moveIndex: number): Move {
     accuracy: 100,
     pp: 15,
     priority: 0,
-    type: { name: attacker.slot.pokemon.types[0]?.type.name ?? "normal" as any },
+    type: { name: (attacker.slot.pokemon.types[0]?.type.name ?? "normal") as TypeName },
     damage_class: { name: "physical" },
   };
 }
