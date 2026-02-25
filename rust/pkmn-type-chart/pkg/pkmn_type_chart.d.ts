@@ -22,8 +22,6 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly get_defensive_multiplier: (a: number, b: number, c: number) => number;
     readonly get_effectiveness: (a: number, b: number) => number;
-    readonly __wbindgen_externrefs: WebAssembly.Table;
-    readonly __wbindgen_start: () => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;

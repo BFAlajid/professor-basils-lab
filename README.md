@@ -83,6 +83,23 @@ Every WASM module has a TypeScript wrapper (`src/utils/*Wasm.ts`) that lazy-load
 
 ---
 
+## Browser Support
+
+| Feature | Chrome 91+ | Firefox 89+ | Safari 16.4+ | iOS Safari | iOS Chrome/Opera |
+|---------|-----------|-------------|-------------|------------|-----------------|
+| Core app | Yes | Yes | Yes | Yes | Yes |
+| WASM crates | Yes | Yes | Yes | Yes | Yes |
+| WASM SIMD | Yes | Yes | Yes | Yes | Yes |
+| GBA emulator | Yes | Yes | Yes | Yes | No |
+| NDS emulator | Yes | Yes | Yes | Yes | No |
+| Music (FLAC) | Yes | Yes | Yes | Yes | Yes |
+
+The GBA and NDS emulators require `SharedArrayBuffer` for multi-threaded WASM. This needs cross-origin isolation headers (`COOP: same-origin` + `COEP: require-corp`), which are configured automatically. On iOS, only Safari supports `SharedArrayBuffer` — third-party browsers (Chrome, Opera GX, Firefox) use WebKit without full cross-origin isolation support.
+
+Mobile devices get on-screen touch controls matching real hardware layouts (D-pad, A/B/X/Y, bumpers, Start/Select).
+
+---
+
 ## Development
 
 ```bash

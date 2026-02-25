@@ -43,22 +43,22 @@ export function parseGen3Save(buffer) {
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbg___wbindgen_throw_df03e93053e0f4bc: function(arg0, arg1) {
+        __wbg___wbindgen_throw_89ca9e2c67795ec1: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
-        __wbg_new_62f131e968c83d75: function() {
+        __wbg_new_6feff3e11e4d0799: function() {
             const ret = new Object();
             return addHeapObject(ret);
         },
-        __wbg_new_66075f8c2ea6575e: function() {
+        __wbg_new_ff7f9cc4c9a4a0cf: function() {
             const ret = new Array();
             return addHeapObject(ret);
         },
+        __wbg_set_601f3e1d081df3ac: function(arg0, arg1, arg2) {
+            getObject(arg0)[arg1 >>> 0] = takeObject(arg2);
+        },
         __wbg_set_6be42768c690e380: function(arg0, arg1, arg2) {
             getObject(arg0)[takeObject(arg1)] = takeObject(arg2);
-        },
-        __wbg_set_7bf9e2df46e7632c: function(arg0, arg1, arg2) {
-            getObject(arg0)[arg1 >>> 0] = takeObject(arg2);
         },
         __wbindgen_cast_0000000000000001: function(arg0) {
             // Cast intrinsic for `F64 -> Externref`.
@@ -233,7 +233,7 @@ async function __wbg_init(module_or_path) {
     }
 
     if (module_or_path === undefined) {
-        throw new Error('WASM path must be provided');
+        module_or_path = new URL('gen3_parser_bg.wasm', import.meta.url);
     }
     const imports = __wbg_get_imports();
 

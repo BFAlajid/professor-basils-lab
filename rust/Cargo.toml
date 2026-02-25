@@ -1,3 +1,8 @@
 [workspace]
 members = ["gen3-parser", "pkmn-analysis", "pkmn-battle", "pkmn-breeding", "pkmn-catch-rate", "pkmn-damage", "pkmn-showdown", "pkmn-stats", "pkmn-type-chart"]
 resolver = "2"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true

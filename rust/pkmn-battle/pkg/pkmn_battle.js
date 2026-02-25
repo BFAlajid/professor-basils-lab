@@ -150,14 +150,21 @@ export function score_move(power, move_type, attacker_type1, attacker_type2, def
  * @returns {Float64Array}
  */
 export function select_ai_action(move_scores, num_moves, switch_scores, num_switches, difficulty, seed, is_fainted, can_mega, can_tera, should_tera, can_dmax, should_dmax) {
-    const ptr0 = passArrayF64ToWasm0(move_scores, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passArrayF64ToWasm0(switch_scores, wasm.__wbindgen_malloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.select_ai_action(ptr0, len0, num_moves, ptr1, len1, num_switches, difficulty, seed, is_fainted, can_mega, can_tera, should_tera, can_dmax, should_dmax);
-    var v3 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
-    return v3;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArrayF64ToWasm0(move_scores, wasm.__wbindgen_export);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArrayF64ToWasm0(switch_scores, wasm.__wbindgen_export);
+        const len1 = WASM_VECTOR_LEN;
+        wasm.select_ai_action(retptr, ptr0, len0, num_moves, ptr1, len1, num_switches, difficulty, seed, is_fainted, can_mega, can_tera, should_tera, can_dmax, should_dmax);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var v3 = getArrayF64FromWasm0(r0, r1).slice();
+        wasm.__wbindgen_export2(r0, r1 * 8, 8);
+        return v3;
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
 }
 
 /**
@@ -210,15 +217,6 @@ export function should_terastallize(ai_type1, ai_type2, opp_type1, opp_type2, te
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbindgen_init_externref_table: function() {
-            const table = wasm.__wbindgen_externrefs;
-            const offset = table.grow(4);
-            table.set(0, undefined);
-            table.set(offset + 0, undefined);
-            table.set(offset + 1, null);
-            table.set(offset + 2, true);
-            table.set(offset + 3, false);
-        },
     };
     return {
         __proto__: null,
@@ -229,6 +227,14 @@ function __wbg_get_imports() {
 function getArrayF64FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getFloat64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
+}
+
+let cachedDataViewMemory0 = null;
+function getDataViewMemory0() {
+    if (cachedDataViewMemory0 === null || cachedDataViewMemory0.buffer.detached === true || (cachedDataViewMemory0.buffer.detached === undefined && cachedDataViewMemory0.buffer !== wasm.memory.buffer)) {
+        cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
+    }
+    return cachedDataViewMemory0;
 }
 
 let cachedFloat64ArrayMemory0 = null;
@@ -252,8 +258,8 @@ let wasmModule, wasm;
 function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     wasmModule = module;
+    cachedDataViewMemory0 = null;
     cachedFloat64ArrayMemory0 = null;
-    wasm.__wbindgen_start();
     return wasm;
 }
 
@@ -325,7 +331,7 @@ async function __wbg_init(module_or_path) {
     }
 
     if (module_or_path === undefined) {
-        throw new Error('WASM path must be provided');
+        module_or_path = new URL('pkmn_battle_bg.wasm', import.meta.url);
     }
     const imports = __wbg_get_imports();
 

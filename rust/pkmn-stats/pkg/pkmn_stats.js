@@ -34,10 +34,17 @@
  * @returns {Uint32Array}
  */
 export function calculate_all_stats(hp_base, atk_base, def_base, spa_base, spd_base, spe_base, hp_iv, atk_iv, def_iv, spa_iv, spd_iv, spe_iv, hp_ev, atk_ev, def_ev, spa_ev, spd_ev, spe_ev, atk_nature, def_nature, spa_nature, spd_nature, spe_nature) {
-    const ret = wasm.calculate_all_stats(hp_base, atk_base, def_base, spa_base, spd_base, spe_base, hp_iv, atk_iv, def_iv, spa_iv, spd_iv, spe_iv, hp_ev, atk_ev, def_ev, spa_ev, spd_ev, spe_ev, atk_nature, def_nature, spa_nature, spd_nature, spe_nature);
-    var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
-    return v1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.calculate_all_stats(retptr, hp_base, atk_base, def_base, spa_base, spd_base, spe_base, hp_iv, atk_iv, def_iv, spa_iv, spd_iv, spe_iv, hp_ev, atk_ev, def_ev, spa_ev, spd_ev, spe_ev, atk_nature, def_nature, spa_nature, spd_nature, spe_nature);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var v1 = getArrayU32FromWasm0(r0, r1).slice();
+        wasm.__wbindgen_export(r0, r1 * 4, 4);
+        return v1;
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
 }
 
 /**
@@ -76,15 +83,6 @@ export function calculate_stat(base, iv, ev, nature_modifier, level) {
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbindgen_init_externref_table: function() {
-            const table = wasm.__wbindgen_externrefs;
-            const offset = table.grow(4);
-            table.set(0, undefined);
-            table.set(offset + 0, undefined);
-            table.set(offset + 1, null);
-            table.set(offset + 2, true);
-            table.set(offset + 3, false);
-        },
     };
     return {
         __proto__: null,
@@ -95,6 +93,14 @@ function __wbg_get_imports() {
 function getArrayU32FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getUint32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
+}
+
+let cachedDataViewMemory0 = null;
+function getDataViewMemory0() {
+    if (cachedDataViewMemory0 === null || cachedDataViewMemory0.buffer.detached === true || (cachedDataViewMemory0.buffer.detached === undefined && cachedDataViewMemory0.buffer !== wasm.memory.buffer)) {
+        cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
+    }
+    return cachedDataViewMemory0;
 }
 
 let cachedUint32ArrayMemory0 = null;
@@ -109,8 +115,8 @@ let wasmModule, wasm;
 function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     wasmModule = module;
+    cachedDataViewMemory0 = null;
     cachedUint32ArrayMemory0 = null;
-    wasm.__wbindgen_start();
     return wasm;
 }
 
@@ -182,7 +188,7 @@ async function __wbg_init(module_or_path) {
     }
 
     if (module_or_path === undefined) {
-        throw new Error('WASM path must be provided');
+        module_or_path = new URL('pkmn_stats_bg.wasm', import.meta.url);
     }
     const imports = __wbg_get_imports();
 

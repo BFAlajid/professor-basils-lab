@@ -31,15 +31,6 @@ export function get_effectiveness(atk_type, def_type) {
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbindgen_init_externref_table: function() {
-            const table = wasm.__wbindgen_externrefs;
-            const offset = table.grow(4);
-            table.set(0, undefined);
-            table.set(offset + 0, undefined);
-            table.set(offset + 1, null);
-            table.set(offset + 2, true);
-            table.set(offset + 3, false);
-        },
     };
     return {
         __proto__: null,
@@ -51,7 +42,6 @@ let wasmModule, wasm;
 function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     wasmModule = module;
-    wasm.__wbindgen_start();
     return wasm;
 }
 
@@ -123,7 +113,7 @@ async function __wbg_init(module_or_path) {
     }
 
     if (module_or_path === undefined) {
-        throw new Error('WASM path must be provided');
+        module_or_path = new URL('pkmn_type_chart_bg.wasm', import.meta.url);
     }
     const imports = __wbg_get_imports();
 

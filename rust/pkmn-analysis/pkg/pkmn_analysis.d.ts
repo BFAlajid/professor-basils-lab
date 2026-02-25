@@ -57,14 +57,13 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly analyze_defensive_coverage: (a: number, b: number, c: number) => [number, number];
-    readonly analyze_team: (a: number, b: number, c: number) => [number, number];
+    readonly analyze_defensive_coverage: (a: number, b: number, c: number, d: number) => void;
+    readonly analyze_team: (a: number, b: number, c: number, d: number) => void;
     readonly get_defensive_multiplier: (a: number, b: number, c: number) => number;
     readonly get_effectiveness: (a: number, b: number) => number;
-    readonly __wbindgen_externrefs: WebAssembly.Table;
-    readonly __wbindgen_malloc: (a: number, b: number) => number;
-    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-    readonly __wbindgen_start: () => void;
+    readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
+    readonly __wbindgen_export: (a: number, b: number) => number;
+    readonly __wbindgen_export2: (a: number, b: number, c: number) => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;

@@ -130,15 +130,14 @@ export interface InitOutput {
     readonly determine_turn_order: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly score_matchup: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly score_move: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
-    readonly select_ai_action: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number) => [number, number];
+    readonly select_ai_action: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number) => void;
     readonly should_dynamax: (a: number, b: number, c: number, d: number) => number;
     readonly should_terastallize: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
     readonly get_defensive_multiplier: (a: number, b: number, c: number) => number;
     readonly get_effectiveness: (a: number, b: number) => number;
-    readonly __wbindgen_externrefs: WebAssembly.Table;
-    readonly __wbindgen_malloc: (a: number, b: number) => number;
-    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-    readonly __wbindgen_start: () => void;
+    readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
+    readonly __wbindgen_export: (a: number, b: number) => number;
+    readonly __wbindgen_export2: (a: number, b: number, c: number) => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;
