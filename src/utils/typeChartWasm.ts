@@ -49,8 +49,8 @@ export function isWasmActive(): boolean {
   return wasmModule !== null;
 }
 
-function typeToIndex(type: TypeName): number {
-  const idx = TYPE_LIST.indexOf(type);
+export function typeToIndex(type: TypeName | string): number {
+  const idx = TYPE_LIST.indexOf(type as TypeName);
   return idx === -1 ? 0 : idx;
 }
 

@@ -1,5 +1,6 @@
 import { TeamSlot, TournamentTrainer, DifficultyLevel, TypeName } from "@/types";
 import { createWildTeamSlot } from "./wildBattle";
+import { shuffleArray } from "./random";
 
 // Pokemon IDs grouped by type specialty
 const TYPE_THEMED_POOLS: Record<string, number[]> = {
@@ -41,15 +42,6 @@ const TRAINER_DATA: { name: string; title: string; theme: TypeName | "mixed" }[]
   { name: "Atlas", title: "Rock Crusher", theme: "rock" },
   { name: "Faye", title: "Fairy Guardian", theme: "fairy" },
 ];
-
-function shuffleArray<T>(arr: T[]): T[] {
-  const shuffled = [...arr];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
 
 function getDifficultyForRound(round: number): DifficultyLevel {
   if (round === 0) return "easy";

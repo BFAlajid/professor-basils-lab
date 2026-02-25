@@ -15,15 +15,7 @@ import { BattleMoveData } from "@/types";
 import { initBattlePokemon, initStatStages, getStatStageMultiplier, cacheBattleMove, getCachedMoves } from "./battle";
 import { getDefensiveMultiplier } from "@/data/typeChart";
 import { NATURES } from "@/data/natures";
-
-export function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function randomChoice<T>(arr: T[]): T {
-  if (arr.length === 0) throw new Error("randomChoice called on empty array");
-  return arr[Math.floor(Math.random() * arr.length)];
-}
+import { randomInt, randomChoice } from "./random";
 
 export function generateRandomIVs(): IVSpread {
   return {

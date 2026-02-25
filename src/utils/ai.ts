@@ -6,6 +6,7 @@ import { getAbilityHooks } from "@/data/abilities";
 import { NATURES } from "@/data/natures";
 import { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { isMegaStone, MEGA_STONES } from "@/data/megaStones";
+import { randomChoice, shuffleArray } from "./random";
 
 // Curated list of competitive Pokemon IDs (mix of OU/UU staples)
 const COMPETITIVE_POKEMON_IDS = [
@@ -29,19 +30,6 @@ const EV_SPREADS = [
   { hp: 252, attack: 0, defense: 4, spAtk: 0, spDef: 252, speed: 0 },    // Special Wall
   { hp: 252, attack: 0, defense: 0, spAtk: 252, spDef: 4, speed: 0 },    // Special Bulky Attacker
 ];
-
-function randomChoice<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function shuffleArray<T>(arr: T[]): T[] {
-  const shuffled = [...arr];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
 
 // Generate a team scaled to the given floor/difficulty for Battle Tower
 export async function generateScaledTeam(floor: number): Promise<TeamSlot[]> {

@@ -8,8 +8,9 @@
  */
 
 import type { BattleState, BattleTurnAction, BattlePokemon, BattleTeam, DifficultyLevel, TypeName } from "@/types";
-import { TYPE_LIST } from "@/data/typeChart";
 import { getAbilityHooks } from "@/data/abilities";
+import { randomSeed } from "./random";
+import { typeToIndex } from "./typeChartWasm";
 import { selectAIAction as selectAIAction_JS, getBestSwitchIn as getBestSwitchIn_JS } from "./ai";
 import { getActivePokemon, getCachedMoves, getEffectiveTypes } from "./battle";
 
@@ -62,21 +63,12 @@ export function isWasmActive(): boolean {
   return wasmModule !== null;
 }
 
-function typeToIndex(type: string): number {
-  const idx = TYPE_LIST.indexOf(type as TypeName);
-  return idx === -1 ? 0 : idx;
-}
-
 function getTypePair(bp: BattlePokemon): [number, number] {
   const types = bp.slot.pokemon.types;
   return [
     typeToIndex(types[0].type.name),
     types.length > 1 ? typeToIndex(types[1].type.name) : 255,
   ];
-}
-
-function randomSeed(): number {
-  return (Math.random() * 0xFFFFFFFF) >>> 0;
 }
 
 function difficultyToNum(d: DifficultyLevel | undefined): number {
