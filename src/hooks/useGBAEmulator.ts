@@ -83,17 +83,24 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
     try {
       setState((s) => ({ ...s, isLoading: true }));
 
-      // Load mGBA as an ES module via inline <script type="module">.
-      // The previous new Function("url","return import(url)") pattern
-      // fails silently on Safari/iOS. This approach uses the browser's
-      // native module loader which works everywhere.
+      // mGBA uses pthreads (Web Workers + SharedArrayBuffer).
+      // Check that the environment supports it before attempting to load.
+      if (typeof SharedArrayBuffer === "undefined") {
+        throw new Error(
+          "GBA emulator requires SharedArrayBuffer which is not available in this browser. " +
+          "Try Chrome, Firefox, or Safari 15.2+."
+        );
+      }
+
+      // Load mGBA factory via inline <script type="module">.
+      // This avoids bundler analysis and works on Safari/iOS (unlike new Function + import).
       const mGBA = await new Promise<(opts: Record<string, unknown>) => Promise<mGBAEmulator>>((resolve, reject) => {
         const cbName = `__mGBA_${Date.now()}`;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const win = window as any;
         const timeout = setTimeout(() => {
           delete win[cbName];
-          reject(new Error("mGBA load timed out"));
+          reject(new Error("mGBA script load timed out (30s)"));
         }, 30000);
         win[cbName] = (factory: (opts: Record<string, unknown>) => Promise<mGBAEmulator>) => {
           clearTimeout(timeout);
@@ -111,7 +118,17 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
         document.head.appendChild(script);
       });
 
-      const Module = await mGBA({ canvas: canvasRef.current }) as unknown as mGBAEmulator;
+      // Initialize mGBA with a timeout — WASM compilation + pthread worker
+      // setup can hang on some mobile browsers.
+      const Module = await Promise.race([
+        mGBA({ canvas: canvasRef.current }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(
+            "GBA emulator initialization timed out. This browser may not support " +
+            "the required WebAssembly threading features."
+          )), 30000)
+        ),
+      ]) as unknown as mGBAEmulator;
 
       await Module.FSInit();
 
