@@ -82,9 +82,35 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
 
     try {
       setState((s) => ({ ...s, isLoading: true }));
-      const scriptUrl = "/mgba/mgba.js";
-      const mod = await (new Function("url", "return import(url)")(scriptUrl));
-      const mGBA = mod.default;
+
+      // Load mGBA as an ES module via inline <script type="module">.
+      // The previous new Function("url","return import(url)") pattern
+      // fails silently on Safari/iOS. This approach uses the browser's
+      // native module loader which works everywhere.
+      const mGBA = await new Promise<(opts: Record<string, unknown>) => Promise<mGBAEmulator>>((resolve, reject) => {
+        const cbName = `__mGBA_${Date.now()}`;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        const timeout = setTimeout(() => {
+          delete win[cbName];
+          reject(new Error("mGBA load timed out"));
+        }, 30000);
+        win[cbName] = (factory: (opts: Record<string, unknown>) => Promise<mGBAEmulator>) => {
+          clearTimeout(timeout);
+          delete win[cbName];
+          resolve(factory);
+        };
+        const script = document.createElement("script");
+        script.type = "module";
+        script.textContent = `import m from"/mgba/mgba.js";window["${cbName}"](m);`;
+        script.onerror = () => {
+          clearTimeout(timeout);
+          delete win[cbName];
+          reject(new Error("Failed to load mGBA script"));
+        };
+        document.head.appendChild(script);
+      });
+
       const Module = await mGBA({ canvas: canvasRef.current }) as unknown as mGBAEmulator;
 
       await Module.FSInit();

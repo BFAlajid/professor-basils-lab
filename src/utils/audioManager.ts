@@ -32,19 +32,17 @@ const DEFAULT_TRACKS: Record<AudioTrack, string> = {
   catchSuccess: "/audio/catch-success.flac",
 };
 
-// Web Audio API state
+// Uses HTMLAudioElement for playback (native codec support — FLAC works on Safari)
+// piped through Web Audio API GainNode for volume control.
 let audioContext: AudioContext | null = null;
 let gainNode: GainNode | null = null;
-let currentSource: AudioBufferSourceNode | null = null;
+let currentAudio: HTMLAudioElement | null = null;
+let currentMediaSource: MediaElementAudioSourceNode | null = null;
 let currentTrack: AudioTrack | null = null;
 let isPlaying = false;
 let volume = 0.3;
 let isMuted = false;
-let pauseOffset = 0;
-let trackStartTime = 0;
 
-// Cache decoded audio buffers to avoid re-decoding
-const bufferCache = new Map<string, AudioBuffer>();
 const trackSources: Record<AudioTrack, string> = { ...DEFAULT_TRACKS };
 const customBlobUrls = new Map<AudioTrack, string>();
 const listeners: Set<() => void> = new Set();
@@ -63,101 +61,65 @@ function ensureContext(): AudioContext {
   return audioContext!;
 }
 
-async function fetchAndDecode(url: string): Promise<AudioBuffer> {
-  const cached = bufferCache.get(url);
-  if (cached) return cached;
-
-  const response = await fetch(url);
-  const arrayBuffer = await response.arrayBuffer();
-  const ctx = ensureContext();
-  const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-  bufferCache.set(url, audioBuffer);
-  return audioBuffer;
+function stopCurrent() {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.src = "";
+    currentAudio.load();
+  }
+  if (currentMediaSource) {
+    try { currentMediaSource.disconnect(); } catch { /* already disconnected */ }
+    currentMediaSource = null;
+  }
+  currentAudio = null;
 }
 
-function stopCurrentSource() {
-  if (currentSource) {
-    try {
-      currentSource.stop();
-    } catch {
-      // already stopped
-    }
-    currentSource.disconnect();
-    currentSource = null;
-  }
-}
-
-function startSourceFromBuffer(buffer: AudioBuffer, offset: number = 0) {
+function startPlayback(url: string, offset: number = 0) {
   const ctx = ensureContext();
-  if (ctx.state === "suspended") {
-    ctx.resume();
-  }
+  if (ctx.state === "suspended") ctx.resume();
 
-  stopCurrentSource();
+  stopCurrent();
 
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  source.loop = true;
+  const audio = new Audio(url);
+  audio.loop = true;
+  audio.currentTime = offset;
+
+  const source = ctx.createMediaElementSource(audio);
   source.connect(gainNode!);
-  source.start(0, offset);
 
-  currentSource = source;
-  trackStartTime = ctx.currentTime - offset;
+  audio.play().catch(() => {
+    // Autoplay blocked — will play on next user gesture
+  });
+
+  currentAudio = audio;
+  currentMediaSource = source;
 }
 
 export function playTrack(track: AudioTrack): void {
   if (typeof window === "undefined") return;
-
-  // If already playing the same track, don't restart
   if (currentTrack === track && isPlaying) return;
 
-  const url = trackSources[track];
-  const cached = bufferCache.get(url);
+  // Resume context synchronously in user gesture (Safari requirement)
+  const ctx = ensureContext();
+  if (ctx.state === "suspended") ctx.resume();
 
-  // Fast path: buffer already decoded — start immediately
-  if (cached) {
-    const ctx = ensureContext();
-    if (ctx.state === "suspended") ctx.resume();
-    currentTrack = track;
-    pauseOffset = 0;
-    startSourceFromBuffer(cached, 0);
-    isPlaying = true;
-    notify();
-    return;
-  }
-
-  // Slow path: fetch + decode, then start
   currentTrack = track;
   isPlaying = true;
   notify();
 
-  fetchAndDecode(url).then((buffer) => {
-    // Only start if still the same track (user may have stopped/switched)
-    if (currentTrack !== track) return;
-    const ctx = ensureContext();
-    if (ctx.state === "suspended") ctx.resume();
-    pauseOffset = 0;
-    startSourceFromBuffer(buffer, 0);
-  }).catch(() => {
-    if (currentTrack === track) {
-      isPlaying = false;
-      notify();
-    }
-  });
+  startPlayback(trackSources[track], 0);
 }
 
 export function stopTrack(): void {
-  stopCurrentSource();
+  stopCurrent();
   isPlaying = false;
   currentTrack = null;
-  pauseOffset = 0;
   notify();
 }
 
 export function pauseTrack(): void {
-  if (currentSource && audioContext && isPlaying) {
-    pauseOffset = (audioContext.currentTime - trackStartTime) % (currentSource.buffer?.duration ?? 1);
-    stopCurrentSource();
+  if (currentAudio && isPlaying) {
+    currentAudio.pause();
   }
   isPlaying = false;
   notify();
@@ -166,11 +128,14 @@ export function pauseTrack(): void {
 export function resumeTrack(): void {
   if (!currentTrack || isPlaying) return;
 
-  const url = trackSources[currentTrack];
-  const buffer = bufferCache.get(url);
-  if (!buffer) return;
+  const ctx = ensureContext();
+  if (ctx.state === "suspended") ctx.resume();
 
-  startSourceFromBuffer(buffer, pauseOffset);
+  if (currentAudio) {
+    currentAudio.play().catch(() => {});
+  } else {
+    startPlayback(trackSources[currentTrack], 0);
+  }
   isPlaying = true;
   notify();
 }
@@ -198,9 +163,7 @@ export function loadCustomTrack(track: AudioTrack, file: File): void {
   const blobUrl = URL.createObjectURL(file);
   customBlobUrls.set(track, blobUrl);
   trackSources[track] = blobUrl;
-  bufferCache.delete(blobUrl);
 
-  // If this track is currently playing, restart with new source
   if (currentTrack === track) {
     isPlaying = false;
     playTrack(track);
