@@ -21,15 +21,26 @@ const NDSEmulatorTab = dynamic(() => import("@/components/nds/NDSEmulatorTab"), 
   ),
 });
 
-type EmulatorMode = "select" | "gba" | "nds";
+const CitrineEmulatorTab = dynamic(() => import("@/components/ctr/CitrineEmulatorTab"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-20">
+      <p className="text-[#8b9bb4] font-pixel text-xs animate-pulse">Loading 3DS emulator...</p>
+    </div>
+  ),
+});
+
+type EmulatorMode = "select" | "gba" | "nds" | "ctr";
 
 const GBA_EXTENSIONS = new Set(["gba", "gbc", "gb"]);
 const NDS_EXTENSIONS = new Set(["nds", "ds"]);
+const CTR_EXTENSIONS = new Set(["3dsx"]);
 
 function detectROMType(filename: string): EmulatorMode {
   const ext = filename.toLowerCase().split(".").pop() ?? "";
   if (GBA_EXTENSIONS.has(ext)) return "gba";
   if (NDS_EXTENSIONS.has(ext)) return "nds";
+  if (CTR_EXTENSIONS.has(ext)) return "ctr";
   return "select";
 }
 
@@ -52,7 +63,7 @@ export default function UnifiedEmulatorTab() {
 
   const handleFile = useCallback((file: File) => {
     const detected = detectROMType(file.name);
-    if (detected === "select") return; // unsupported format
+    if (detected === "select") return;
     setRomFile(file);
     setMode(detected);
   }, []);
@@ -76,23 +87,24 @@ export default function UnifiedEmulatorTab() {
     [handleFile]
   );
 
-  // Back to selector (allows switching between emulators)
   const handleBack = useCallback(() => {
     setMode("select");
     setRomFile(null);
   }, []);
 
-  // Once an emulator is active, render it and keep it mounted
-  // The emulator tab handles subsequent ROM loads internally via its own drag-and-drop
+  const backButton = (
+    <button
+      onClick={handleBack}
+      className="mb-3 px-3 py-1.5 rounded bg-[#3a4466] text-[#8b9bb4] text-[10px] font-pixel hover:bg-[#4a5577] transition-colors"
+    >
+      ← Switch Emulator
+    </button>
+  );
+
   if (mode === "gba") {
     return (
       <div>
-        <button
-          onClick={handleBack}
-          className="mb-3 px-3 py-1.5 rounded bg-[#3a4466] text-[#8b9bb4] text-[10px] font-pixel hover:bg-[#4a5577] transition-colors"
-        >
-          ← Switch Emulator
-        </button>
+        {backButton}
         <GBAEmulatorTab initialFile={romFile} />
       </div>
     );
@@ -101,13 +113,17 @@ export default function UnifiedEmulatorTab() {
   if (mode === "nds") {
     return (
       <div>
-        <button
-          onClick={handleBack}
-          className="mb-3 px-3 py-1.5 rounded bg-[#3a4466] text-[#8b9bb4] text-[10px] font-pixel hover:bg-[#4a5577] transition-colors"
-        >
-          ← Switch Emulator
-        </button>
+        {backButton}
         <NDSEmulatorTab initialFile={romFile} />
+      </div>
+    );
+  }
+
+  if (mode === "ctr") {
+    return (
+      <div>
+        {backButton}
+        <CitrineEmulatorTab initialFile={romFile} />
       </div>
     );
   }
@@ -128,7 +144,6 @@ export default function UnifiedEmulatorTab() {
       >
         <div className="flex flex-col items-center justify-center py-20 px-6 gap-4">
           <p className="text-[#f0f0e8] font-pixel text-sm">Emulator</p>
-          {/* Hide drag text on touch-only devices */}
           <p className="text-[#8b9bb4] text-xs text-center hidden sm:block">
             Drag & drop a ROM file here
           </p>
@@ -151,10 +166,14 @@ export default function UnifiedEmulatorTab() {
               <p className="text-[#f0f0e8] font-pixel text-xs">NDS</p>
               <p className="text-[#8b9bb4] text-[10px]">.nds .ds</p>
             </div>
+            <div className="w-px bg-[#3a4466]" />
+            <div className="text-center">
+              <p className="text-[#f0f0e8] font-pixel text-xs">3DS</p>
+              <p className="text-[#8b9bb4] text-[10px]">.3dsx</p>
+            </div>
           </div>
 
-          {/* Or pick an emulator directly */}
-          <div className="flex gap-3 mt-2">
+          <div className="flex flex-wrap gap-3 mt-2 justify-center">
             <button
               onClick={() => setMode("gba")}
               className="px-4 py-2 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
@@ -167,6 +186,12 @@ export default function UnifiedEmulatorTab() {
             >
               Open NDS Emulator
             </button>
+            <button
+              onClick={() => setMode("ctr")}
+              className="px-4 py-2 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
+            >
+              Open 3DS Emulator
+            </button>
           </div>
 
           <p className="text-[#8b9bb4] text-[9px] italic mt-4 max-w-sm text-center">
@@ -175,11 +200,10 @@ export default function UnifiedEmulatorTab() {
         </div>
       </div>
 
-      {/* Hidden file input */}
       <input
         ref={romInputRef}
         type="file"
-        accept=".gba,.gbc,.gb,.nds,.ds"
+        accept=".gba,.gbc,.gb,.nds,.ds,.3dsx"
         className="hidden"
         aria-label="Load ROM file"
         onChange={handleFileInput}

@@ -165,6 +165,7 @@ export default function LinkCable({ online, onBattle, onTrade, onBack }: LinkCab
                         ref={(el) => { inputRefs.current[i] = el; }}
                         type="text"
                         maxLength={1}
+                        aria-label={`Room code digit ${i + 1}`}
                         value={joinCode[i] ?? ""}
                         onChange={(e) => handleCodeInput(i, e.target.value)}
                         onKeyDown={(e) => handleCodeKeyDown(i, e)}

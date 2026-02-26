@@ -18,6 +18,8 @@ A full-stack-in-the-browser Pokemon platform. Team builder, battle simulator, wi
 
 **NDS Emulator** -- RetroArch with melonDS WASM core for Nintendo DS games. Dual-screen rendering, touch input on bottom screen, keyboard and gamepad support.
 
+**3DS Emulator** -- Clean-room ARM11 interpreter built in Rust, compiled to WASM. HLE kernel with 20+ SVCs, thread scheduler, .3DSX homebrew loader. Dual-screen canvas (400x240 top + 320x240 bottom), keyboard/gamepad/touch input.
+
 **Binary Save Parser** -- Reads Gen 3 save files (Ruby/Sapphire/Emerald/FireRed/LeafGreen). XOR decryption, substructure permutation, IV bit extraction. Implemented in both TypeScript and Rust/WASM with automatic fallback.
 
 **Coverage Analysis** -- Defensive/offensive team analysis, type weakness charts, suggested types, and threat scoring.
@@ -40,10 +42,10 @@ A full-stack-in-the-browser Pokemon platform. Team builder, battle simulator, wi
 |-------|------------|
 | Framework | Next.js 16 (App Router, Turbopack) |
 | UI | React 19, Tailwind CSS v4, Framer Motion |
-| Language | TypeScript 5, Rust (9 WASM crates) |
+| Language | TypeScript 5, Rust (10 WASM crates) |
 | Data | PokeAPI v2, TanStack React Query v5 |
 | Charts | Recharts 3 |
-| Emulation | mGBA WASM, RetroArch melonDS WASM |
+| Emulation | mGBA WASM, RetroArch melonDS WASM, Citrine 3DS core (Rust/WASM) |
 | Storage | localStorage, IndexedDB |
 | Testing | Vitest (63 tests), Rust unit tests |
 | Hosting | Vercel |
@@ -63,7 +65,7 @@ src/
   data/                 Lookup tables (type chart, natures, items, maps)
   contexts/             React Context for shared state
 
-rust/                   9 Rust/WASM crates
+rust/                   10 Rust/WASM crates
   pkmn-type-chart/      Type effectiveness engine
   pkmn-stats/           Stat calculator
   pkmn-damage/          Damage formula
@@ -73,6 +75,7 @@ rust/                   9 Rust/WASM crates
   pkmn-breeding/        Egg compatibility + IV inheritance
   pkmn-showdown/        Showdown paste parser/serializer
   gen3-parser/          Gen 3 binary save file parser
+  citrine/              3DS emulator core (ARM11 + HLE kernel)
 
 public/wasm/            Compiled WASM binaries
 public/mgba/            mGBA emulator core
@@ -92,6 +95,7 @@ Every WASM module has a TypeScript wrapper (`src/utils/*Wasm.ts`) that lazy-load
 | WASM SIMD | Yes | Yes | Yes | Yes | Yes |
 | GBA emulator | Yes | Yes | Yes | Yes | No |
 | NDS emulator | Yes | Yes | Yes | Yes | No |
+| 3DS emulator | Yes | Yes | Yes | Yes | Yes |
 | Music (FLAC) | Yes | Yes | Yes | Yes | Yes |
 
 The GBA and NDS emulators require `SharedArrayBuffer` for multi-threaded WASM. This needs cross-origin isolation headers (`COOP: same-origin` + `COEP: require-corp`), which are configured automatically. On iOS, only Safari supports `SharedArrayBuffer` — third-party browsers (Chrome, Opera GX, Firefox) use WebKit without full cross-origin isolation support.
@@ -127,7 +131,7 @@ npm test
 |--------|-------|
 | Source files | 90+ |
 | Pokemon supported | 1,025 (all 9 generations) |
-| WASM crates | 9 |
+| WASM crates | 10 |
 | Test count | 63 JS + Rust unit tests |
 | Battle engine | ~800 lines, pure state machine |
 | Regions | 4 (Kanto, Johto, Hoenn, Sinnoh) |

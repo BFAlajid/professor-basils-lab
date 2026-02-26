@@ -11,6 +11,7 @@ CRATES=(
   "pkmn-breeding"
   "pkmn-showdown"
   "gen3-parser"
+  "citrine"
 )
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
