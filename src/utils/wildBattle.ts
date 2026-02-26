@@ -15,7 +15,7 @@ import { BattleMoveData } from "@/types";
 import { initBattlePokemon, initStatStages, getStatStageMultiplier, cacheBattleMove, getCachedMoves } from "./battle";
 import { getDefensiveMultiplier } from "@/data/typeChart";
 import { NATURES } from "@/data/natures";
-import { randomInt, randomChoice } from "./random";
+import { randomInt, randomChoice, shuffleArray } from "./random";
 
 export function generateRandomIVs(): IVSpread {
   return {
@@ -34,7 +34,7 @@ export function createWildTeamSlot(pokemon: Pokemon, level: number): TeamSlot {
 
   // Pick 4 random moves from the Pokemon's movepool
   const allMoves = pokemon.moves.map((m) => m.move.name);
-  const shuffled = [...allMoves].sort(() => Math.random() - 0.5);
+  const shuffled = shuffleArray(allMoves);
   const selectedMoves = shuffled.slice(0, Math.min(4, shuffled.length));
 
   const ability = pokemon.abilities?.[0]?.ability.name ?? null;

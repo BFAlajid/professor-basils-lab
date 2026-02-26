@@ -27,6 +27,11 @@ export interface PokemonMoveRef {
     name: string;
     url: string;
   };
+  version_group_details?: {
+    move_learn_method: { name: string };
+    version_group: { name: string };
+    level_learned_at: number;
+  }[];
 }
 
 export interface PokemonAbilityRef {
@@ -77,11 +82,22 @@ export interface AltFormeData {
 export type WeatherType = "sun" | "rain" | "sandstorm" | "hail";
 export type TerrainType = "electric" | "grassy" | "misty" | "psychic";
 
+export interface SideConditions {
+  stealthRock: boolean;
+  spikesLayers: number;       // 0-3
+  toxicSpikesLayers: number;  // 0-2
+  stickyWeb: boolean;
+  reflect: number;            // turns remaining (0 = inactive)
+  lightScreen: number;        // turns remaining (0 = inactive)
+}
+
 export interface FieldState {
   weather: WeatherType | null;
   weatherTurnsLeft: number;
   terrain: TerrainType | null;
   terrainTurnsLeft: number;
+  player1Side: SideConditions;
+  player2Side: SideConditions;
 }
 
 export interface TeamSlot {
@@ -212,6 +228,7 @@ export interface BattlePokemon {
   lastMoveUsed: string | null;
   consecutiveProtects: number;
   isFlinched: boolean;
+  choiceLockedMove: string | null;
   // Generational mechanic state
   isMegaEvolved: boolean;
   isTerastallized: boolean;
@@ -242,7 +259,7 @@ export type BattleTurnAction =
 export interface BattleLogEntry {
   turn: number;
   message: string;
-  kind: "damage" | "status" | "switch" | "faint" | "info" | "critical" | "miss" | "heal" | "mega" | "tera" | "dynamax" | "weather" | "terrain";
+  kind: "damage" | "status" | "switch" | "faint" | "info" | "critical" | "miss" | "heal" | "mega" | "tera" | "dynamax" | "weather" | "terrain" | "hazard";
 }
 
 // ── Move Animations ────────────────────────────────────────────────────

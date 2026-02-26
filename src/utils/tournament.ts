@@ -1,6 +1,7 @@
 import { TeamSlot, TournamentTrainer, DifficultyLevel, TypeName } from "@/types";
 import { createWildTeamSlot } from "./wildBattle";
 import { shuffleArray } from "./random";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 
 // Pokemon IDs grouped by type specialty
 const TYPE_THEMED_POOLS: Record<string, number[]> = {
@@ -50,9 +51,7 @@ function getDifficultyForRound(round: number): DifficultyLevel {
 }
 
 async function fetchPokemonById(id: number) {
-  const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
-  if (!res.ok) throw new Error(`Failed to fetch Pokemon ${id}`);
-  return res.json();
+  return fetchPokemonData(id);
 }
 
 async function buildTrainerTeam(

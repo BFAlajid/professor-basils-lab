@@ -1,4 +1,5 @@
 import { cacheBattleMove, getCachedMoves } from "./battle";
+import { fetchMoveData } from "./pokeApiClient";
 
 const pendingFetches = new Map<string, Promise<void>>();
 
@@ -20,11 +21,7 @@ export async function fetchAndCacheMove(moveName: string): Promise<void> {
 
 async function fetchMoveImpl(moveName: string): Promise<void> {
   try {
-    const res = await fetch(
-      `https://pokeapi.co/api/v2/move/${moveName.toLowerCase()}`
-    );
-    if (!res.ok) return;
-    const data = await res.json();
+    const data = await fetchMoveData(moveName);
     cacheBattleMove(moveName, {
       name: data.name,
       power: data.power,

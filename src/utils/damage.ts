@@ -3,6 +3,7 @@ import { getDefensiveMultiplier } from "@/data/typeChart";
 import { calculateAllStats, CalculatedStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { getHeldItem } from "@/data/heldItems";
 import { getAbilityHooks } from "@/data/abilities";
+import { isNFE } from "@/data/nfeList";
 
 export function extractBaseStats(pokemon: Pokemon): BaseStats {
   const get = (name: string) =>
@@ -36,8 +37,12 @@ export interface DamageCalcOptions {
   attackerOriginalTypes?: TypeName[];
   isTerastallized?: boolean;
   fieldWeather?: WeatherType | null;
+  fieldTerrain?: "electric" | "grassy" | "misty" | "psychic" | null;
+  defenderSideReflect?: boolean;
+  defenderSideLightScreen?: boolean;
   activeStatOverride?: BaseStats | null;
   attackerAbility?: string | null;
+  defenderAbility?: string | null;
   attackerBattlePokemon?: BattlePokemon;
 }
 
@@ -101,6 +106,13 @@ export function calculateDamage(
         def = Math.floor(def * (defItem.battleModifier.value ?? 1));
       }
     }
+
+    // Eviolite: +50% Def and SpDef for non-fully-evolved Pokemon
+    if (options.defenderItem === "eviolite" && defender) {
+      if (isNFE(defender.id)) {
+        def = Math.floor(def * 1.5);
+      }
+    }
   } else {
     // Fallback to raw base stats (backward compatible)
     const attackerStats = extractBaseStats(attacker);
@@ -151,7 +163,30 @@ export function calculateDamage(
     stab = abilityHooks.modifySTAB({ attacker: options.attackerBattlePokemon, stab });
   }
 
-  const typeEff = getDefensiveMultiplier(move.type.name, defenderTypes);
+  let typeEff = getDefensiveMultiplier(move.type.name, defenderTypes);
+
+  // Scrappy: Normal and Fighting moves hit Ghost types
+  if (options?.attackerAbility) {
+    const abilityKey = options.attackerAbility.toLowerCase().replace(/\s+/g, "-");
+    if (abilityKey === "scrappy" && typeEff === 0) {
+      const moveType = move.type.name;
+      if (moveType === "normal" || moveType === "fighting") {
+        typeEff = 1;
+      }
+    }
+    // Tinted Lens: double not-very-effective damage
+    if (abilityKey === "tinted-lens" && typeEff > 0 && typeEff < 1) {
+      typeEff *= 2;
+    }
+  }
+
+  // Filter / Solid Rock: reduce super-effective damage by 25%
+  if (typeEff > 1 && options?.defenderAbility) {
+    const defAbilityKey = options.defenderAbility.toLowerCase().replace(/\s+/g, "-");
+    if (defAbilityKey === "filter" || defAbilityKey === "solid-rock" || defAbilityKey === "prism-armor") {
+      typeEff *= 0.75;
+    }
+  }
 
   const level = 50;
   const baseDamage =
@@ -169,6 +204,23 @@ export function calculateDamage(
       if (moveType === "water") modifiedDamage *= 1.5;
       else if (moveType === "fire") modifiedDamage *= 0.5;
     }
+  }
+
+  // Terrain modifiers (grounded attackers only — assumes grounded for now)
+  if (options?.fieldTerrain) {
+    const moveType = move.type.name;
+    if (options.fieldTerrain === "electric" && moveType === "electric") modifiedDamage *= 1.3;
+    else if (options.fieldTerrain === "grassy" && moveType === "grass") modifiedDamage *= 1.3;
+    else if (options.fieldTerrain === "psychic" && moveType === "psychic") modifiedDamage *= 1.3;
+    else if (options.fieldTerrain === "misty" && moveType === "dragon") modifiedDamage *= 0.5;
+  }
+
+  // Reflect / Light Screen damage reduction
+  if (options?.defenderSideReflect && isPhysical && !isCritical) {
+    modifiedDamage *= 0.5;
+  }
+  if (options?.defenderSideLightScreen && !isPhysical && !isCritical) {
+    modifiedDamage *= 0.5;
   }
 
   // Critical hit multiplier

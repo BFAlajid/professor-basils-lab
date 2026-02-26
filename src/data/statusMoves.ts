@@ -6,6 +6,10 @@ export interface StatusMoveEffect {
   targetStatChanges?: Partial<Record<string, number>>;
   healPercent?: number;
   protect?: boolean;
+  hazard?: "stealth-rock" | "spikes" | "toxic-spikes" | "sticky-web";
+  clearHazards?: "rapid-spin" | "defog";
+  reflect?: boolean;
+  lightScreen?: boolean;
 }
 
 export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
@@ -66,4 +70,18 @@ export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
   "synthesis": { healPercent: 50 },
   "wish": { healPercent: 50 },
   "rest": { healPercent: 100, targetStatus: "sleep" },
+
+  // Entry hazards
+  "stealth-rock": { hazard: "stealth-rock" },
+  "spikes": { hazard: "spikes" },
+  "toxic-spikes": { hazard: "toxic-spikes" },
+  "sticky-web": { hazard: "sticky-web" },
+
+  // Hazard removal
+  "rapid-spin": { clearHazards: "rapid-spin" },
+  "defog": { clearHazards: "defog" },
+
+  // Screens
+  "reflect": { reflect: true },
+  "light-screen": { lightScreen: true },
 };

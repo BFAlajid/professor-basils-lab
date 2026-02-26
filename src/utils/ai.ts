@@ -1,12 +1,12 @@
-import { BattleState, BattleTurnAction, TeamSlot, Pokemon, BattlePokemon, BattleTeam, GenerationalMechanic, TypeName, DifficultyLevel } from "@/types";
-import { extractBaseStats, calculateDamage } from "./damage";
+import { BattleState, BattleTurnAction, TeamSlot, Pokemon, BattlePokemon, BattleTeam, TypeName, DifficultyLevel } from "@/types";
+import { extractBaseStats } from "./damage";
 import { getActivePokemon, getCachedMoves, getEffectiveTypes } from "./battle";
 import { getDefensiveMultiplier } from "@/data/typeChart";
 import { getAbilityHooks } from "@/data/abilities";
 import { NATURES } from "@/data/natures";
-import { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { isMegaStone, MEGA_STONES } from "@/data/megaStones";
 import { randomChoice, shuffleArray } from "./random";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 
 // Curated list of competitive Pokemon IDs (mix of OU/UU staples)
 const COMPETITIVE_POKEMON_IDS = [
@@ -49,9 +49,7 @@ export async function generateScaledTeam(floor: number): Promise<TeamSlot[]> {
   const pokemonList = await Promise.all(
     selectedIds.map(async (id) => {
       try {
-        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
-        if (!res.ok) return null;
-        return (await res.json()) as Pokemon;
+        return await fetchPokemonData(id) as Pokemon;
       } catch {
         return null;
       }
@@ -111,62 +109,7 @@ export async function generateScaledTeam(floor: number): Promise<TeamSlot[]> {
 }
 
 export async function generateRandomTeam(): Promise<TeamSlot[]> {
-  const selectedIds = shuffleArray(COMPETITIVE_POKEMON_IDS).slice(0, 6);
-
-  const pokemonList = await Promise.all(
-    selectedIds.map(async (id) => {
-      try {
-        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
-        if (!res.ok) return null;
-        return (await res.json()) as Pokemon;
-      } catch {
-        return null;
-      }
-    })
-  );
-
-  return pokemonList
-    .filter((p): p is Pokemon => p !== null)
-    .map((pokemon, i) => {
-      const baseStats = extractBaseStats(pokemon);
-      const isPhysical = baseStats.attack > baseStats.spAtk;
-
-      // Pick a reasonable nature
-      const naturePool = isPhysical
-        ? NATURES.filter((n) => n.name === "adamant" || n.name === "jolly")
-        : NATURES.filter((n) => n.name === "modest" || n.name === "timid");
-      const nature = randomChoice(naturePool);
-
-      // Pick EVs
-      const evs = isPhysical
-        ? randomChoice(EV_SPREADS.slice(0, 2))
-        : randomChoice(EV_SPREADS.slice(2, 4));
-
-      // Pick 4 moves (prefer damaging moves, up to 1 status move)
-      const allMoves = pokemon.moves.map((m) => m.move.name);
-      const shuffledMoves = shuffleArray(allMoves);
-      const selectedMoves = shuffledMoves.slice(0, Math.min(4, shuffledMoves.length));
-
-      // Assign a tera type (usually one of the Pokemon's own types for good STAB)
-      const pokemonTypes = pokemon.types.map((t: any) => t.type.name) as TypeName[];
-      const teraType = randomChoice(pokemonTypes);
-
-      // Check if this Pokemon can Mega Evolve and assign stone
-      const megaStone = MEGA_STONES.find(s => s.megaTarget === pokemon.name);
-      const heldItem = megaStone ? megaStone.name : null;
-
-      return {
-        pokemon,
-        position: i,
-        nature,
-        evs,
-        ivs: { ...DEFAULT_IVS },
-        ability: pokemon.abilities?.[0]?.ability.name ?? null,
-        heldItem,
-        selectedMoves,
-        teraConfig: { teraType },
-      };
-    });
+  return generateScaledTeam(20);
 }
 
 export function selectAIAction(state: BattleState): BattleTurnAction {

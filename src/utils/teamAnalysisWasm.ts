@@ -10,7 +10,7 @@ import {
 import {
   analyzeDefensiveCoverage as analyzeDefensiveCoverage_JS,
   type CoverageResult,
-} from "./coverage";
+} from "./teamAnalysis";
 import { capitalize } from "./format";
 
 let wasmModule: {
@@ -203,6 +203,5 @@ export function analyzeDefensiveCoverage(team: Pokemon[]): CoverageResult[] {
   }
 }
 
-export type { TeamWeaknessReport, DefensiveEntry, SuggestedType } from "./teamAnalysis";
-export type { CoverageResult } from "./coverage";
-export { getWeaknesses, getResistances, getOffensiveCoverage } from "./coverage";
+export type { TeamWeaknessReport, DefensiveEntry, SuggestedType, CoverageResult } from "./teamAnalysis";
+export { getWeaknesses, getResistances, getOffensiveCoverage } from "./teamAnalysis";
