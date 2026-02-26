@@ -3,12 +3,30 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { useNDSEmulator, NDS_KEYS } from "@/hooks/useNDSEmulator";
 import { useGamepad, type GBAButton } from "@/hooks/useGamepad";
+import { loadKeybinds, getButtonToKey } from "@/utils/keybinds";
 import NDSEmulatorControls from "./NDSEmulatorControls";
+import KeyRemapDialog from "@/components/emulator/KeyRemapDialog";
 
 /** Map GBA-style button names from useGamepad to NDS key bit positions */
 const GAMEPAD_TO_NDS: Record<GBAButton, number> = {
   A: NDS_KEYS.A,
   B: NDS_KEYS.B,
+  L: NDS_KEYS.L,
+  R: NDS_KEYS.R,
+  START: NDS_KEYS.START,
+  SELECT: NDS_KEYS.SELECT,
+  UP: NDS_KEYS.UP,
+  DOWN: NDS_KEYS.DOWN,
+  LEFT: NDS_KEYS.LEFT,
+  RIGHT: NDS_KEYS.RIGHT,
+};
+
+// Map EmulatorButton name -> NDS bit for keyboard translation
+const BUTTON_TO_NDS_BIT: Record<string, number> = {
+  A: NDS_KEYS.A,
+  B: NDS_KEYS.B,
+  X: NDS_KEYS.X,
+  Y: NDS_KEYS.Y,
   L: NDS_KEYS.L,
   R: NDS_KEYS.R,
   START: NDS_KEYS.START,
@@ -35,6 +53,8 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
   const saveInputRef = useRef<HTMLInputElement>(null);
   const romInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [showRemap, setShowRemap] = useState(false);
+  const [keybindDisplay, setKeybindDisplay] = useState(() => getButtonToKey(loadKeybinds()));
 
   const {
     state,
@@ -53,7 +73,7 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
     setContainerRef,
   } = useNDSEmulator();
 
-  // Gamepad support — reuse existing hook (covers A, B, L, R, START, SELECT, directions)
+  // Gamepad support
   const handleGamepadPress = useCallback(
     (button: GBAButton) => buttonPress(GAMEPAD_TO_NDS[button]),
     [buttonPress]
@@ -75,7 +95,7 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
     initialize();
   }, [initialize]);
 
-  // Auto-load ROM passed from parent (unified emulator tab)
+  // Auto-load ROM passed from parent
   const initialFileLoadedRef = useRef(false);
   useEffect(() => {
     if (initialFile && state.isReady && !state.isRunning && !initialFileLoadedRef.current) {
@@ -84,10 +104,64 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
     }
   }, [initialFile, state.isReady, state.isRunning, loadROMFile]);
 
-  // Keyboard + touch input: RetroArch captures keyboard events from the document
-  // and pointer/touch events from the canvas natively. No manual handlers needed.
+  // Keyboard translation layer: intercept user keypresses and dispatch
+  // synthetic events with the keys RetroArch expects.
+  useEffect(() => {
+    if (!state.isRunning || state.isPaused) return;
 
-  // ROM file handler
+    let binds = loadKeybinds();
+
+    const isTyping = () => {
+      const tag = document.activeElement?.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable;
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTyping()) return;
+      const emButton = binds[e.key.toLowerCase()];
+      if (emButton) {
+        const bit = BUTTON_TO_NDS_BIT[emButton];
+        if (bit !== undefined) {
+          e.preventDefault();
+          e.stopPropagation();
+          buttonPress(bit);
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (isTyping()) return;
+      const emButton = binds[e.key.toLowerCase()];
+      if (emButton) {
+        const bit = BUTTON_TO_NDS_BIT[emButton];
+        if (bit !== undefined) {
+          e.preventDefault();
+          e.stopPropagation();
+          buttonUnpress(bit);
+        }
+      }
+    };
+
+    const onKeybindsChanged = () => {
+      binds = loadKeybinds();
+      setKeybindDisplay(getButtonToKey(binds));
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keyup", handleKeyUp, true);
+    window.addEventListener("keybinds-changed", onKeybindsChanged);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keyup", handleKeyUp, true);
+      window.removeEventListener("keybinds-changed", onKeybindsChanged);
+    };
+  }, [state.isRunning, state.isPaused, buttonPress, buttonUnpress]);
+
+  const handleCloseRemap = useCallback(() => {
+    setShowRemap(false);
+    setKeybindDisplay(getButtonToKey(loadKeybinds()));
+  }, []);
+
   const handleROMFile = useCallback(
     (file: File) => {
       const ext = file.name.toLowerCase().split(".").pop();
@@ -98,7 +172,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
     [loadROMFile]
   );
 
-  // Drag and drop
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -109,7 +182,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
     [handleROMFile]
   );
 
-  // Export save as download
   const handleExportSave = useCallback(() => {
     const data = exportSave();
     if (!data) return;
@@ -122,7 +194,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
     URL.revokeObjectURL(url);
   }, [exportSave, state.romName]);
 
-  // Import save handler
   const handleImportSave = useCallback(() => {
     saveInputRef.current?.click();
   }, []);
@@ -136,7 +207,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
     [importSave]
   );
 
-  // Screenshot handler
   const handleScreenshot = useCallback(() => {
     const dataUrl = takeScreenshot();
     if (!dataUrl) return;
@@ -146,7 +216,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
     a.click();
   }, [takeScreenshot]);
 
-  // On-screen button press/release handlers
   const handleBtnDown = useCallback(
     (bit: number) => (e: React.TouchEvent | React.MouseEvent) => {
       e.preventDefault();
@@ -165,14 +234,14 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
 
   return (
     <div className="space-y-4">
-      {/* Error display */}
+      {showRemap && <KeyRemapDialog onClose={handleCloseRemap} />}
+
       {state.error && (
         <div className="bg-[#e8433f]/20 border border-[#e8433f] rounded-lg p-3 text-sm text-[#f0f0e8] font-pixel">
           {state.error}
         </div>
       )}
 
-      {/* Controls toolbar */}
       <NDSEmulatorControls
         isRunning={state.isRunning}
         isPaused={state.isPaused}
@@ -184,11 +253,11 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
         onImportSave={handleImportSave}
         onSetVolume={setVolume}
         onScreenshot={handleScreenshot}
+        onOpenKeyRemap={() => setShowRemap(true)}
         gamepadConnected={gamepadConnected}
         gamepadName={gamepadName}
       />
 
-      {/* Canvas + ROM loader */}
       <div className="flex flex-col items-center gap-4">
         <div
           className={`relative rounded-lg overflow-hidden border-4 ${
@@ -202,7 +271,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
         >
-          {/* Divider line between screens */}
           {state.isRunning && (
             <div
               className="absolute left-0 right-0 h-px bg-[#3a4466] z-10 pointer-events-none"
@@ -210,8 +278,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
             />
           )}
 
-          {/* Container for the persistent singleton canvas managed by useNDSEmulator.
-              The hook appends a canvas with id="canvas" (required by Emscripten GL). */}
           <div
             ref={setContainerRef}
             className="block w-full aspect-[2/3]"
@@ -220,7 +286,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
             } as React.CSSProperties}
           />
 
-          {/* Overlay when no ROM loaded */}
           {!state.isRunning && state.isReady && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-4">
               <div className="text-center space-y-2">
@@ -235,7 +300,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
                 </button>
               </div>
 
-              {/* Previously loaded ROMs */}
               {state.savedROMs.length > 0 && (
                 <div className="space-y-2 text-center">
                   <p className="text-[#8b9bb4] text-[10px] font-pixel">Previously loaded:</p>
@@ -259,14 +323,12 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
             </div>
           )}
 
-          {/* WASM loading overlay */}
           {!state.isReady && !state.error && (
             <div className="absolute inset-0 flex items-center justify-center bg-black">
               <p className="text-[#8b9bb4] font-pixel text-xs animate-pulse">Loading NDS emulator...</p>
             </div>
           )}
 
-          {/* ROM loading overlay */}
           {state.isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
               <p className="text-[#f0f0e8] font-pixel text-xs animate-pulse">Loading ROM...</p>
@@ -274,27 +336,27 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
           )}
         </div>
 
-        {/* Keyboard mapping info */}
+        {/* Dynamic keyboard mapping info */}
         {state.isRunning && (
           <div className="text-[10px] text-[#8b9bb4] text-center space-y-1">
             <p>
-              <span className="text-[#f0f0e8]">Arrow Keys</span> = D-Pad
+              <span className="text-[#f0f0e8]">{keybindDisplay.UP}/{keybindDisplay.DOWN}/{keybindDisplay.LEFT}/{keybindDisplay.RIGHT}</span> = D-Pad
               {" | "}
-              <span className="text-[#f0f0e8]">Z</span> = A
+              <span className="text-[#f0f0e8]">{keybindDisplay.A}</span> = A
               {" | "}
-              <span className="text-[#f0f0e8]">X</span> = B
+              <span className="text-[#f0f0e8]">{keybindDisplay.B}</span> = B
               {" | "}
-              <span className="text-[#f0f0e8]">C</span> = X
+              <span className="text-[#f0f0e8]">{keybindDisplay.X}</span> = X
               {" | "}
-              <span className="text-[#f0f0e8]">V</span> = Y
+              <span className="text-[#f0f0e8]">{keybindDisplay.Y}</span> = Y
               {" | "}
-              <span className="text-[#f0f0e8]">Enter</span> = Start
+              <span className="text-[#f0f0e8]">{keybindDisplay.START}</span> = Start
               {" | "}
-              <span className="text-[#f0f0e8]">Backspace</span> = Select
+              <span className="text-[#f0f0e8]">{keybindDisplay.SELECT}</span> = Select
               {" | "}
-              <span className="text-[#f0f0e8]">A</span> = L
+              <span className="text-[#f0f0e8]">{keybindDisplay.L}</span> = L
               {" | "}
-              <span className="text-[#f0f0e8]">S</span> = R
+              <span className="text-[#f0f0e8]">{keybindDisplay.R}</span> = R
             </p>
             <p className="text-[#8b9bb4]/60">Click or tap bottom screen for touch input</p>
           </div>
@@ -306,7 +368,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
             className="w-full select-none space-y-3 px-2"
             style={{ WebkitTapHighlightColor: "transparent" } as React.CSSProperties}
           >
-            {/* L / R bumpers */}
             <div className="flex justify-between">
               {([
                 { bit: NDS_KEYS.L, label: "L" },
@@ -326,9 +387,7 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
               ))}
             </div>
 
-            {/* D-Pad + A/B/X/Y row */}
             <div className="flex items-center justify-between">
-              {/* D-Pad */}
               <div className="grid grid-cols-3 grid-rows-3 w-[7.5rem] h-[7.5rem] gap-0.5">
                 {DPAD_BUTTONS.map((btn) => (
                   <button
@@ -346,9 +405,7 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
                 ))}
               </div>
 
-              {/* A/B/X/Y diamond — NDS face buttons */}
               <div className="relative w-[7.5rem] h-[7.5rem]">
-                {/* Y (top) */}
                 <button
                   onMouseDown={handleBtnDown(NDS_KEYS.Y)}
                   onMouseUp={handleBtnUp(NDS_KEYS.Y)}
@@ -359,7 +416,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
                 >
                   Y
                 </button>
-                {/* X (left) */}
                 <button
                   onMouseDown={handleBtnDown(NDS_KEYS.X)}
                   onMouseUp={handleBtnUp(NDS_KEYS.X)}
@@ -370,7 +426,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
                 >
                   X
                 </button>
-                {/* A (right) */}
                 <button
                   onMouseDown={handleBtnDown(NDS_KEYS.A)}
                   onMouseUp={handleBtnUp(NDS_KEYS.A)}
@@ -381,7 +436,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
                 >
                   A
                 </button>
-                {/* B (bottom) */}
                 <button
                   onMouseDown={handleBtnDown(NDS_KEYS.B)}
                   onMouseUp={handleBtnUp(NDS_KEYS.B)}
@@ -395,7 +449,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
               </div>
             </div>
 
-            {/* Start / Select — centered */}
             <div className="flex justify-center gap-6">
               {([
                 { bit: NDS_KEYS.SELECT, label: "Select" },
@@ -418,7 +471,6 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
         )}
       </div>
 
-      {/* Hidden file inputs */}
       <input
         ref={romInputRef}
         type="file"

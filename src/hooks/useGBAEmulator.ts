@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { storeSave, loadSave, storeROM, loadROM as loadROMFromDB, listROMs } from "@/utils/emulatorStorage";
+import { registerEmulator, updateCallbacks, unregister } from "@/utils/emulatorManager";
 
 // Dynamically import mGBA to avoid SSR issues
 type mGBAEmulator = {
@@ -53,6 +54,8 @@ export interface GBAEmulatorState {
 export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
   const emulatorRef = useRef<mGBAEmulator | null>(null);
   const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pausedRef = useRef(false);
+  const romNameRef = useRef<string | null>(null);
   const [state, setState] = useState<GBAEmulatorState>({
     isReady: false,
     isLoading: false,
@@ -84,7 +87,6 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       setState((s) => ({ ...s, isLoading: true }));
 
       // mGBA uses pthreads (Web Workers + SharedArrayBuffer).
-      // Check that the environment supports it before attempting to load.
       if (typeof SharedArrayBuffer === "undefined") {
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         throw new Error(
@@ -95,7 +97,6 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       }
 
       // Load mGBA factory via inline <script type="module">.
-      // This avoids bundler analysis and works on Safari/iOS (unlike new Function + import).
       const mGBA = await new Promise<(opts: Record<string, unknown>) => Promise<mGBAEmulator>>((resolve, reject) => {
         const cbName = `__mGBA_${Date.now()}`;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -120,8 +121,6 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
         document.head.appendChild(script);
       });
 
-      // Initialize mGBA with a timeout — WASM compilation + pthread worker
-      // setup can hang on some mobile browsers.
       const Module = await Promise.race([
         mGBA({ canvas: canvasRef.current }),
         new Promise<never>((_, reject) =>
@@ -134,9 +133,7 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
 
       await Module.FSInit();
 
-      // Disable mGBA's built-in Emscripten keyboard handlers — they register
-      // global keydown/keyup listeners that call preventDefault() on every key,
-      // which blocks typing in ALL input/textarea elements across the site.
+      // Disable mGBA's built-in Emscripten keyboard handlers
       Module.toggleInput(false);
 
       emulatorRef.current = Module;
@@ -148,6 +145,64 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
     }
   }, [canvasRef]);
 
+  // Persist save to IndexedDB
+  const persistSave = useCallback(async () => {
+    const emu = emulatorRef.current;
+    const romName = romNameRef.current;
+    if (!emu || !romName) return;
+    const save = emu.getSave();
+    if (save) {
+      await storeSave(romName, save);
+    }
+  }, []);
+
+  // Shutdown callback for emulatorManager
+  const shutdown = useCallback(async () => {
+    await persistSave();
+    if (autoSaveRef.current) {
+      clearInterval(autoSaveRef.current);
+      autoSaveRef.current = null;
+    }
+    emulatorRef.current?.quitGame();
+    pausedRef.current = false;
+    romNameRef.current = null;
+    setState((s) => ({
+      ...s,
+      isRunning: false,
+      isPaused: false,
+      romName: null,
+    }));
+  }, [persistSave]);
+
+  const startAutoSave = useCallback((romName: string) => {
+    if (autoSaveRef.current) clearInterval(autoSaveRef.current);
+    autoSaveRef.current = setInterval(async () => {
+      const emu = emulatorRef.current;
+      if (!emu) return;
+      const save = emu.getSave();
+      if (save) {
+        await storeSave(romName, save);
+      }
+    }, 30000);
+  }, []);
+
+  // Register with emulator manager (called after ROM loads)
+  const registerWithManager = useCallback(async () => {
+    await registerEmulator("gba", {
+      shutdown,
+      pause: () => {
+        emulatorRef.current?.pauseGame();
+        pausedRef.current = true;
+        setState((s) => ({ ...s, isPaused: true }));
+      },
+      resume: () => {
+        emulatorRef.current?.resumeGame();
+        pausedRef.current = false;
+        setState((s) => ({ ...s, isPaused: false }));
+      },
+    });
+  }, [shutdown]);
+
   // Load ROM from File
   const loadROMFile = useCallback(async (file: File) => {
     if (!emulatorRef.current) {
@@ -156,19 +211,19 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
     }
     const emu = emulatorRef.current!;
 
+    // Register with manager (shuts down other emulators)
+    await registerWithManager();
+
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
-      // Store ROM in IndexedDB for later use
       const buffer = await file.arrayBuffer();
       await storeROM(file.name, buffer);
 
       const paths = emu.filePaths();
       const romPath = `${paths.gamePath}/${file.name}`;
 
-      // Write ROM to emulator filesystem
       emu.FS.writeFile(romPath, new Uint8Array(buffer));
 
-      // Check if we have a saved .sav for this ROM
       const savedData = await loadSave(file.name);
       if (savedData) {
         const saveName = file.name.replace(/\.[^.]+$/, ".sav");
@@ -182,6 +237,8 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
         return;
       }
 
+      romNameRef.current = file.name;
+      pausedRef.current = false;
       const roms = await listROMs();
       setState((s) => ({
         ...s,
@@ -193,13 +250,12 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
         savedROMs: roms,
       }));
 
-      // Start auto-save interval (every 30s)
       startAutoSave(file.name);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load ROM";
       setState((s) => ({ ...s, isLoading: false, error: msg }));
     }
-  }, []);
+  }, [ensureModule, registerWithManager, startAutoSave]);
 
   // Load ROM from IndexedDB (previously stored)
   const loadSavedROM = useCallback(async (romName: string) => {
@@ -208,6 +264,8 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       if (!ok) return;
     }
     const emu = emulatorRef.current!;
+
+    await registerWithManager();
 
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
@@ -221,7 +279,6 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       const romPath = `${paths.gamePath}/${romName}`;
       emu.FS.writeFile(romPath, new Uint8Array(buffer));
 
-      // Load save if exists
       const savedData = await loadSave(romName);
       if (savedData) {
         const saveName = romName.replace(/\.[^.]+$/, ".sav");
@@ -235,6 +292,8 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
         return;
       }
 
+      romNameRef.current = romName;
+      pausedRef.current = false;
       setState((s) => ({
         ...s,
         isLoading: false,
@@ -249,34 +308,25 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       const msg = err instanceof Error ? err.message : "Failed to load ROM";
       setState((s) => ({ ...s, isLoading: false, error: msg }));
     }
-  }, []);
-
-  const startAutoSave = useCallback((romName: string) => {
-    if (autoSaveRef.current) clearInterval(autoSaveRef.current);
-    autoSaveRef.current = setInterval(async () => {
-      const emu = emulatorRef.current;
-      if (!emu) return;
-      const save = emu.getSave();
-      if (save) {
-        await storeSave(romName, save);
-      }
-    }, 30000);
-  }, []);
+  }, [ensureModule, registerWithManager, startAutoSave]);
 
   // Pause / Resume
   const pause = useCallback(() => {
     emulatorRef.current?.pauseGame();
+    pausedRef.current = true;
     setState((s) => ({ ...s, isPaused: true }));
   }, []);
 
   const resume = useCallback(() => {
     emulatorRef.current?.resumeGame();
+    pausedRef.current = false;
     setState((s) => ({ ...s, isPaused: false }));
   }, []);
 
   // Reset
   const reset = useCallback(() => {
     emulatorRef.current?.quickReload();
+    pausedRef.current = false;
     setState((s) => ({ ...s, isPaused: false }));
   }, []);
 
@@ -297,19 +347,19 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
   // Import save (.sav file)
   const importSave = useCallback(async (file: File) => {
     const emu = emulatorRef.current;
-    if (!emu || !state.romName) return;
+    const romName = romNameRef.current;
+    if (!emu || !romName) return;
     const buffer = await file.arrayBuffer();
     const data = new Uint8Array(buffer);
 
     const paths = emu.filePaths();
-    const saveName = state.romName.replace(/\.[^.]+$/, ".sav");
+    const saveName = romName.replace(/\.[^.]+$/, ".sav");
     emu.FS.writeFile(`${paths.savePath}/${saveName}`, data);
-    await storeSave(state.romName, data);
+    await storeSave(romName, data);
 
-    // Reload game to pick up new save
-    const romPath = `${paths.gamePath}/${state.romName}`;
+    const romPath = `${paths.gamePath}/${romName}`;
     emu.loadGame(romPath);
-  }, [state.romName]);
+  }, []);
 
   // Volume
   const setVolume = useCallback((v: number) => {
@@ -332,23 +382,43 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
     emulatorRef.current?.buttonUnpress(btn);
   }, []);
 
-  // Screenshot — capture canvas as PNG blob
+  // Screenshot — pause to preserve WebGL framebuffer, capture, resume
   const takeScreenshot = useCallback((): string | null => {
     const canvas = canvasRef.current;
+    const emu = emulatorRef.current;
     if (!canvas) return null;
-    return canvas.toDataURL("image/png");
+
+    const wasPaused = pausedRef.current;
+    if (emu && !wasPaused) {
+      emu.pauseGame();
+    }
+
+    let dataUrl: string | null = null;
+    try {
+      dataUrl = canvas.toDataURL("image/png");
+    } catch {
+      dataUrl = null;
+    }
+
+    if (emu && !wasPaused) {
+      emu.resumeGame();
+    }
+
+    return dataUrl;
   }, [canvasRef]);
 
-  // Persist save on unmount / tab switch
-  const persistSave = useCallback(async () => {
-    const emu = emulatorRef.current;
-    if (!emu || !state.romName) return;
-    const save = emu.getSave();
-    if (save) {
-      await storeSave(state.romName, save);
+  // Keep manager callbacks up to date
+  useEffect(() => {
+    if (state.isRunning) {
+      updateCallbacks("gba", {
+        shutdown,
+        pause,
+        resume,
+      });
     }
-  }, [state.romName]);
+  }, [state.isRunning, shutdown, pause, resume]);
 
+  // Persist save on visibility change; on unmount: pause + persist (don't quit)
   useEffect(() => {
     const handleVisibility = () => {
       if (document.hidden) {
@@ -359,6 +429,7 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
       if (autoSaveRef.current) clearInterval(autoSaveRef.current);
+      emulatorRef.current?.pauseGame();
       persistSave();
     };
   }, [persistSave]);
