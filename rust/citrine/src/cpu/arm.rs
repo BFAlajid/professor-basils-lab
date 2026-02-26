@@ -49,6 +49,8 @@ pub fn execute(cpu: &mut Cpu, mem: &mut Memory, instr: u32) {
         _ if (bits_27_20 >> 5) == 0b011 && (bits_7_4 & 0x1) == 0 => exec_single_transfer(cpu, mem, instr),
         // LDM/STM
         _ if (bits_27_20 >> 5) == 0b100 => exec_block_transfer(cpu, mem, instr),
+        // MRC/MCR (coprocessor register transfer)
+        _ if (bits_27_20 >> 4) == 0xE && (bits_7_4 & 0x1) == 1 => exec_cp_reg_transfer(cpu, instr),
         // Fallback for remaining data processing
         _ if (bits_27_20 >> 5) == 0b000 => exec_data_processing(cpu, instr, false),
         _ => {
@@ -98,17 +100,14 @@ fn exec_blx_reg(cpu: &mut Cpu, instr: u32) {
 
 fn exec_svc(cpu: &mut Cpu, instr: u32) {
     let comment = instr & 0x00FF_FFFF;
+    // Return address = next instruction = PC - 4 (ARM pipeline: PC = instr_addr + 8)
     let return_addr = cpu.pc().wrapping_sub(4);
     let old_cpsr = cpu.cpsr;
     cpu.switch_mode(MODE_SVC);
     cpu.set_spsr(old_cpsr);
     cpu.regs[14] = return_addr;
     cpu.cpsr |= crate::cpu::CPSR_I;
-
-    // SVC number stored for kernel to read
-    // The kernel handler reads it from the SVC comment field
-    // Store in a way the emulator struct can access
-    cpu.regs[15] = comment; // Temporarily store SVC number in PC for kernel dispatch
+    cpu.svc_pending = Some(comment);
     cpu.add_cycles(3);
 }
 
@@ -525,6 +524,28 @@ fn exec_clz(cpu: &mut Cpu, instr: u32) {
     let rd = ((instr >> 12) & 0xF) as usize;
     let rm = (instr & 0xF) as usize;
     cpu.regs[rd] = if cpu.regs[rm] == 0 { 32 } else { cpu.regs[rm].leading_zeros() };
+    cpu.add_cycles(1);
+}
+
+fn exec_cp_reg_transfer(cpu: &mut Cpu, instr: u32) {
+    let cp_num = (instr >> 8) & 0xF;
+    if cp_num != 15 {
+        cpu.add_cycles(1);
+        return;
+    }
+    let is_mrc = (instr >> 20) & 1 != 0;
+    let opc1 = (instr >> 21) & 0x7;
+    let crn = (instr >> 16) & 0xF;
+    let rd = ((instr >> 12) & 0xF) as usize;
+    let opc2 = (instr >> 5) & 0x7;
+    let crm = instr & 0xF;
+
+    if is_mrc {
+        cpu.regs[rd] = cpu.cp15.read(crn, opc1, crm, opc2);
+    } else {
+        let val = cpu.regs[rd];
+        cpu.cp15.write(crn, opc1, crm, opc2, val);
+    }
     cpu.add_cycles(1);
 }
 

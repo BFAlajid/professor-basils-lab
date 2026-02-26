@@ -1,6 +1,6 @@
 import { TypeName } from "@/types";
 import { TYPE_LIST, getEffectiveness as getEffectiveness_JS, getDefensiveMultiplier as getDefensiveMultiplier_JS } from "@/data/typeChart";
-import { loadWasmModule } from "./wasmLoader";
+import { loadWasmModule, loadESModule } from "./wasmLoader";
 
 let wasmModule: {
   get_effectiveness: (atk_type: number, def_type: number) => number;
@@ -15,8 +15,7 @@ async function initWasm(): Promise<boolean> {
   if (wasmFailed) return false;
 
   try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-type-chart/pkg/pkmn_type_chart.js");
+    const mod = await loadESModule("/wasm/pkmn_type_chart.js");
     const wasmInput = await loadWasmModule("/wasm/pkmn_type_chart_bg.wasm");
     await mod.default(wasmInput);
     wasmModule = {

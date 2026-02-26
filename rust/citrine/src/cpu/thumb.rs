@@ -527,6 +527,7 @@ fn exec_cond_branch(cpu: &mut Cpu, instr: u16) {
 
 fn exec_svc(cpu: &mut Cpu, instr: u16) {
     let comment = (instr & 0xFF) as u32;
+    // Return address = next instruction = PC - 2 (Thumb pipeline: PC = instr_addr + 4)
     let return_addr = cpu.pc().wrapping_sub(2);
     let old_cpsr = cpu.cpsr;
     cpu.switch_mode(MODE_SVC);
@@ -534,7 +535,7 @@ fn exec_svc(cpu: &mut Cpu, instr: u16) {
     cpu.regs[14] = return_addr;
     cpu.cpsr |= crate::cpu::CPSR_I;
     cpu.cpsr &= !CPSR_T;
-    cpu.regs[15] = comment;
+    cpu.svc_pending = Some(comment);
     cpu.add_cycles(3);
 }
 

@@ -4,6 +4,14 @@ import { isTampered } from "./tamperDetect";
 let cachedKey: CryptoKey | null = null;
 let keyPromise: Promise<CryptoKey | null> | null = null;
 
+// Bypass Turbopack's module-scoped import() patching by calling import() from the global scope.
+// new Function() creates a function outside of any module wrapper.
+const nativeImport = new Function("u", "return import(u)") as (url: string) => Promise<Record<string, unknown>>;
+
+export function loadESModule(url: string): Promise<Record<string, unknown>> {
+  return nativeImport(url);
+}
+
 function isDev(): boolean {
   return (
     typeof window !== "undefined" &&

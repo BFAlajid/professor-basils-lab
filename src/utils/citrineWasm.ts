@@ -1,15 +1,15 @@
-import { loadWasmModule } from "./wasmLoader";
+import { loadWasmModule, loadESModule } from "./wasmLoader";
 
 let wasmModule: {
-  citrine_create: () => number;
-  citrine_destroy: (h: number) => void;
-  citrine_load_3dsx: (h: number, data: Uint8Array) => boolean;
-  citrine_run_frame: (h: number) => void;
-  citrine_set_buttons: (h: number, btns: number) => void;
-  citrine_get_fb_top: (h: number) => Uint8Array;
-  citrine_get_fb_bottom: (h: number) => Uint8Array;
-  citrine_reset: (h: number) => void;
-  citrine_get_debug_info: (h: number) => string;
+  citrine_create: () => boolean;
+  citrine_destroy: () => void;
+  citrine_load_3dsx: (data: Uint8Array) => boolean;
+  citrine_run_frame: () => void;
+  citrine_set_buttons: (btns: number) => void;
+  citrine_get_fb_top: () => Uint8Array;
+  citrine_get_fb_bottom: () => Uint8Array;
+  citrine_reset: () => void;
+  citrine_get_debug_info: () => string;
 } | null = null;
 
 let wasmInitPromise: Promise<boolean> | null = null;
@@ -20,8 +20,7 @@ async function initWasm(): Promise<boolean> {
   if (wasmFailed) return false;
 
   try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/citrine/pkg/citrine.js");
+    const mod = await loadESModule("/wasm/citrine.js");
     const wasmInput = await loadWasmModule("/wasm/citrine_bg.wasm");
     await mod.default(wasmInput);
     wasmModule = {

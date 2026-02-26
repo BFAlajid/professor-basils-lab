@@ -24,7 +24,16 @@ pub fn handle(cmd: &IpcCommand, mem: &mut Memory, svc: &mut ServiceManager) {
             IpcCommand::write_response(mem, cmd.header, 0, &[0]);
         }
         0x0005 => {
-            // SetBufferSwap
+            // SetBufferSwap — capture framebuffer addresses
+            let screen_id = cmd.param(0);
+            let fb_addr = cmd.param(1);
+            if fb_addr != 0 {
+                if screen_id == 0 {
+                    svc.top_fb_addr = fb_addr;
+                } else {
+                    svc.bot_fb_addr = fb_addr;
+                }
+            }
             IpcCommand::write_response(mem, cmd.header, 0, &[]);
         }
         0x000B => {
@@ -32,8 +41,13 @@ pub fn handle(cmd: &IpcCommand, mem: &mut Memory, svc: &mut ServiceManager) {
             IpcCommand::write_response(mem, cmd.header, 0, &[]);
         }
         0x0013 => {
-            // SaveVramSysArea
-            IpcCommand::write_response(mem, cmd.header, 0, &[]);
+            // RegisterInterruptRelayQueue
+            // ctrulib reads: cmdbuf[2]=threadID, cmdbuf[4]=shm handle
+            let event_handle = cmd.param(0);
+            svc.gsp_interrupt_handle = Some(event_handle);
+            let shm = svc.gsp_shared_mem_handle.unwrap_or(0);
+            // [threadID=0, descriptor=0, shm_handle]
+            IpcCommand::write_response(mem, cmd.header, 0, &[0, 0, shm]);
         }
         0x0014 => {
             // RestoreVramSysArea
@@ -54,10 +68,11 @@ pub fn handle(cmd: &IpcCommand, mem: &mut Memory, svc: &mut ServiceManager) {
             IpcCommand::write_response(mem, cmd.header, 0, &[]);
         }
         0x0019 => {
-            // RegisterInterruptRelayQueue
+            // RegisterInterruptRelayQueue (alt cmd ID)
             let event_handle = cmd.param(0);
             svc.gsp_interrupt_handle = Some(event_handle);
-            IpcCommand::write_response(mem, cmd.header, 0, &[0, 0]);
+            let shm = svc.gsp_shared_mem_handle.unwrap_or(0);
+            IpcCommand::write_response(mem, cmd.header, 0, &[0, 0, shm]);
         }
         _ => {
             IpcCommand::write_response(mem, cmd.header, 0, &[]);

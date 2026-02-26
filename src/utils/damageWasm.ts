@@ -3,7 +3,7 @@ import { getDefensiveMultiplier } from "@/data/typeChart";
 import { typeToIndex } from "./typeChartWasm";
 import { getHeldItem } from "@/data/heldItems";
 import { getAbilityHooks } from "@/data/abilities";
-import { loadWasmModule } from "./wasmLoader";
+import { loadWasmModule, loadESModule } from "./wasmLoader";
 import {
   calculateDamage as calculateDamage_JS,
   extractBaseStats,
@@ -43,8 +43,7 @@ async function initWasm(): Promise<boolean> {
   if (wasmFailed) return false;
 
   try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-damage/pkg/pkmn_damage.js");
+    const mod = await loadESModule("/wasm/pkmn_damage.js");
     const wasmInput = await loadWasmModule("/wasm/pkmn_damage_bg.wasm");
     await mod.default(wasmInput);
     wasmModule = {

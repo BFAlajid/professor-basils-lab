@@ -1,7 +1,7 @@
 import type { TypeName, TeamSlot, Pokemon } from "@/types";
 import { TYPE_LIST } from "@/data/typeChart";
 import { typeToIndex } from "./typeChartWasm";
-import { loadWasmModule } from "./wasmLoader";
+import { loadWasmModule, loadESModule } from "./wasmLoader";
 import {
   analyzeTeam as analyzeTeam_JS,
   type TeamWeaknessReport,
@@ -27,8 +27,7 @@ async function initWasm(): Promise<boolean> {
   if (wasmFailed) return false;
 
   try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-analysis/pkg/pkmn_analysis.js");
+    const mod = await loadESModule("/wasm/pkmn_analysis.js");
     const wasmInput = await loadWasmModule("/wasm/pkmn_analysis_bg.wasm");
     await mod.default(wasmInput);
     wasmModule = {

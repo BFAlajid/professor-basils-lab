@@ -62,11 +62,12 @@ const BOT_H = 240;
 export function useCitrineEmulator() {
   const topCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const botCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const handleRef = useRef<number | null>(null);
+  const createdRef = useRef(false);
   const rafRef = useRef<number>(0);
   const buttonsRef = useRef<number>(0);
   const pausedRef = useRef(false);
   const showDebugRef = useRef(false);
+  const frameCountRef = useRef(0);
 
   const [state, setState] = useState<CTREmulatorState>({
     isReady: false,
@@ -98,49 +99,71 @@ export function useCitrineEmulator() {
   // Frame loop: run one frame, blit framebuffers to canvases
   const frameLoop = useCallback(() => {
     const wasm = getWasm();
-    const h = handleRef.current;
-    if (!wasm || h === null || pausedRef.current) {
+    if (!wasm || !createdRef.current || pausedRef.current) {
       rafRef.current = requestAnimationFrame(frameLoop);
       return;
     }
 
-    wasm.citrine_set_buttons(h, buttonsRef.current);
-    wasm.citrine_run_frame(h);
+    try {
+      wasm.citrine_set_buttons(buttonsRef.current);
+      wasm.citrine_run_frame();
+      frameCountRef.current++;
 
-    // Top screen
-    const topCanvas = topCanvasRef.current;
-    if (topCanvas) {
-      const ctx = topCanvas.getContext("2d");
-      if (ctx) {
-        const rgba = wasm.citrine_get_fb_top(h);
-        if (rgba.length === TOP_W * TOP_H * 4) {
-          const clamped = new Uint8ClampedArray(rgba.length);
-          clamped.set(rgba);
-          const img = new ImageData(clamped, TOP_W, TOP_H);
-          ctx.putImageData(img, 0, 0);
+      // Top screen
+      const topCanvas = topCanvasRef.current;
+      if (topCanvas) {
+        const ctx = topCanvas.getContext("2d");
+        if (ctx) {
+          const rgba = wasm.citrine_get_fb_top();
+          if (rgba.length === TOP_W * TOP_H * 4) {
+            const clamped = new Uint8ClampedArray(rgba.length);
+            clamped.set(rgba);
+            const img = new ImageData(clamped, TOP_W, TOP_H);
+            ctx.putImageData(img, 0, 0);
+          }
         }
       }
-    }
 
-    // Bottom screen
-    const botCanvas = botCanvasRef.current;
-    if (botCanvas) {
-      const ctx = botCanvas.getContext("2d");
-      if (ctx) {
-        const rgba = wasm.citrine_get_fb_bottom(h);
-        if (rgba.length === BOT_W * BOT_H * 4) {
-          const clamped = new Uint8ClampedArray(rgba.length);
-          clamped.set(rgba);
-          const img = new ImageData(clamped, BOT_W, BOT_H);
-          ctx.putImageData(img, 0, 0);
+      // Bottom screen
+      const botCanvas = botCanvasRef.current;
+      if (botCanvas) {
+        const ctx = botCanvas.getContext("2d");
+        if (ctx) {
+          const rgba = wasm.citrine_get_fb_bottom();
+          if (rgba.length === BOT_W * BOT_H * 4) {
+            const clamped = new Uint8ClampedArray(rgba.length);
+            clamped.set(rgba);
+            const img = new ImageData(clamped, BOT_W, BOT_H);
+            ctx.putImageData(img, 0, 0);
+          }
         }
       }
-    }
 
-    // Debug info (throttled — every 30 frames)
-    if (showDebugRef.current && rafRef.current % 30 === 0) {
-      const info = wasm.citrine_get_debug_info(h);
-      setState((s) => ({ ...s, debugInfo: info }));
+      // Debug info (throttled — every 30 frames)
+      if (showDebugRef.current && frameCountRef.current % 30 === 0) {
+        const info = wasm.citrine_get_debug_info();
+        setState((s) => ({ ...s, debugInfo: info }));
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[citrine] Frame error:", msg);
+      try {
+        const info = wasm.citrine_get_debug_info();
+        setState((s) => ({
+          ...s,
+          error: `Emulator crash: ${msg}`,
+          debugInfo: info,
+          isPaused: true,
+        }));
+      } catch {
+        setState((s) => ({
+          ...s,
+          error: `Emulator crash: ${msg}`,
+          isPaused: true,
+        }));
+      }
+      pausedRef.current = true;
+      return;
     }
 
     rafRef.current = requestAnimationFrame(frameLoop);
@@ -156,10 +179,10 @@ export function useCitrineEmulator() {
       }
 
       // Destroy previous instance
-      if (handleRef.current !== null) {
+      if (createdRef.current) {
         cancelAnimationFrame(rafRef.current);
-        wasm.citrine_destroy(handleRef.current);
-        handleRef.current = null;
+        wasm.citrine_destroy();
+        createdRef.current = false;
       }
 
       setState((s) => ({ ...s, isLoading: true, error: null }));
@@ -167,17 +190,24 @@ export function useCitrineEmulator() {
         const buffer = await file.arrayBuffer();
         await storeCTRROM(file.name, buffer);
 
-        const h = wasm.citrine_create();
-        const romData = new Uint8Array(buffer);
-        const ok = wasm.citrine_load_3dsx(h, romData);
+        const ok = wasm.citrine_create();
         if (!ok) {
-          wasm.citrine_destroy(h);
+          setState((s) => ({ ...s, isLoading: false, error: "Failed to create emulator instance" }));
+          return;
+        }
+        createdRef.current = true;
+
+        const romData = new Uint8Array(buffer);
+        const loaded = wasm.citrine_load_3dsx(romData);
+        if (!loaded) {
+          wasm.citrine_destroy();
+          createdRef.current = false;
           setState((s) => ({ ...s, isLoading: false, error: "Failed to load ROM — unsupported format?" }));
           return;
         }
 
-        handleRef.current = h;
         pausedRef.current = false;
+        frameCountRef.current = 0;
         rafRef.current = requestAnimationFrame(frameLoop);
 
         const roms = await listCTRROMs();
@@ -207,10 +237,10 @@ export function useCitrineEmulator() {
         return;
       }
 
-      if (handleRef.current !== null) {
+      if (createdRef.current) {
         cancelAnimationFrame(rafRef.current);
-        wasm.citrine_destroy(handleRef.current);
-        handleRef.current = null;
+        wasm.citrine_destroy();
+        createdRef.current = false;
       }
 
       setState((s) => ({ ...s, isLoading: true, error: null }));
@@ -221,16 +251,23 @@ export function useCitrineEmulator() {
           return;
         }
 
-        const h = wasm.citrine_create();
-        const ok = wasm.citrine_load_3dsx(h, new Uint8Array(buffer));
+        const ok = wasm.citrine_create();
         if (!ok) {
-          wasm.citrine_destroy(h);
+          setState((s) => ({ ...s, isLoading: false, error: "Failed to create emulator instance" }));
+          return;
+        }
+        createdRef.current = true;
+
+        const loaded = wasm.citrine_load_3dsx(new Uint8Array(buffer));
+        if (!loaded) {
+          wasm.citrine_destroy();
+          createdRef.current = false;
           setState((s) => ({ ...s, isLoading: false, error: "Failed to load ROM" }));
           return;
         }
 
-        handleRef.current = h;
         pausedRef.current = false;
+        frameCountRef.current = 0;
         rafRef.current = requestAnimationFrame(frameLoop);
 
         setState((s) => ({
@@ -263,8 +300,8 @@ export function useCitrineEmulator() {
   // Reset
   const reset = useCallback(() => {
     const wasm = getWasm();
-    if (wasm && handleRef.current !== null) {
-      wasm.citrine_reset(handleRef.current);
+    if (wasm && createdRef.current) {
+      wasm.citrine_reset();
       pausedRef.current = false;
       setState((s) => ({ ...s, isPaused: false }));
     }
@@ -298,7 +335,6 @@ export function useCitrineEmulator() {
       canvas.height = TOP_H + BOT_H;
       const ctx = canvas.getContext("2d")!;
       ctx.drawImage(top, 0, 0);
-      // Center bottom screen (40px offset since 400-320=80, 80/2=40)
       ctx.drawImage(bot, (TOP_W - BOT_W) / 2, TOP_H);
       return canvas.toDataURL("image/png");
     } catch {
@@ -343,9 +379,9 @@ export function useCitrineEmulator() {
     return () => {
       cancelAnimationFrame(rafRef.current);
       const wasm = getWasm();
-      if (wasm && handleRef.current !== null) {
-        wasm.citrine_destroy(handleRef.current);
-        handleRef.current = null;
+      if (wasm && createdRef.current) {
+        wasm.citrine_destroy();
+        createdRef.current = false;
       }
     };
   }, []);

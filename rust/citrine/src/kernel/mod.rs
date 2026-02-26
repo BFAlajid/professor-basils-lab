@@ -6,6 +6,8 @@ pub mod svc;
 
 use std::collections::HashMap;
 
+pub const MAX_THREADS: usize = 32;
+
 pub struct Kernel {
     handles: HandleTable,
     pub next_process_id: u32,
@@ -15,7 +17,8 @@ pub struct Kernel {
     pub sync_objects: HashMap<u32, sync::SyncObject>,
     pub ports: HashMap<String, u32>,
     pub sessions: HashMap<u32, String>,
-    pub svc_number: u32,
+    pub needs_reschedule: bool,
+    pub last_connect_fail: String,
 }
 
 pub struct HandleTable {
@@ -71,7 +74,8 @@ impl Kernel {
             sync_objects: HashMap::new(),
             ports: HashMap::new(),
             sessions: HashMap::new(),
-            svc_number: 0,
+            needs_reschedule: false,
+            last_connect_fail: String::new(),
         }
     }
 
@@ -85,6 +89,13 @@ impl Kernel {
 
     pub fn close_handle(&mut self, handle: u32) -> bool {
         self.handles.close(handle)
+    }
+
+    /// Allocate a unique sync object ID (shares counter with thread IDs for simplicity)
+    pub fn alloc_sync_id(&mut self) -> u32 {
+        let id = self.next_thread_id;
+        self.next_thread_id += 1;
+        id
     }
 
     pub fn register_port(&mut self, name: &str) {
@@ -106,20 +117,48 @@ impl Kernel {
         self.sessions.get(&handle)
     }
 
-    pub fn schedule_next(&mut self) -> Option<usize> {
-        if self.threads.is_empty() { return None; }
-        let start = self.current_thread;
-        let count = self.threads.len();
-        for i in 1..=count {
-            let idx = (start + i) % count;
-            if self.threads[idx].state == thread::ThreadState::Ready {
-                self.current_thread = idx;
-                self.threads[idx].state = thread::ThreadState::Running;
-                return Some(idx);
+    pub fn wake_expired_sleepers(&mut self, elapsed_ns: u64) {
+        for thread in &mut self.threads {
+            if thread.state == thread::ThreadState::Waiting {
+                if let thread::WaitReason::Sleep(ns) = thread.wait_reason {
+                    if ns <= elapsed_ns {
+                        thread.wake();
+                    } else {
+                        thread.wait_reason = thread::WaitReason::Sleep(ns - elapsed_ns);
+                    }
+                }
             }
         }
-        if self.threads[start].state == thread::ThreadState::Running {
-            return Some(start);
+    }
+
+    pub fn schedule_next(&mut self) -> Option<usize> {
+        if self.threads.is_empty() { return None; }
+        self.needs_reschedule = false;
+
+        // Find highest-priority (lowest value) ready thread
+        let mut best: Option<usize> = None;
+        let mut best_prio = i32::MAX;
+        let count = self.threads.len();
+        for i in 0..count {
+            if self.threads[i].state == thread::ThreadState::Ready {
+                if self.threads[i].priority < best_prio {
+                    best_prio = self.threads[i].priority;
+                    best = Some(i);
+                }
+            }
+        }
+
+        if let Some(idx) = best {
+            self.current_thread = idx;
+            self.threads[idx].state = thread::ThreadState::Running;
+            return Some(idx);
+        }
+
+        // No ready threads; keep current if still running
+        if self.current_thread < count
+            && self.threads[self.current_thread].state == thread::ThreadState::Running
+        {
+            return Some(self.current_thread);
         }
         None
     }

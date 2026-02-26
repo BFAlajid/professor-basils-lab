@@ -21,10 +21,11 @@ const PAD_STATE_OFFSET: u32 = 0x1C;
 pub fn handle(cmd: &IpcCommand, mem: &mut Memory, svc: &mut ServiceManager) {
     match cmd.command_id {
         0x000A => {
-            // GetIPCHandles
-            let shm_handle = cmd.param(0);
-            svc.hid_shared_mem_handle = Some(shm_handle);
-            IpcCommand::write_response(mem, cmd.header, 0, &[0, 0, 0, 0, 0]);
+            // GetIPCHandles — ctrulib reads: shm=cmdbuf[3], events=cmdbuf[4..8]
+            let shm = svc.hid_shm_handle;
+            let pad_ev = svc.hid_pad_event;
+            // [descriptor, shm, pad, touch, accel, gyro, debug_pad]
+            IpcCommand::write_response(mem, cmd.header, 0, &[0, shm, pad_ev, pad_ev, pad_ev, pad_ev, pad_ev]);
         }
         0x0001 => {
             // GetPadState (custom extension)

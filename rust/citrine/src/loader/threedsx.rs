@@ -48,28 +48,33 @@ pub fn load(data: &[u8], mem: &mut Memory, base_addr: u32) -> Option<u32> {
 
     let code_size = header.code_seg_size as usize;
     let rodata_size = header.rodata_seg_size as usize;
-    let data_size = header.data_seg_size as usize;
-    let total_seg = code_size + rodata_size + data_size;
+    let bss_size = header.bss_size as usize;
+    // data_seg_size includes BSS; on-disk data is the remainder
+    let data_disk_size = (header.data_seg_size as usize).saturating_sub(bss_size);
+    let total_seg = code_size + rodata_size + data_disk_size;
 
     if data.len() < segments_offset + total_seg { return None; }
 
-    // Load code segment
+    // Page-align segment addresses (linker expects 0x1000-aligned placement)
+    let code_pages = page_align(code_size as u32);
+    let rodata_pages = page_align(rodata_size as u32);
+    let rodata_addr = base_addr + code_pages;
+    let data_addr = rodata_addr + rodata_pages;
+    let bss_addr = data_addr + data_disk_size as u32;
+
+    // Load code segment at base
     let code_data = &data[segments_offset..segments_offset + code_size];
     mem.write_block(base_addr, code_data);
 
-    // Load rodata segment
-    let rodata_addr = base_addr + code_size as u32;
+    // Load rodata segment at page-aligned offset
     let rodata_slice = &data[segments_offset + code_size..segments_offset + code_size + rodata_size];
     mem.write_block(rodata_addr, rodata_slice);
 
-    // Load data segment
-    let data_addr = rodata_addr + rodata_size as u32;
+    // Load data segment at page-aligned offset
     let data_slice = &data[segments_offset + code_size + rodata_size..segments_offset + total_seg];
     mem.write_block(data_addr, data_slice);
 
     // Clear BSS
-    let bss_addr = data_addr + data_size as u32;
-    let bss_size = header.bss_size as usize;
     for i in 0..bss_size {
         mem.write8(bss_addr + i as u32, 0);
     }
@@ -87,6 +92,7 @@ pub fn load(data: &[u8], mem: &mut Memory, base_addr: u32) -> Option<u32> {
         let seg_base = seg_addrs[seg];
         let mut pos = seg_base;
 
+        // Absolute relocations: value += base_addr
         for _ in 0..abs_count {
             if reloc_pos + 4 > data.len() { break; }
             let entry = read_u32(data, reloc_pos);
@@ -101,6 +107,7 @@ pub fn load(data: &[u8], mem: &mut Memory, base_addr: u32) -> Option<u32> {
             }
         }
 
+        // Cross-segment relocations: decode target segment from value
         pos = seg_base;
         for _ in 0..rel_count {
             if reloc_pos + 4 > data.len() { break; }
@@ -111,13 +118,25 @@ pub fn load(data: &[u8], mem: &mut Memory, base_addr: u32) -> Option<u32> {
             pos += skip * 4;
             for _ in 0..patch {
                 let val = mem.read32(pos);
-                mem.write32(pos, val.wrapping_add(seg_base));
+                // Bottom 4 bits = target segment index, rest = offset
+                let target_seg = (val & 0xF) as usize;
+                let offset = val >> 4;
+                if target_seg < 3 {
+                    mem.write32(pos, seg_addrs[target_seg] + offset);
+                } else {
+                    // Unknown segment — fall back to adding base_addr
+                    mem.write32(pos, val.wrapping_add(base_addr));
+                }
                 pos += 4;
             }
         }
     }
 
     Some(base_addr)
+}
+
+fn page_align(size: u32) -> u32 {
+    (size + 0xFFF) & !0xFFF
 }
 fn read_u16(data: &[u8], offset: usize) -> u16 {
     if offset + 2 > data.len() { return 0; }
@@ -144,7 +163,7 @@ mod tests {
         out.extend_from_slice(&0u32.to_le_bytes());
         out.extend_from_slice(&(code.len() as u32).to_le_bytes());
         out.extend_from_slice(&(rodata.len() as u32).to_le_bytes());
-        out.extend_from_slice(&(ds.len() as u32).to_le_bytes());
+        out.extend_from_slice(&((ds.len() as u32) + bss).to_le_bytes());
         out.extend_from_slice(&bss.to_le_bytes());
         for _ in 0..3 {
             out.extend_from_slice(&0u32.to_le_bytes());
@@ -185,7 +204,10 @@ mod tests {
         let base = 0x0010_0000;
         let result = load(&data, &mut mem, base);
         assert_eq!(result, Some(base));
-        assert_eq!(mem.read8(base + 4), 0);
+        // Code is loaded at base
+        assert_eq!(mem.read32(base), 0x000000EA);
+        // BSS at page_align(code) + page_align(rodata) + 0 = 0x1000
+        assert_eq!(mem.read8(base + 0x1000), 0);
     }
 
     #[test]

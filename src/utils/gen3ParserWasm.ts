@@ -1,6 +1,6 @@
 import type { Gen3SaveData } from "./gen3SaveParser";
 import { parseGen3Save as parseGen3SaveJS } from "./gen3SaveParser";
-import { loadWasmModule } from "./wasmLoader";
+import { loadWasmModule, loadESModule } from "./wasmLoader";
 
 let wasmModule: {
   parseGen3Save: (buffer: Uint8Array) => Gen3SaveData | null;
@@ -14,8 +14,7 @@ async function initWasm(): Promise<boolean> {
   if (wasmFailed) return false;
 
   try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/gen3-parser/pkg/gen3_parser.js");
+    const mod = await loadESModule("/wasm/gen3_parser.js");
     const wasmInput = await loadWasmModule("/wasm/gen3_parser_bg.wasm");
     await mod.default(wasmInput);
     wasmModule = {

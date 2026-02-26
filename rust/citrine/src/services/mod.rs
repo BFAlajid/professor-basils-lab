@@ -14,6 +14,16 @@ pub struct ServiceManager {
     pub gsp_shared_mem_handle: Option<u32>,
     pub gsp_interrupt_handle: Option<u32>,
     pub buttons: u32,
+    pub top_fb_addr: u32,
+    pub bot_fb_addr: u32,
+    // Pre-created kernel object handles (set by Emulator::init_system_services)
+    pub apt_lock_handle: u32,
+    pub apt_signal_event: u32,
+    pub apt_resume_event: u32,
+    pub srv_notif_semaphore: u32,
+    pub hid_shm_handle: u32,
+    pub hid_shm_addr: u32,
+    pub hid_pad_event: u32,
 }
 
 impl ServiceManager {
@@ -25,6 +35,15 @@ impl ServiceManager {
             gsp_shared_mem_handle: None,
             gsp_interrupt_handle: None,
             buttons: 0,
+            top_fb_addr: 0x1F00_0000,
+            bot_fb_addr: 0x1F00_0000 + 400 * 240 * 4,
+            apt_lock_handle: 0,
+            apt_signal_event: 0,
+            apt_resume_event: 0,
+            srv_notif_semaphore: 0,
+            hid_shm_handle: 0,
+            hid_shm_addr: 0,
+            hid_pad_event: 0,
         }
     }
 

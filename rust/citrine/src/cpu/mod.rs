@@ -25,6 +25,8 @@ pub struct Cpu {
     banked_regs: BankedRegs,
     pub cycles: u64,
     pub halted: bool,
+    pub svc_pending: Option<u32>,
+    pub cp15: cp15::Cp15,
 }
 
 struct BankedRegs {
@@ -48,6 +50,8 @@ impl Cpu {
             },
             cycles: 0,
             halted: false,
+            svc_pending: None,
+            cp15: cp15::Cp15::new(),
         };
         cpu.regs[15] = 0x0010_0000;
         cpu

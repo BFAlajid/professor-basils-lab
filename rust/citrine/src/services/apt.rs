@@ -5,13 +5,14 @@ use super::ServiceManager;
 pub fn handle(cmd: &IpcCommand, mem: &mut Memory, svc: &mut ServiceManager) {
     match cmd.command_id {
         0x0001 => {
-            // GetLockHandle
-            IpcCommand::write_response(mem, cmd.header, 0, &[0, 0, 0x100]);
+            // GetLockHandle — ctrulib reads handle from cmdbuf[5]
+            let lock = svc.apt_lock_handle;
+            IpcCommand::write_response(mem, cmd.header, 0, &[0, 0, 0, lock]);
         }
         0x0002 => {
-            // Initialize
+            // Initialize — ctrulib reads events from cmdbuf[3] and cmdbuf[4]
             svc.apt_initialized = true;
-            IpcCommand::write_response(mem, cmd.header, 0, &[]);
+            IpcCommand::write_response(mem, cmd.header, 0, &[0, svc.apt_signal_event, svc.apt_resume_event]);
         }
         0x0003 => {
             // Enable
