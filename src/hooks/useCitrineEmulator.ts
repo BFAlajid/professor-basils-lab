@@ -7,6 +7,8 @@ import {
   loadCTRROM,
   listCTRROMs,
 } from "@/utils/citrineStorage";
+import { registerEmulator, updateCallbacks } from "@/utils/emulatorManager";
+import { loadKeybinds } from "@/utils/keybinds";
 
 // 3DS HID button bit positions (matches rust/citrine/src/services/hid.rs)
 export const CTR_KEYS = {
@@ -37,20 +39,20 @@ export interface CTREmulatorState {
   debugInfo: string | null;
 }
 
-// Keyboard → button bit mapping
-const KEY_MAP: Record<string, number> = {
-  z: CTR_KEYS.A,
-  x: CTR_KEYS.B,
-  c: CTR_KEYS.X,
-  v: CTR_KEYS.Y,
-  a: CTR_KEYS.L,
-  s: CTR_KEYS.R,
-  Enter: CTR_KEYS.START,
-  Backspace: CTR_KEYS.SELECT,
-  ArrowUp: CTR_KEYS.UP,
-  ArrowDown: CTR_KEYS.DOWN,
-  ArrowLeft: CTR_KEYS.LEFT,
-  ArrowRight: CTR_KEYS.RIGHT,
+// Map EmulatorButton name -> CTR bit
+const BUTTON_TO_BIT: Record<string, number> = {
+  A: CTR_KEYS.A,
+  B: CTR_KEYS.B,
+  X: CTR_KEYS.X,
+  Y: CTR_KEYS.Y,
+  L: CTR_KEYS.L,
+  R: CTR_KEYS.R,
+  START: CTR_KEYS.START,
+  SELECT: CTR_KEYS.SELECT,
+  UP: CTR_KEYS.UP,
+  DOWN: CTR_KEYS.DOWN,
+  LEFT: CTR_KEYS.LEFT,
+  RIGHT: CTR_KEYS.RIGHT,
 };
 
 // Top: 400×240, Bottom: 320×240
@@ -148,11 +150,12 @@ export function useCitrineEmulator() {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[citrine] Frame error:", msg);
       try {
-        const info = wasm.citrine_get_debug_info();
+        const wasm2 = getWasm();
+        const info = wasm2?.citrine_get_debug_info();
         setState((s) => ({
           ...s,
           error: `Emulator crash: ${msg}`,
-          debugInfo: info,
+          debugInfo: info ?? null,
           isPaused: true,
         }));
       } catch {
@@ -169,6 +172,39 @@ export function useCitrineEmulator() {
     rafRef.current = requestAnimationFrame(frameLoop);
   }, []);
 
+  // Shutdown callback for emulator manager
+  const shutdown = useCallback(async () => {
+    cancelAnimationFrame(rafRef.current);
+    const wasm = getWasm();
+    if (wasm && createdRef.current) {
+      wasm.citrine_destroy();
+      createdRef.current = false;
+    }
+    pausedRef.current = false;
+    setState((s) => ({
+      ...s,
+      isRunning: false,
+      isPaused: false,
+      romName: null,
+      debugInfo: null,
+    }));
+  }, []);
+
+  // Register with emulator manager
+  const registerWithManager = useCallback(async () => {
+    await registerEmulator("ctr", {
+      shutdown,
+      pause: () => {
+        pausedRef.current = true;
+        setState((s) => ({ ...s, isPaused: true }));
+      },
+      resume: () => {
+        pausedRef.current = false;
+        setState((s) => ({ ...s, isPaused: false }));
+      },
+    });
+  }, [shutdown]);
+
   // Load ROM from File
   const loadROMFile = useCallback(
     async (file: File) => {
@@ -177,6 +213,9 @@ export function useCitrineEmulator() {
         setState((s) => ({ ...s, error: "WASM not initialized" }));
         return;
       }
+
+      // Register with manager (shuts down other emulators)
+      await registerWithManager();
 
       // Destroy previous instance
       if (createdRef.current) {
@@ -225,7 +264,7 @@ export function useCitrineEmulator() {
         setState((s) => ({ ...s, isLoading: false, error: msg }));
       }
     },
-    [frameLoop]
+    [frameLoop, registerWithManager]
   );
 
   // Load ROM from IndexedDB
@@ -236,6 +275,8 @@ export function useCitrineEmulator() {
         setState((s) => ({ ...s, error: "WASM not initialized" }));
         return;
       }
+
+      await registerWithManager();
 
       if (createdRef.current) {
         cancelAnimationFrame(rafRef.current);
@@ -283,7 +324,7 @@ export function useCitrineEmulator() {
         setState((s) => ({ ...s, isLoading: false, error: msg }));
       }
     },
-    [frameLoop]
+    [frameLoop, registerWithManager]
   );
 
   // Pause / Resume
@@ -324,7 +365,7 @@ export function useCitrineEmulator() {
   const touchMove = useCallback((_x: number, _y: number) => {}, []);
   const touchEnd = useCallback(() => {}, []);
 
-  // Screenshot — composite both screens
+  // Screenshot — composite both screens (Canvas 2D, works without pause)
   const takeScreenshot = useCallback((): string | null => {
     const top = topCanvasRef.current;
     const bot = botCanvasRef.current;
@@ -350,39 +391,69 @@ export function useCitrineEmulator() {
     }
   }, []);
 
-  // Keyboard handler
+  // Keyboard handler — uses dynamic keybinds from localStorage
   useEffect(() => {
+    let binds = loadKeybinds();
+
+    // Build key -> bit map
+    const buildKeyToBit = () => {
+      const map: Record<string, number> = {};
+      for (const [key, button] of Object.entries(binds)) {
+        const bit = BUTTON_TO_BIT[button];
+        if (bit !== undefined) {
+          map[key] = bit;
+        }
+      }
+      return map;
+    };
+
+    let keyToBit = buildKeyToBit();
+
+    const onKeybindsChanged = () => {
+      binds = loadKeybinds();
+      keyToBit = buildKeyToBit();
+    };
+
     const onKeyDown = (e: KeyboardEvent) => {
-      const bit = KEY_MAP[e.key];
+      const bit = keyToBit[e.key.toLowerCase()];
       if (bit !== undefined) {
         e.preventDefault();
         buttonsRef.current |= 1 << bit;
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
-      const bit = KEY_MAP[e.key];
+      const bit = keyToBit[e.key.toLowerCase()];
       if (bit !== undefined) {
         e.preventDefault();
         buttonsRef.current &= ~(1 << bit);
       }
     };
+
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("keybinds-changed", onKeybindsChanged);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("keybinds-changed", onKeybindsChanged);
     };
   }, []);
 
-  // Cleanup on unmount
+  // Keep manager callbacks up to date
+  useEffect(() => {
+    if (state.isRunning) {
+      updateCallbacks("ctr", {
+        shutdown,
+        pause,
+        resume,
+      });
+    }
+  }, [state.isRunning, shutdown, pause, resume]);
+
+  // Cleanup on unmount — just pause, don't destroy (persistence)
   useEffect(() => {
     return () => {
-      cancelAnimationFrame(rafRef.current);
-      const wasm = getWasm();
-      if (wasm && createdRef.current) {
-        wasm.citrine_destroy();
-        createdRef.current = false;
-      }
+      pausedRef.current = true;
     };
   }, []);
 

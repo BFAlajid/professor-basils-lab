@@ -3,7 +3,9 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { useCitrineEmulator, CTR_KEYS } from "@/hooks/useCitrineEmulator";
 import { useGamepad, type GBAButton } from "@/hooks/useGamepad";
+import { loadKeybinds, getButtonToKey } from "@/utils/keybinds";
 import CitrineControls from "./CitrineControls";
+import KeyRemapDialog from "@/components/emulator/KeyRemapDialog";
 
 const GAMEPAD_TO_CTR: Record<GBAButton, number> = {
   A: CTR_KEYS.A,
@@ -33,6 +35,8 @@ export default function CitrineEmulatorTab({ initialFile }: CitrineEmulatorTabPr
   const romInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
+  const [showRemap, setShowRemap] = useState(false);
+  const [keybindDisplay, setKeybindDisplay] = useState(() => getButtonToKey(loadKeybinds()));
 
   const {
     state,
@@ -79,6 +83,15 @@ export default function CitrineEmulatorTab({ initialFile }: CitrineEmulatorTabPr
     }
   }, [initialFile, state.isReady, state.isRunning, loadROMFile]);
 
+  // Listen for keybind changes
+  useEffect(() => {
+    const onKeybindsChanged = () => {
+      setKeybindDisplay(getButtonToKey(loadKeybinds()));
+    };
+    window.addEventListener("keybinds-changed", onKeybindsChanged);
+    return () => window.removeEventListener("keybinds-changed", onKeybindsChanged);
+  }, []);
+
   const handleROMFile = useCallback(
     (file: File) => {
       const ext = file.name.toLowerCase().split(".").pop();
@@ -111,6 +124,11 @@ export default function CitrineEmulatorTab({ initialFile }: CitrineEmulatorTabPr
     toggleDebug();
   }, [toggleDebug]);
 
+  const handleCloseRemap = useCallback(() => {
+    setShowRemap(false);
+    setKeybindDisplay(getButtonToKey(loadKeybinds()));
+  }, []);
+
   // On-screen button handlers
   const handleBtnDown = useCallback(
     (bit: number) => (e: React.TouchEvent | React.MouseEvent) => {
@@ -130,6 +148,8 @@ export default function CitrineEmulatorTab({ initialFile }: CitrineEmulatorTabPr
 
   return (
     <div className="space-y-4">
+      {showRemap && <KeyRemapDialog onClose={handleCloseRemap} />}
+
       {state.error && (
         <div className="bg-[#e8433f]/20 border border-[#e8433f] rounded-lg p-3 text-sm text-[#f0f0e8] font-pixel">
           {state.error}
@@ -146,6 +166,7 @@ export default function CitrineEmulatorTab({ initialFile }: CitrineEmulatorTabPr
         debugInfo={state.debugInfo}
         onToggleDebug={handleToggleDebug}
         showDebug={showDebug}
+        onOpenKeyRemap={() => setShowRemap(true)}
         gamepadConnected={gamepadConnected}
         gamepadName={gamepadName}
       />
@@ -165,7 +186,6 @@ export default function CitrineEmulatorTab({ initialFile }: CitrineEmulatorTabPr
         >
           {/* Dual-screen canvas area */}
           <div className="flex flex-col items-center bg-black">
-            {/* Top screen: 400×240 (5:3) */}
             <canvas
               ref={topCanvasRef}
               width={400}
@@ -173,9 +193,7 @@ export default function CitrineEmulatorTab({ initialFile }: CitrineEmulatorTabPr
               className="w-full block"
               style={{ imageRendering: "pixelated", aspectRatio: "400/240" } as React.CSSProperties}
             />
-            {/* Screen divider */}
             <div className="w-full h-px bg-[#3a4466]" />
-            {/* Bottom screen: 320×240 (4:3) — centered with black bars */}
             <div className="w-full flex justify-center bg-black" style={{ aspectRatio: "400/240" }}>
               <canvas
                 ref={botCanvasRef}
@@ -245,27 +263,27 @@ export default function CitrineEmulatorTab({ initialFile }: CitrineEmulatorTabPr
           </pre>
         )}
 
-        {/* Keyboard info */}
+        {/* Dynamic keyboard info */}
         {state.isRunning && (
           <div className="text-[10px] text-[#8b9bb4] text-center space-y-1">
             <p>
-              <span className="text-[#f0f0e8]">Arrow Keys</span> = D-Pad
+              <span className="text-[#f0f0e8]">{keybindDisplay.UP}/{keybindDisplay.DOWN}/{keybindDisplay.LEFT}/{keybindDisplay.RIGHT}</span> = D-Pad
               {" | "}
-              <span className="text-[#f0f0e8]">Z</span> = A
+              <span className="text-[#f0f0e8]">{keybindDisplay.A}</span> = A
               {" | "}
-              <span className="text-[#f0f0e8]">X</span> = B
+              <span className="text-[#f0f0e8]">{keybindDisplay.B}</span> = B
               {" | "}
-              <span className="text-[#f0f0e8]">C</span> = X
+              <span className="text-[#f0f0e8]">{keybindDisplay.X}</span> = X
               {" | "}
-              <span className="text-[#f0f0e8]">V</span> = Y
+              <span className="text-[#f0f0e8]">{keybindDisplay.Y}</span> = Y
               {" | "}
-              <span className="text-[#f0f0e8]">Enter</span> = Start
+              <span className="text-[#f0f0e8]">{keybindDisplay.START}</span> = Start
               {" | "}
-              <span className="text-[#f0f0e8]">Backspace</span> = Select
+              <span className="text-[#f0f0e8]">{keybindDisplay.SELECT}</span> = Select
               {" | "}
-              <span className="text-[#f0f0e8]">A</span> = L
+              <span className="text-[#f0f0e8]">{keybindDisplay.L}</span> = L
               {" | "}
-              <span className="text-[#f0f0e8]">S</span> = R
+              <span className="text-[#f0f0e8]">{keybindDisplay.R}</span> = R
             </p>
           </div>
         )}
@@ -276,7 +294,6 @@ export default function CitrineEmulatorTab({ initialFile }: CitrineEmulatorTabPr
             className="w-full select-none space-y-3 px-2"
             style={{ WebkitTapHighlightColor: "transparent" } as React.CSSProperties}
           >
-            {/* L / R bumpers */}
             <div className="flex justify-between">
               {([
                 { bit: CTR_KEYS.L, label: "L" },
@@ -296,7 +313,6 @@ export default function CitrineEmulatorTab({ initialFile }: CitrineEmulatorTabPr
               ))}
             </div>
 
-            {/* D-Pad + A/B/X/Y */}
             <div className="flex items-center justify-between">
               <div className="grid grid-cols-3 grid-rows-3 w-[7.5rem] h-[7.5rem] gap-0.5">
                 {DPAD_BUTTONS.map((btn) => (
@@ -315,7 +331,6 @@ export default function CitrineEmulatorTab({ initialFile }: CitrineEmulatorTabPr
                 ))}
               </div>
 
-              {/* A/B/X/Y diamond */}
               <div className="relative w-[7.5rem] h-[7.5rem]">
                 <button
                   onMouseDown={handleBtnDown(CTR_KEYS.X)}
@@ -360,7 +375,6 @@ export default function CitrineEmulatorTab({ initialFile }: CitrineEmulatorTabPr
               </div>
             </div>
 
-            {/* Start / Select */}
             <div className="flex justify-center gap-6">
               {([
                 { bit: CTR_KEYS.SELECT, label: "Select" },

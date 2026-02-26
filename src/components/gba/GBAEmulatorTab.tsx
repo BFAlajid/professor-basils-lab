@@ -4,8 +4,10 @@ import React, { useRef, useState, useCallback, useEffect } from "react";
 import { useGBAEmulator } from "@/hooks/useGBAEmulator";
 import { useGamepad, type GBAButton } from "@/hooks/useGamepad";
 import { usePCBox } from "@/hooks/usePCBox";
+import { loadKeybinds, getButtonToKey } from "@/utils/keybinds";
 import EmulatorControls from "./EmulatorControls";
 import SaveImporter from "./SaveImporter";
+import KeyRemapDialog from "@/components/emulator/KeyRemapDialog";
 import type { PCBoxPokemon } from "@/types";
 
 /** Map uppercase GBA button names from useGamepad to mGBA emulator button names */
@@ -20,6 +22,13 @@ const GBA_TO_EMULATOR: Record<GBAButton, string> = {
   DOWN: "Down",
   LEFT: "Left",
   RIGHT: "Right",
+};
+
+// Map EmulatorButton names to mGBA button names
+const BUTTON_TO_MGBA: Record<string, string> = {
+  UP: "Up", DOWN: "Down", LEFT: "Left", RIGHT: "Right",
+  A: "A", B: "B", L: "L", R: "R",
+  START: "Start", SELECT: "Select",
 };
 
 interface GBAEmulatorTabProps {
@@ -45,6 +54,8 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
   const [showImporter, setShowImporter] = useState(false);
   const [importSaveData, setImportSaveData] = useState<Uint8Array | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [showRemap, setShowRemap] = useState(false);
+  const [keybindDisplay, setKeybindDisplay] = useState(() => getButtonToKey(loadKeybinds()));
   const { addToBox } = usePCBox();
 
   const onImportPokemon = useCallback(
@@ -107,23 +118,12 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
     }
   }, [initialFile, state.isReady, state.isRunning, loadROMFile]);
 
-  // Keyboard bindings
+  // Keyboard bindings — dynamic from keybinds utility
   const pressedKeysRef = useRef(new Set<string>());
   useEffect(() => {
     if (!state.isRunning || state.isPaused) return;
 
-    const keyMap: Record<string, string> = {
-      arrowup: "Up",
-      arrowdown: "Down",
-      arrowleft: "Left",
-      arrowright: "Right",
-      z: "A",
-      x: "B",
-      enter: "Start",
-      backspace: "Select",
-      a: "L",
-      s: "R",
-    };
+    let binds = loadKeybinds();
 
     const isTyping = () => {
       const tag = document.activeElement?.tagName;
@@ -132,34 +132,52 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isTyping()) return;
-      const btn = keyMap[e.key.toLowerCase()];
-      if (btn && !pressedKeysRef.current.has(btn)) {
-        e.preventDefault();
-        pressedKeysRef.current.add(btn);
-        buttonPress(btn);
+      const emButton = binds[e.key.toLowerCase()];
+      if (emButton) {
+        const mgbaBtn = BUTTON_TO_MGBA[emButton];
+        if (mgbaBtn && !pressedKeysRef.current.has(mgbaBtn)) {
+          e.preventDefault();
+          pressedKeysRef.current.add(mgbaBtn);
+          buttonPress(mgbaBtn);
+        }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (isTyping()) return;
-      const btn = keyMap[e.key.toLowerCase()];
-      if (btn) {
-        e.preventDefault();
-        pressedKeysRef.current.delete(btn);
-        buttonUnpress(btn);
+      const emButton = binds[e.key.toLowerCase()];
+      if (emButton) {
+        const mgbaBtn = BUTTON_TO_MGBA[emButton];
+        if (mgbaBtn) {
+          e.preventDefault();
+          pressedKeysRef.current.delete(mgbaBtn);
+          buttonUnpress(mgbaBtn);
+        }
       }
+    };
+
+    const onKeybindsChanged = () => {
+      binds = loadKeybinds();
+      setKeybindDisplay(getButtonToKey(binds));
     };
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("keybinds-changed", onKeybindsChanged);
     return () => {
-      // Release all pressed keys on cleanup
       pressedKeysRef.current.forEach((btn) => buttonUnpress(btn));
       pressedKeysRef.current.clear();
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("keybinds-changed", onKeybindsChanged);
     };
   }, [state.isRunning, state.isPaused, buttonPress, buttonUnpress]);
+
+  // Refresh keybind display when remap dialog closes
+  const handleCloseRemap = useCallback(() => {
+    setShowRemap(false);
+    setKeybindDisplay(getButtonToKey(loadKeybinds()));
+  }, []);
 
   // ROM file handler
   const handleROMFile = useCallback(
@@ -261,6 +279,9 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
 
   return (
     <div className="space-y-4">
+      {/* Key Remap Dialog */}
+      {showRemap && <KeyRemapDialog onClose={handleCloseRemap} />}
+
       {/* Error display */}
       {state.error && (
         <div className="bg-[#e8433f]/20 border border-[#e8433f] rounded-lg p-3 text-sm text-[#f0f0e8] font-pixel">
@@ -285,6 +306,7 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
         onSetVolume={setVolume}
         onImportPokemon={handleImportPokemon}
         onScreenshot={handleScreenshot}
+        onOpenKeyRemap={() => setShowRemap(true)}
         gamepadConnected={gamepadConnected}
         gamepadName={gamepadName}
       />
@@ -378,23 +400,23 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
           )}
         </div>
 
-        {/* Keyboard mapping info */}
+        {/* Dynamic keyboard mapping info */}
         {state.isRunning && (
           <div className="text-[10px] text-[#8b9bb4] text-center space-y-1">
             <p>
-              <span className="text-[#f0f0e8]">Arrow Keys</span> = D-Pad
+              <span className="text-[#f0f0e8]">{keybindDisplay.UP}/{keybindDisplay.DOWN}/{keybindDisplay.LEFT}/{keybindDisplay.RIGHT}</span> = D-Pad
               {" | "}
-              <span className="text-[#f0f0e8]">Z</span> = A
+              <span className="text-[#f0f0e8]">{keybindDisplay.A}</span> = A
               {" | "}
-              <span className="text-[#f0f0e8]">X</span> = B
+              <span className="text-[#f0f0e8]">{keybindDisplay.B}</span> = B
               {" | "}
-              <span className="text-[#f0f0e8]">Enter</span> = Start
+              <span className="text-[#f0f0e8]">{keybindDisplay.START}</span> = Start
               {" | "}
-              <span className="text-[#f0f0e8]">Backspace</span> = Select
+              <span className="text-[#f0f0e8]">{keybindDisplay.SELECT}</span> = Select
               {" | "}
-              <span className="text-[#f0f0e8]">A</span> = L
+              <span className="text-[#f0f0e8]">{keybindDisplay.L}</span> = L
               {" | "}
-              <span className="text-[#f0f0e8]">S</span> = R
+              <span className="text-[#f0f0e8]">{keybindDisplay.R}</span> = R
             </p>
           </div>
         )}

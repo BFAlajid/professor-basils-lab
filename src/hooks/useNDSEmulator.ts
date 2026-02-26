@@ -8,6 +8,7 @@ import {
   loadNDSROM,
   listNDSROMs,
 } from "@/utils/ndsEmulatorStorage";
+import { registerEmulator, updateCallbacks, unregister } from "@/utils/emulatorManager";
 
 // NDS button bit positions (kept for NDSEmulatorTab compatibility)
 export const NDS_KEYS = {
@@ -108,6 +109,7 @@ let persistentCanvas: HTMLCanvasElement | null = null;
 let moduleLoaded = false;
 let moduleRunning = false;
 let currentRomName: string | null = null;
+let isPausedModule = false;
 
 function getOrCreateCanvas(): HTMLCanvasElement {
   if (!persistentCanvas) {
@@ -120,7 +122,6 @@ function getOrCreateCanvas(): HTMLCanvasElement {
     persistentCanvas.style.aspectRatio = "2/3";
     persistentCanvas.tabIndex = 0;
     persistentCanvas.style.outline = "none";
-    // Re-focus canvas on click so keyboard input resumes after interacting elsewhere
     persistentCanvas.addEventListener("mousedown", () => persistentCanvas?.focus());
   }
   return persistentCanvas;
@@ -152,30 +153,6 @@ export function useNDSEmulator() {
     }
   }, []);
 
-  // ── Initialize: list saved ROMs, restore running state if module still alive ──
-  const initialize = useCallback(async () => {
-    try {
-      const roms = await listNDSROMs();
-      if (moduleLoaded && moduleRunning) {
-        // Module survived tab switch — resume
-        const win = window as unknown as Win;
-        win.Module?.resumeMainLoop?.();
-        setState((s) => ({
-          ...s,
-          isReady: true,
-          isRunning: true,
-          isPaused: false,
-          romName: currentRomName,
-          savedROMs: roms,
-        }));
-      } else {
-        setState((s) => ({ ...s, isReady: true, savedROMs: roms }));
-      }
-    } catch {
-      setState((s) => ({ ...s, isReady: true, savedROMs: [] }));
-    }
-  }, []);
-
   // ── Persist save from FS → IndexedDB ──
   const persistSave = useCallback(async () => {
     const win = window as unknown as Win;
@@ -193,6 +170,45 @@ export function useNDSEmulator() {
     }
   }, []);
 
+  // ── Shutdown callback for emulator manager ──
+  const shutdown = useCallback(async () => {
+    await persistSave();
+    const win = window as unknown as Win;
+    win.Module?.pauseMainLoop?.();
+    moduleRunning = false;
+    isPausedModule = true;
+    setState((s) => ({
+      ...s,
+      isRunning: false,
+      isPaused: true,
+    }));
+  }, [persistSave]);
+
+  // ── Initialize: list saved ROMs, restore running state if module still alive ──
+  const initialize = useCallback(async () => {
+    try {
+      const roms = await listNDSROMs();
+      if (moduleLoaded && moduleRunning) {
+        // Module survived tab switch — resume
+        const win = window as unknown as Win;
+        win.Module?.resumeMainLoop?.();
+        isPausedModule = false;
+        setState((s) => ({
+          ...s,
+          isReady: true,
+          isRunning: true,
+          isPaused: false,
+          romName: currentRomName,
+          savedROMs: roms,
+        }));
+      } else {
+        setState((s) => ({ ...s, isReady: true, savedROMs: roms }));
+      }
+    } catch {
+      setState((s) => ({ ...s, isReady: true, savedROMs: [] }));
+    }
+  }, []);
+
   // ── Core boot: set up Module, load script, write FS, callMain ──
   const startEmulation = useCallback(
     (romData: Uint8Array, romExt: string, saveData: Uint8Array | null): Promise<void> => {
@@ -200,7 +216,6 @@ export function useNDSEmulator() {
         const canvas = getOrCreateCanvas();
         const win = window as unknown as Win;
 
-        // Timeout so we don't hang forever
         const timeout = setTimeout(() => {
           reject(new Error("Emulator initialization timed out (30s)"));
         }, 30000);
@@ -216,7 +231,6 @@ export function useNDSEmulator() {
               clearTimeout(timeout);
               const FS = win.FS;
 
-              // Create directory tree
               const mkdirp = (p: string) => {
                 const parts = p.replace(/^\//, "").split("/");
                 let cur = "";
@@ -230,28 +244,21 @@ export function useNDSEmulator() {
               mkdirp("/home/web_user/retroarch/userdata/saves");
               mkdirp("/home/web_user/retroarch/userdata/states");
 
-              // Write config
               FS.writeFile("/home/web_user/retroarch/userdata/retroarch.cfg", RETROARCH_CFG);
               FS.writeFile(
                 "/home/web_user/retroarch/userdata/config/melonDS/melonDS.opt",
                 MELONDS_OPT
               );
 
-              // Write ROM
               FS.writeFile(`/rom/rom.${romExt}`, romData);
 
-              // Restore save if we have one
               if (saveData && saveData.length > 0) {
                 FS.writeFile(SAVE_DIR + "rom.srm", saveData);
               }
 
-              // Start RetroArch
               win.Module.callMain(win.Module.arguments);
-
-              // Focus canvas so it receives keyboard events
               canvas.focus();
 
-              // Track save writes for auto-persist
               try {
                 FS.trackingDelegate.onWriteToFile = (path: string) => {
                   if (SRAM_EXTS.some((ext) => path.endsWith(ext))) {
@@ -268,6 +275,7 @@ export function useNDSEmulator() {
 
               moduleLoaded = true;
               moduleRunning = true;
+              isPausedModule = false;
               resolve();
             } catch (err) {
               clearTimeout(timeout);
@@ -284,7 +292,6 @@ export function useNDSEmulator() {
           printErr: (...args: unknown[]) => console.warn("[NDS]", ...args),
         };
 
-        // Load the melonDS RetroArch core script
         const script = document.createElement("script");
         script.src = "/nds/melonds_libretro.js";
         script.onerror = () => {
@@ -297,6 +304,25 @@ export function useNDSEmulator() {
     []
   );
 
+  // ── Register with emulator manager ──
+  const registerWithManager = useCallback(async () => {
+    await registerEmulator("nds", {
+      shutdown,
+      pause: () => {
+        const win = window as unknown as Win;
+        win.Module?.pauseMainLoop?.();
+        isPausedModule = true;
+        setState((s) => ({ ...s, isPaused: true }));
+      },
+      resume: () => {
+        const win = window as unknown as Win;
+        win.Module?.resumeMainLoop?.();
+        isPausedModule = false;
+        setState((s) => ({ ...s, isPaused: false }));
+      },
+    });
+  }, [shutdown]);
+
   // ── Load ROM from File ──
   const loadROMFile = useCallback(
     async (file: File) => {
@@ -307,6 +333,8 @@ export function useNDSEmulator() {
         }));
         return;
       }
+
+      await registerWithManager();
 
       setState((s) => ({ ...s, isLoading: true, error: null }));
       try {
@@ -336,7 +364,7 @@ export function useNDSEmulator() {
         setState((s) => ({ ...s, isLoading: false, error: msg }));
       }
     },
-    [startEmulation]
+    [startEmulation, registerWithManager]
   );
 
   // ── Load ROM from IndexedDB ──
@@ -349,6 +377,8 @@ export function useNDSEmulator() {
         }));
         return;
       }
+
+      await registerWithManager();
 
       setState((s) => ({ ...s, isLoading: true, error: null }));
       try {
@@ -379,19 +409,21 @@ export function useNDSEmulator() {
         setState((s) => ({ ...s, isLoading: false, error: msg }));
       }
     },
-    [startEmulation]
+    [startEmulation, registerWithManager]
   );
 
   // ── Pause / Resume ──
   const pause = useCallback(() => {
     const win = window as unknown as Win;
     win.Module?.pauseMainLoop?.();
+    isPausedModule = true;
     setState((s) => ({ ...s, isPaused: true }));
   }, []);
 
   const resume = useCallback(() => {
     const win = window as unknown as Win;
     win.Module?.resumeMainLoop?.();
+    isPausedModule = false;
     setState((s) => ({ ...s, isPaused: false }));
   }, []);
 
@@ -399,6 +431,7 @@ export function useNDSEmulator() {
   const reset = useCallback(() => {
     const win = window as unknown as Win;
     win.Module?._cmd_reset?.();
+    isPausedModule = false;
     setState((s) => ({ ...s, isPaused: false }));
   }, []);
 
@@ -472,16 +505,42 @@ export function useNDSEmulator() {
     setState((s) => ({ ...s, volume: _v }));
   }, []);
 
-  // ── Screenshot ──
+  // ── Screenshot — pause to preserve WebGL framebuffer, capture, resume ──
   const takeScreenshot = useCallback((): string | null => {
     const canvas = persistentCanvas;
     if (!canvas) return null;
-    try {
-      return canvas.toDataURL("image/png");
-    } catch {
-      return null;
+
+    const win = window as unknown as Win;
+    const wasPaused = isPausedModule;
+
+    if (!wasPaused) {
+      win.Module?.pauseMainLoop?.();
     }
+
+    let dataUrl: string | null = null;
+    try {
+      dataUrl = canvas.toDataURL("image/png");
+    } catch {
+      dataUrl = null;
+    }
+
+    if (!wasPaused) {
+      win.Module?.resumeMainLoop?.();
+    }
+
+    return dataUrl;
   }, []);
+
+  // Keep manager callbacks up to date
+  useEffect(() => {
+    if (state.isRunning) {
+      updateCallbacks("nds", {
+        shutdown,
+        pause,
+        resume,
+      });
+    }
+  }, [state.isRunning, shutdown, pause, resume]);
 
   // ── On unmount: pause (don't destroy), persist save ──
   useEffect(() => {
@@ -491,7 +550,6 @@ export function useNDSEmulator() {
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
-      // Pause main loop so the emulator doesn't run in background
       const win = window as unknown as Win;
       win.Module?.pauseMainLoop?.();
       persistSave();
