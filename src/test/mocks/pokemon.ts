@@ -1,4 +1,16 @@
-import { Pokemon, TeamSlot } from "@/types";
+import {
+  Pokemon,
+  TeamSlot,
+  BattlePokemon,
+  BattleState,
+  BattleTeam,
+  BattleLogEntry,
+  StatStages,
+  SideConditions,
+  FieldState,
+  StatusCondition,
+  TypeName,
+} from "@/types";
 
 export const mockCharizard: Pokemon = {
   id: 6,
@@ -109,5 +121,89 @@ export function createMockTeamSlot(pokemon: Pokemon, position: number = 0): Team
     ability: pokemon.abilities?.[0]?.ability.name ?? null,
     heldItem: null,
     selectedMoves: pokemon.moves.slice(0, 4).map((m) => m.move.name),
+  };
+}
+
+function defaultStatStages(): StatStages {
+  return { attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0, accuracy: 0, evasion: 0 };
+}
+
+function defaultSideConditions(): SideConditions {
+  return { stealthRock: false, spikesLayers: 0, toxicSpikesLayers: 0, stickyWeb: false, reflect: 0, lightScreen: 0 };
+}
+
+export function createMockBattlePokemon(
+  slot: TeamSlot,
+  overrides?: Partial<BattlePokemon>
+): BattlePokemon {
+  return {
+    slot,
+    currentHp: 300,
+    maxHp: 300,
+    status: null,
+    statStages: defaultStatStages(),
+    isActive: true,
+    isFainted: false,
+    toxicCounter: 0,
+    sleepTurns: 0,
+    turnsOnField: 0,
+    isProtected: false,
+    lastMoveUsed: null,
+    consecutiveProtects: 0,
+    isFlinched: false,
+    choiceLockedMove: null,
+    isMegaEvolved: false,
+    isTerastallized: false,
+    isDynamaxed: false,
+    dynamaxTurnsLeft: 0,
+    teraType: null,
+    megaFormeData: null,
+    activeStatOverride: null,
+    originalMaxHp: 300,
+    hasMegaEvolved: false,
+    hasTerastallized: false,
+    hasDynamaxed: false,
+    ...overrides,
+  };
+}
+
+export function createMockBattleState(
+  overrides?: Partial<BattleState> & {
+    p1Overrides?: Partial<BattlePokemon>;
+    p2Overrides?: Partial<BattlePokemon>;
+  }
+): BattleState {
+  const p1Slot = createMockTeamSlot(mockCharizard, 0);
+  const p2Slot = createMockTeamSlot(mockBlastoise, 0);
+  const { p1Overrides, p2Overrides, ...stateOverrides } = overrides ?? {};
+  return {
+    phase: "action_select",
+    mode: "ai",
+    difficulty: "normal",
+    turn: 1,
+    player1: {
+      pokemon: [createMockBattlePokemon(p1Slot, p1Overrides)],
+      activePokemonIndex: 0,
+      selectedMechanic: null,
+    },
+    player2: {
+      pokemon: [createMockBattlePokemon(p2Slot, p2Overrides)],
+      activePokemonIndex: 0,
+      selectedMechanic: null,
+    },
+    log: [],
+    winner: null,
+    waitingForSwitch: null,
+    currentTurnPlayer: "player1",
+    field: {
+      weather: null,
+      weatherTurnsLeft: 0,
+      terrain: null,
+      terrainTurnsLeft: 0,
+      player1Side: defaultSideConditions(),
+      player2Side: defaultSideConditions(),
+    },
+    pendingPivotSwitch: null,
+    ...stateOverrides,
   };
 }
