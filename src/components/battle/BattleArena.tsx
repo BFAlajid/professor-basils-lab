@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { motion } from "framer-motion";
 import { BattleState, BattleTurnAction, ActiveAnimation, SpriteAnimationState } from "@/types";
 import { getActivePokemon } from "@/utils/battle";
@@ -20,7 +20,7 @@ interface BattleArenaProps {
   onSubmitPvPActions?: (p1: BattleTurnAction, p2: BattleTurnAction) => void;
 }
 
-export default function BattleArena({
+export default memo(function BattleArena({
   state,
   onSubmitAction,
   onForceSwitch,
@@ -382,4 +382,4 @@ export default function BattleArena({
       <BattleLog log={state.log} />
     </div>
   );
-}
+});

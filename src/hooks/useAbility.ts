@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { fetchAbilityData } from "@/utils/pokeApiClient";
 
 export interface AbilityData {
   id: number;
@@ -10,18 +11,10 @@ export interface AbilityData {
   }[];
 }
 
-async function fetchAbility(nameOrId: string | number): Promise<AbilityData> {
-  const res = await fetch(
-    `https://pokeapi.co/api/v2/ability/${nameOrId.toString().toLowerCase()}`
-  );
-  if (!res.ok) throw new Error(`Ability "${nameOrId}" not found`);
-  return res.json();
-}
-
 export function useAbility(nameOrId: string | number | null) {
   return useQuery({
     queryKey: ["ability", nameOrId],
-    queryFn: () => fetchAbility(nameOrId!),
+    queryFn: () => fetchAbilityData(nameOrId!),
     enabled: !!nameOrId,
     staleTime: Infinity,
     gcTime: Infinity,

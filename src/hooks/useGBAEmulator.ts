@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { storeSave, loadSave, storeROM, loadROM as loadROMFromDB, listROMs } from "@/utils/emulatorStorage";
 import { registerEmulator, updateCallbacks, unregister } from "@/utils/emulatorManager";
+import type { GBAEmulatorWindow } from "@/types/emulator";
 
 // Dynamically import mGBA to avoid SSR issues
 type mGBAEmulator = {
@@ -99,8 +100,7 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       // Load mGBA factory via inline <script type="module">.
       const mGBA = await new Promise<(opts: Record<string, unknown>) => Promise<mGBAEmulator>>((resolve, reject) => {
         const cbName = `__mGBA_${Date.now()}`;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const win = window as any;
+        const win = window as unknown as GBAEmulatorWindow;
         const timeout = setTimeout(() => {
           delete win[cbName];
           reject(new Error("mGBA script load timed out (30s)"));

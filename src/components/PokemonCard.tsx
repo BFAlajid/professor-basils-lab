@@ -8,6 +8,7 @@ import TypeBadge from "./TypeBadge";
 import { extractBaseStats } from "@/utils/damageWasm";
 import { getHeldItem } from "@/data/heldItems";
 import { playCry } from "@/utils/cryPlayer";
+import ItemSprite from "@/components/ItemSprite";
 
 interface PokemonCardProps {
   slot: TeamSlot;
@@ -107,7 +108,8 @@ export default function PokemonCard({
             </span>
           )}
           {heldItem && (
-            <span className="rounded px-1.5 py-0.5 text-[10px] bg-[#3a4466] text-[#f7a838]">
+            <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] bg-[#3a4466] text-[#f7a838]">
+              <ItemSprite name={heldItem.name} size={14} />
               {heldItem.displayName}
             </span>
           )}

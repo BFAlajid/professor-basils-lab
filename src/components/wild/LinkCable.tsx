@@ -168,6 +168,7 @@ export default function LinkCable({ online, onBattle, onTrade, onBack }: LinkCab
                         value={joinCode[i] ?? ""}
                         onChange={(e) => handleCodeInput(i, e.target.value)}
                         onKeyDown={(e) => handleCodeKeyDown(i, e)}
+                        aria-label={`Room code digit ${i + 1}`}
                         className="w-9 h-10 text-center text-sm font-pixel text-[#f0f0e8] bg-[#1a1c2c] border-2 border-[#3a4466] rounded-lg focus:border-[#f7a838] focus:outline-none uppercase transition-colors"
                       />
                     ))}

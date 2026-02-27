@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Pokemon, BallType } from "@/types";
 import { POKE_BALLS } from "@/data/pokeBalls";
 import Image from "@/components/PokeImage";
+import ItemSprite from "@/components/ItemSprite";
 
 interface CatchResultProps {
   pokemon: Pokemon;
@@ -89,10 +90,7 @@ export default function CatchResult({
           {displayName} (Lv. {level}) was caught!
         </p>
         <div className="flex items-center justify-center gap-1 mt-1">
-          <div
-            className="w-3 h-3 rounded-full border border-[#3a4466]"
-            style={{ backgroundColor: ballData?.spriteColor }}
-          />
+          <ItemSprite name={ball} size={16} fallbackColor={ballData?.spriteColor} />
           <span className="text-[9px] text-[#8b9bb4]">{ballData?.displayName}</span>
         </div>
       </div>

@@ -17,6 +17,7 @@ import { createWildBattlePokemon, preloadWildMoves, fetchCaptureRate, executeWil
 import { randomInt } from "@/utils/random";
 import { calculateCatchProbability, shouldWildFlee } from "@/utils/catchRateWasm";
 import { fetchAndCacheMove } from "@/utils/moveCache";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 
 const initialState: WildEncounterState = {
   phase: "map",
@@ -153,9 +154,7 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
     const level = randomInt(encounter.minLevel, encounter.maxLevel);
 
     // Fetch Pokemon data
-    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${encounter.pokemonId}`);
-    if (!res.ok) return;
-    const pokemon: Pokemon = await res.json();
+    const pokemon: Pokemon = await fetchPokemonData(encounter.pokemonId) as Pokemon;
 
     // Fetch capture rate and preload moves in parallel
     const [captureRate] = await Promise.all([

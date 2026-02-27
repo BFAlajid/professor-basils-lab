@@ -96,9 +96,8 @@ const MELONDS_OPT = 'melonds_touch_mode = "Touch"\n';
 const SAVE_DIR = "/home/web_user/retroarch/userdata/saves/";
 const SRAM_EXTS = [".srm", ".sram", ".ram", ".sav", ".dsv", ".nvr"];
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-type Win = Record<string, any>;
-/* eslint-enable @typescript-eslint/no-explicit-any */
+import type { NDSEmulatorWindow } from "@/types/emulator";
+type Win = NDSEmulatorWindow;
 
 // ────────────────────────────────────────────────────────────
 // Module-level singletons — persist across React mount/unmount

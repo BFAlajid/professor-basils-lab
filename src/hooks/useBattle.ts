@@ -7,6 +7,7 @@ import { battleReducer, initialBattleState } from "@/utils/battle";
 import { fetchAndCacheMoves } from "@/utils/moveCache";
 import { selectAIAction, generateRandomTeam, getBestSwitchIn } from "@/utils/aiWasm";
 import { useReplayRecorder } from "./useReplayRecorder";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 
 export function useBattle() {
   const [state, dispatch] = useReducer(battleReducer, initialBattleState);
@@ -54,18 +55,15 @@ export function useBattle() {
         const stone = getMegaStone(slot.heldItem);
         if (stone && stone.formeApiName) {
           megaFetches.push(
-            fetch(`https://pokeapi.co/api/v2/pokemon/${stone.formeApiName}`)
-              .then(res => res.ok ? res.json() : null)
+            fetchPokemonData(stone.formeApiName)
               .then(data => {
-                if (data) {
-                  formeCache.set(slot.pokemon.name, {
-                    name: data.name,
-                    types: data.types,
-                    stats: data.stats,
-                    ability: data.abilities?.[0]?.ability?.name ?? "",
-                    spriteUrl: data.sprites?.other?.["official-artwork"]?.front_default ?? data.sprites?.front_default ?? null,
-                  });
-                }
+                formeCache.set(slot.pokemon.name, {
+                  name: data.name,
+                  types: data.types,
+                  stats: data.stats,
+                  ability: data.abilities?.[0]?.ability?.name ?? "",
+                  spriteUrl: data.sprites?.other?.["official-artwork"]?.front_default ?? data.sprites?.front_default ?? null,
+                });
               })
               .catch(() => {})
           );

@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { TypeName } from "@/types";
 import { typeColors } from "@/data/typeColors";
 
@@ -8,7 +9,7 @@ interface TypeBadgeProps {
   size?: "sm" | "md";
 }
 
-export default function TypeBadge({ type, size = "md" }: TypeBadgeProps) {
+export default memo(function TypeBadge({ type, size = "md" }: TypeBadgeProps) {
   const color = typeColors[type];
   const sizeClasses = size === "sm" ? "px-1.5 py-0.5 text-[10px]" : "px-2.5 py-1 text-xs";
 
@@ -20,4 +21,4 @@ export default function TypeBadge({ type, size = "md" }: TypeBadgeProps) {
       {type}
     </span>
   );
-}
+});

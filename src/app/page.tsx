@@ -8,6 +8,7 @@ import { usePokedexContext } from "@/contexts/PokedexContext";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { NATURES } from "@/data/natures";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
+import { importFromShowdown } from "@/utils/showdownFormatWasm";
 import type { TeamSlot } from "@/types";
 import dynamic from "next/dynamic";
 import SkeletonLoader from "@/components/SkeletonLoader";
@@ -43,6 +44,21 @@ const SpeedTierChart = dynamic(() => import("@/components/SpeedTierChart"), {
 });
 const PokemonComparison = dynamic(() => import("@/components/PokemonComparison"), {
   loading: () => <SkeletonLoader label="Loading comparison..." lines={3} />,
+});
+const TierWarnings = dynamic(() => import("@/components/TierWarnings"), {
+  loading: () => <SkeletonLoader label="Loading tier validation..." lines={2} />,
+});
+const DamageMatrix = dynamic(() => import("@/components/DamageMatrix"), {
+  loading: () => <SkeletonLoader label="Loading damage matrix..." lines={3} />,
+});
+const TeamTemplates = dynamic(() => import("@/components/TeamTemplates"), {
+  loading: () => <SkeletonLoader label="Loading templates..." lines={2} />,
+});
+const MovePoolBrowser = dynamic(() => import("@/components/MovePoolBrowser"), {
+  loading: () => <SkeletonLoader label="Loading move pool..." lines={3} />,
+});
+const EvolutionTreeViewer = dynamic(() => import("@/components/EvolutionTreeViewer"), {
+  loading: () => <SkeletonLoader label="Loading evolution tree..." lines={2} />,
 });
 const UnifiedEmulatorTab = dynamic(() => import("@/components/emulator/UnifiedEmulatorTab"), {
   ssr: false,
@@ -185,6 +201,13 @@ export default function Home() {
     });
   }, [team]);
 
+  const handleLoadTemplate = useCallback(async (showdownPaste: string) => {
+    const slots = await importFromShowdown(showdownPaste);
+    if (slots.length > 0) setTeam(slots);
+  }, [setTeam]);
+
+  const [selectedTeamPokemonIdx, setSelectedTeamPokemonIdx] = useState(0);
+
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent, tabId: Tab) => {
       const idx = tabs.findIndex((t) => t.id === tabId);
@@ -309,21 +332,25 @@ export default function Home() {
               transition={{ duration: motionDuration }}
             >
               {activeTab === "team" && (
-                <TeamRoster
-                  team={team}
-                  onAdd={addPokemon}
-                  onRemove={removePokemon}
-                  isFull={isFull}
-                  onSetNature={setNature}
-                  onSetEvs={setEvs}
-                  onSetIvs={setIvs}
-                  onSetAbility={setAbility}
-                  onSetHeldItem={setHeldItem}
-                  onSetMoves={setMoves}
-                  onSetTeraType={setTeraType}
-                  onSetForme={setForme}
-                  onSetTeam={setTeam}
-                />
+                <div className="space-y-6">
+                  <TeamRoster
+                    team={team}
+                    onAdd={addPokemon}
+                    onRemove={removePokemon}
+                    isFull={isFull}
+                    onSetNature={setNature}
+                    onSetEvs={setEvs}
+                    onSetIvs={setIvs}
+                    onSetAbility={setAbility}
+                    onSetHeldItem={setHeldItem}
+                    onSetMoves={setMoves}
+                    onSetTeraType={setTeraType}
+                    onSetForme={setForme}
+                    onSetTeam={setTeam}
+                  />
+                  <TierWarnings team={team} />
+                  <TeamTemplates onLoadTeam={handleLoadTemplate} />
+                </div>
               )}
               {activeTab === "analysis" && (
                 <div className="space-y-6">
@@ -337,10 +364,41 @@ export default function Home() {
                   <SpeedTierChart team={team} />
                   <PokemonComparison team={team} />
                   <TeamSummary team={teamPokemon} />
+                  {team.length > 0 && (
+                    <>
+                      <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <h3 className="text-sm font-bold text-[#f0f0e8] font-pixel">Move Pool</h3>
+                          <div className="flex gap-1">
+                            {team.map((s, i) => (
+                              <button
+                                type="button"
+                                key={i}
+                                onClick={() => setSelectedTeamPokemonIdx(i)}
+                                className={`px-2 py-0.5 text-[10px] font-pixel rounded transition-colors ${
+                                  selectedTeamPokemonIdx === i
+                                    ? "bg-[#e8433f] text-[#f0f0e8]"
+                                    : "bg-[#3a4466] text-[#8b9bb4] hover:text-[#f0f0e8]"
+                                }`}
+                                aria-label={`View moves for ${s.pokemon.name}`}
+                              >
+                                {s.pokemon.name.charAt(0).toUpperCase() + s.pokemon.name.slice(1, 6)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <MovePoolBrowser pokemon={team[selectedTeamPokemonIdx]?.pokemon} />
+                      </div>
+                      <EvolutionTreeViewer pokemonId={team[selectedTeamPokemonIdx]?.pokemon.id} />
+                    </>
+                  )}
                 </div>
               )}
               {activeTab === "damage" && (
-                <DamageCalculator team={teamPokemon} />
+                <div className="space-y-6">
+                  <DamageCalculator team={teamPokemon} />
+                  <DamageMatrix team={team} />
+                </div>
               )}
               {activeTab === "battle" && (
                 <BattleTab team={team} />

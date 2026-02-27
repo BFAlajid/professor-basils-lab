@@ -1,15 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
+import SVGBarChart from "@/components/charts/SVGBarChart";
 import { Pokemon, TypeName } from "@/types";
 import { typeColors } from "@/data/typeColors";
 import { extractBaseStats } from "@/utils/damageWasm";
@@ -54,7 +46,7 @@ export default function TeamSummary({ team }: TeamSummaryProps) {
     };
   }, [team]);
 
-  const typeDistribution = useMemo(() => {
+  const barData = useMemo(() => {
     const counts: Partial<Record<TypeName, number>> = {};
     for (const p of team) {
       for (const t of p.types) {
@@ -62,8 +54,12 @@ export default function TeamSummary({ team }: TeamSummaryProps) {
       }
     }
     return Object.entries(counts)
-      .map(([type, count]) => ({ type, count }))
-      .sort((a, b) => b.count - a.count);
+      .map(([type, count]) => ({
+        label: type,
+        value: count!,
+        color: typeColors[type as TypeName] || "#8b9bb4",
+      }))
+      .sort((a, b) => b.value - a.value);
   }, [team]);
 
   if (!stats || team.length === 0) {
@@ -110,36 +106,7 @@ export default function TeamSummary({ team }: TeamSummaryProps) {
       {/* Type distribution bar chart */}
       <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-6">
         <h3 className="mb-4 text-lg font-bold font-pixel">Type Distribution</h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={typeDistribution}>
-            <XAxis
-              dataKey="type"
-              tick={{ fill: "#8b9bb4", fontSize: 10 }}
-              tickFormatter={(v: string) => v.slice(0, 3).toUpperCase()}
-            />
-            <YAxis
-              tick={{ fill: "#8b9bb4", fontSize: 10 }}
-              allowDecimals={false}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#262b44",
-                border: "1px solid #3a4466",
-                borderRadius: 8,
-                fontSize: 12,
-              }}
-              labelFormatter={(v) => String(v).charAt(0).toUpperCase() + String(v).slice(1)}
-            />
-            <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-              {typeDistribution.map((entry) => (
-                <Cell
-                  key={entry.type}
-                  fill={typeColors[entry.type as TypeName] || "#8b9bb4"}
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        <SVGBarChart data={barData} height={200} />
       </div>
     </div>
   );

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PCBoxPokemon, TeamSlot } from "@/types";
 import { POKE_BALLS } from "@/data/pokeBalls";
 import PCBoxSlot from "./PCBoxSlot";
 import Image from "@/components/PokeImage";
+import ItemSprite from "@/components/ItemSprite";
 
 interface PCBoxProps {
   box: PCBoxPokemon[];
@@ -18,6 +19,7 @@ interface PCBoxProps {
 export default function PCBox({ box, teamSize, onMoveToTeam, onRemove, onSetNickname }: PCBoxProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const selected = selectedIndex !== null ? box[selectedIndex] : null;
+  const handleToggle = useCallback((i: number) => setSelectedIndex((prev) => prev === i ? null : i), []);
 
   return (
     <div className="space-y-3">
@@ -38,7 +40,9 @@ export default function PCBox({ box, teamSize, onMoveToTeam, onRemove, onSetNick
             <PCBoxSlot
               key={i}
               pokemon={pokemon}
-              onClick={() => setSelectedIndex(selectedIndex === i ? null : i)}
+              index={i}
+              isSelected={selectedIndex === i}
+              onToggle={handleToggle}
             />
           ))}
         </div>
@@ -72,10 +76,7 @@ export default function PCBox({ box, teamSize, onMoveToTeam, onRemove, onSetNick
                   Lv. {selected.level} · {selected.pokemon.types.map((t) => t.type.name).join("/")}
                 </p>
                 <div className="flex items-center gap-1">
-                  <div
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{ backgroundColor: POKE_BALLS[selected.caughtWith]?.spriteColor }}
-                  />
+                  <ItemSprite name={selected.caughtWith} size={14} fallbackColor={POKE_BALLS[selected.caughtWith]?.spriteColor} />
                   <span className="text-[8px] text-[#8b9bb4]">
                     Caught in {selected.caughtInArea} · {new Date(selected.caughtDate).toLocaleDateString()}
                   </span>
