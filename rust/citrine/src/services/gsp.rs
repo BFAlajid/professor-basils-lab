@@ -25,13 +25,19 @@ pub fn handle(cmd: &IpcCommand, mem: &mut Memory, svc: &mut ServiceManager) {
         }
         0x0005 => {
             // SetBufferSwap — capture framebuffer addresses
+            // params: [0]=screen, [1]=active_fb, [2]=fb0_vaddr, [3]=fb1_vaddr,
+            //         [4]=fb0_right, [5]=fb1_right, [6]=stride, [7]=format
             let screen_id = cmd.param(0);
-            let fb_addr = cmd.param(1);
-            if fb_addr != 0 {
+            let active_fb = cmd.param(1);
+            let fb0 = cmd.param(2);
+            let fb1 = cmd.param(3);
+            let addr = if active_fb == 0 { fb0 } else { fb1 };
+            let addr = if addr != 0 { addr } else if fb0 != 0 { fb0 } else { fb1 };
+            if addr != 0 {
                 if screen_id == 0 {
-                    svc.top_fb_addr = fb_addr;
+                    svc.top_fb_addr = addr;
                 } else {
-                    svc.bot_fb_addr = fb_addr;
+                    svc.bot_fb_addr = addr;
                 }
             }
             IpcCommand::write_response(mem, cmd.header, 0, &[]);
@@ -42,11 +48,13 @@ pub fn handle(cmd: &IpcCommand, mem: &mut Memory, svc: &mut ServiceManager) {
         }
         0x0013 => {
             // RegisterInterruptRelayQueue
-            // ctrulib reads: cmdbuf[2]=threadID, cmdbuf[4]=shm handle
-            let event_handle = cmd.param(0);
-            svc.gsp_interrupt_handle = Some(event_handle);
+            // params: [0]=flags, [1]=translate_desc(0), [2]=event_handle
+            // response: cmdbuf[2]=threadID, cmdbuf[4]=shm_handle
+            let event_handle = cmd.param(2);
+            if event_handle != 0 {
+                svc.gsp_interrupt_handle = Some(event_handle);
+            }
             let shm = svc.gsp_shared_mem_handle.unwrap_or(0);
-            // [threadID=0, descriptor=0, shm_handle]
             IpcCommand::write_response(mem, cmd.header, 0, &[0, 0, shm]);
         }
         0x0014 => {
@@ -69,8 +77,10 @@ pub fn handle(cmd: &IpcCommand, mem: &mut Memory, svc: &mut ServiceManager) {
         }
         0x0019 => {
             // RegisterInterruptRelayQueue (alt cmd ID)
-            let event_handle = cmd.param(0);
-            svc.gsp_interrupt_handle = Some(event_handle);
+            let event_handle = cmd.param(2);
+            if event_handle != 0 {
+                svc.gsp_interrupt_handle = Some(event_handle);
+            }
             let shm = svc.gsp_shared_mem_handle.unwrap_or(0);
             IpcCommand::write_response(mem, cmd.header, 0, &[0, 0, shm]);
         }
@@ -106,6 +116,22 @@ mod tests {
         let cmd = IpcCommand::parse(&mem);
         handle(&cmd, &mut mem, &mut svc);
         assert!(!svc.gsp_rights_acquired);
+    }
+
+    #[test]
+    fn set_buffer_swap_captures_fb_addr() {
+        let mut mem = Memory::new();
+        let mut svc = ServiceManager::new();
+        // SetBufferSwap: 8 normal params, 0 translate
+        let header = make_header(0x0005, 8, 0);
+        mem.write32(IPC_BUFFER_ADDR, header);
+        mem.write32(IPC_BUFFER_ADDR + 4, 0);           // screen=0 (top)
+        mem.write32(IPC_BUFFER_ADDR + 8, 0);            // active_fb=0
+        mem.write32(IPC_BUFFER_ADDR + 12, 0x1800_0000); // fb0_vaddr
+        mem.write32(IPC_BUFFER_ADDR + 16, 0x1804_0000); // fb1_vaddr
+        let cmd = IpcCommand::parse(&mem);
+        handle(&cmd, &mut mem, &mut svc);
+        assert_eq!(svc.top_fb_addr, 0x1800_0000); // should pick fb0 since active=0
     }
 
     #[test]
