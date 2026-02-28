@@ -242,12 +242,12 @@ export default function Home() {
 
       {/* Header */}
       <header className="border-b border-[#3a4466] bg-[#262b44]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 gap-2 flex-wrap sm:flex-nowrap">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-4 gap-2 flex-wrap sm:flex-nowrap">
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold text-[#f0f0e8] font-pixel truncate">
+            <h1 className="text-xl sm:text-2xl font-bold text-[#f0f0e8] font-pixel truncate">
               Pokemon Team Builder
             </h1>
-            <p className="text-xs text-[#8b9bb4] hidden sm:block">
+            <p className="text-sm text-[#8b9bb4] hidden sm:block">
               Build, analyze, and simulate battles
             </p>
           </div>
@@ -258,20 +258,20 @@ export default function Home() {
                 <button
                   onClick={handleShare}
                   aria-label="Share team link"
-                  className="rounded-lg bg-[#3a4466] px-3 py-1.5 text-sm text-[#f0f0e8] hover:bg-[#4a5577] transition-colors"
+                  className="rounded-lg bg-[#3a4466] px-4 py-2 text-base text-[#f0f0e8] hover:bg-[#4a5577] transition-colors"
                 >
                   {shareMessage || "Share Team"}
                 </button>
                 <button
                   onClick={clearTeam}
                   aria-label="Clear all team members"
-                  className="rounded-lg bg-[#3a4466] px-3 py-1.5 text-sm text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
+                  className="rounded-lg bg-[#3a4466] px-4 py-2 text-base text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
                 >
                   Clear
                 </button>
               </>
             )}
-            <span className="text-sm text-[#8b9bb4]" aria-live="polite">
+            <span className="text-base text-[#8b9bb4]" aria-live="polite">
               {team.length}/6
             </span>
           </div>
@@ -280,7 +280,7 @@ export default function Home() {
 
       {/* Tabs */}
       <nav className="border-b border-[#3a4466]" aria-label="Main navigation">
-        <div className="mx-auto flex max-w-6xl px-4 overflow-x-auto" role="tablist" aria-label="App sections">
+        <div className="mx-auto flex max-w-[1400px] px-6 overflow-x-auto" role="tablist" aria-label="App sections">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -291,7 +291,7 @@ export default function Home() {
               tabIndex={activeTab === tab.id ? 0 : -1}
               onClick={() => setActiveTab(tab.id)}
               onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
-              className={`relative px-3 py-3 text-sm font-medium font-pixel transition-colors whitespace-nowrap ${
+              className={`relative px-4 py-3 text-base font-medium font-pixel transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "text-[#f0f0e8]"
                   : "text-[#8b9bb4] hover:text-[#f0f0e8]"
@@ -313,7 +313,7 @@ export default function Home() {
       {/* Content */}
       <main
         id="main-content"
-        className="mx-auto max-w-6xl px-4 py-6"
+        className="mx-auto max-w-[1400px] px-6 py-8"
         role="tabpanel"
         aria-labelledby={`tab-${activeTab}`}
       >

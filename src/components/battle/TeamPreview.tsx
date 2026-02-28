@@ -56,7 +56,7 @@ function PokemonPreviewCard({
           ? `Select ${formatName(slot.pokemon.name)} as lead`
           : formatName(slot.pokemon.name)
       }
-      aria-pressed={isSelected}
+      aria-pressed={isSelected ? "true" : "false"}
     >
       {sprite && (
         <Image

@@ -48,7 +48,7 @@ export default function RegionMap({ selectedArea, onSelectArea }: RegionMapProps
           <button
             key={r.id}
             onClick={() => setActiveRegion(r.id)}
-            className={`px-3 py-1.5 text-[10px] font-pixel rounded-lg border transition-all ${
+            className={`px-4 py-2 text-xs font-pixel rounded-lg border transition-all ${
               activeRegion === r.id
                 ? "text-[#f0f0e8] border-current"
                 : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"
@@ -65,31 +65,33 @@ export default function RegionMap({ selectedArea, onSelectArea }: RegionMapProps
         <select
           value={themeFilter}
           onChange={(e) => setThemeFilter(e.target.value)}
-          className="bg-[#1a1c2c] border border-[#3a4466] rounded-lg px-2 py-1 text-[10px] font-pixel text-[#f0f0e8] outline-none"
+          aria-label="Filter by terrain type"
+          className="bg-[#1a1c2c] border border-[#3a4466] rounded-lg px-3 py-1.5 text-xs font-pixel text-[#f0f0e8] outline-none"
         >
           {THEME_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-pixel text-[#8b9bb4]">Max Lv.</span>
+          <span className="text-xs font-pixel text-[#8b9bb4]">Max Lv.</span>
           <input
             type="range"
             min={5}
             max={100}
             value={maxLevelFilter}
             onChange={(e) => setMaxLevelFilter(Number(e.target.value))}
-            className="w-20 accent-[#e8433f]"
+            aria-label="Maximum level filter"
+            className="w-28 accent-[#e8433f]"
           />
-          <span className="text-[10px] font-pixel text-[#f0f0e8] w-6">{maxLevelFilter}</span>
+          <span className="text-xs font-pixel text-[#f0f0e8] w-8">{maxLevelFilter}</span>
         </div>
-        <span className="text-[10px] text-[#8b9bb4]">
+        <span className="text-xs text-[#8b9bb4]">
           {areas.length}/{allAreas.length} zones
         </span>
       </div>
 
       {/* Map area */}
-      <div className="relative bg-[#1a1c2c] border border-[#3a4466] rounded-xl overflow-hidden" style={{ height: "400px" }}>
+      <div className="relative bg-[#1a1c2c] border border-[#3a4466] rounded-xl overflow-hidden" style={{ height: "500px" }}>
         {/* Region map background image */}
         <AnimatePresence mode="wait">
           {region?.mapUrl && !mapError[activeRegion] && (
@@ -124,7 +126,7 @@ export default function RegionMap({ selectedArea, onSelectArea }: RegionMapProps
         {/* Region label */}
         <div className="absolute top-3 left-3 z-10">
           <h3
-            className="text-sm font-pixel drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+            className="text-base font-pixel drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
             style={{ color: region?.color }}
           >
             {region?.name}

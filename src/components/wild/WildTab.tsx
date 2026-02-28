@@ -349,7 +349,7 @@ export default function WildTab({ team, onAddToTeam, onSetEvs, onSetMoves }: Wil
             className="space-y-4"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-pixel text-[#f0f0e8]">Wild Encounters</h2>
+              <h2 className="text-base font-pixel text-[#f0f0e8]">Wild Encounters</h2>
               <WildToolbar
                 activePanel={activePanel}
                 onTogglePanel={(panel) => {
@@ -372,7 +372,7 @@ export default function WildTab({ team, onAddToTeam, onSetEvs, onSetMoves }: Wil
               />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <RegionMap
                   selectedArea={encounter.currentArea}
@@ -388,8 +388,8 @@ export default function WildTab({ team, onAddToTeam, onSetEvs, onSetMoves }: Wil
                   />
                 ) : (
                   <div className="bg-[#262b44] border border-[#3a4466] rounded-xl p-4 text-center">
-                    <p className="text-xs text-[#8b9bb4]">Select an area on the map</p>
-                    <p className="text-[10px] text-[#3a4466] mt-1">Click a zone to see available Pokemon</p>
+                    <p className="text-sm text-[#8b9bb4]">Select an area on the map</p>
+                    <p className="text-xs text-[#3a4466] mt-1">Click a zone to see available Pokemon</p>
                   </div>
                 )}
               </div>
