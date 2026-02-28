@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { POKEMART_ITEMS, type ShopItem } from "@/data/pokeMart";
 import { BallType } from "@/types";
+import ItemSprite from "@/components/ItemSprite";
 
 type ShopCategory = "ball" | "medicine" | "held-item" | "special";
 
@@ -109,6 +110,7 @@ export default function PokeMart({ money, onBuy, ballInventory, battleItemInvent
                 exit={{ opacity: 0, x: 10 }}
                 className="rounded-lg border border-[#3a4466] p-2 flex items-center gap-2"
               >
+                <ItemSprite name={item.id} size={20} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-pixel text-[10px] text-[#f0f0e8] truncate">

@@ -379,6 +379,7 @@ function PokemonCard({
         <img
           src={spriteUrl}
           alt={gen3.nickname}
+          crossOrigin="anonymous"
           className="w-full h-full object-contain"
           style={{ imageRendering: "pixelated" }}
           onError={(e) => {

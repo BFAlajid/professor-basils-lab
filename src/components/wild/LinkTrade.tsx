@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 import { PCBoxPokemon, LinkTradeState, TradeOffer } from "@/types";
 
 interface LinkTradeProps {
@@ -47,7 +47,7 @@ function PokemonCard({
   const sprite = pokemon.pokemon.sprites.front_default;
   return (
     <div
-      role={readonly ? undefined : "button"}
+      {...(!readonly && { role: "button" })}
       tabIndex={readonly ? undefined : 0}
       onClick={readonly ? undefined : onClick}
       onKeyDown={readonly ? undefined : (e) => { if (e.key === "Enter" || e.key === " ") onClick?.(); }}

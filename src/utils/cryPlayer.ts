@@ -21,6 +21,7 @@ export function playCry(pokemon: Pokemon, volume = 0.3): void {
 
   try {
     const audio = new Audio(url);
+    audio.crossOrigin = "anonymous";
     audio.volume = Math.min(1, Math.max(0, volume));
     audio.play().catch(() => {
       // Audio playback blocked (autoplay policy) — silently ignore

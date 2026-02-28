@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot, Move } from "@/types";
+import { fetchPokemonData, fetchMoveData } from "@/utils/pokeApiClient";
 
 interface MoveTutorProps {
   team: TeamSlot[];
@@ -22,9 +23,7 @@ interface TutorMove {
 
 async function fetchAllMoves(pokemonName: string): Promise<TutorMove[]> {
   try {
-    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`);
-    if (!res.ok) return [];
-    const data = await res.json();
+    const data = await fetchPokemonData(pokemonName);
 
     const tutorMoves: TutorMove[] = [];
     const seen = new Set<string>();
@@ -34,8 +33,8 @@ async function fetchAllMoves(pokemonName: string): Promise<TutorMove[]> {
       if (seen.has(moveName)) continue;
 
       // Get learn methods
-      const methods = entry.version_group_details.map(
-        (d: { move_learn_method: { name: string } }) => d.move_learn_method.name
+      const methods = (entry.version_group_details ?? []).map(
+        (d) => d.move_learn_method.name
       );
 
       // Include tutor, machine (TM/HM), and egg moves
@@ -60,16 +59,18 @@ async function fetchAllMoves(pokemonName: string): Promise<TutorMove[]> {
     const toFetch = tutorMoves.slice(0, 40);
     const details = await Promise.allSettled(
       toFetch.map(async (m) => {
-        const moveRes = await fetch(`https://pokeapi.co/api/v2/move/${m.name}`);
-        if (!moveRes.ok) return m;
-        const moveData = await moveRes.json();
-        return {
-          ...m,
-          type: moveData.type?.name ?? "",
-          power: moveData.power,
-          accuracy: moveData.accuracy,
-          damageClass: moveData.damage_class?.name ?? "",
-        };
+        try {
+          const moveData = await fetchMoveData(m.name);
+          return {
+            ...m,
+            type: moveData.type?.name ?? "",
+            power: moveData.power,
+            accuracy: moveData.accuracy,
+            damageClass: moveData.damage_class?.name ?? "",
+          };
+        } catch {
+          return m;
+        }
       })
     );
 

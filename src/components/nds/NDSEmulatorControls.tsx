@@ -13,6 +13,7 @@ interface NDSEmulatorControlsProps {
   onImportSave: () => void;
   onSetVolume: (v: number) => void;
   onScreenshot: () => void;
+  onOpenKeyRemap: () => void;
   gamepadConnected?: boolean;
   gamepadName?: string | null;
 }
@@ -28,6 +29,7 @@ export default function NDSEmulatorControls({
   onImportSave,
   onSetVolume,
   onScreenshot,
+  onOpenKeyRemap,
   gamepadConnected = false,
   gamepadName = null,
 }: NDSEmulatorControlsProps) {
@@ -90,6 +92,14 @@ export default function NDSEmulatorControls({
         className="px-3 py-1.5 rounded bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
       >
         Screenshot
+      </button>
+
+      {/* Remap Keys */}
+      <button
+        onClick={onOpenKeyRemap}
+        className="px-3 py-1.5 rounded bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
+      >
+        Remap
       </button>
 
       {/* Gamepad indicator */}

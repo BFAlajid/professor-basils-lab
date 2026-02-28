@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { BallType } from "@/types";
 import { POKE_BALLS, BALL_ORDER } from "@/data/pokeBalls";
+import ItemSprite from "@/components/ItemSprite";
 
 interface BallSelectorProps {
   inventory: Record<BallType, number>;
@@ -45,10 +46,7 @@ export default function BallSelector({ inventory, onSelect, onCancel }: BallSele
               }`}
             >
               {/* Ball icon */}
-              <div
-                className="w-5 h-5 rounded-full border border-[#3a4466] flex-shrink-0"
-                style={{ backgroundColor: ball.spriteColor }}
-              />
+              <ItemSprite name={ballType} size={24} fallbackColor={ball.spriteColor} />
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] text-[#f0f0e8] truncate">{ball.displayName}</p>
                 <p className="text-[7px] text-[#8b9bb4] truncate">{ball.description}</p>

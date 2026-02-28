@@ -4,8 +4,10 @@ import React, { useRef, useState, useCallback, useEffect } from "react";
 import { useGBAEmulator } from "@/hooks/useGBAEmulator";
 import { useGamepad, type GBAButton } from "@/hooks/useGamepad";
 import { usePCBox } from "@/hooks/usePCBox";
+import { loadKeybinds, getButtonToKey } from "@/utils/keybinds";
 import EmulatorControls from "./EmulatorControls";
 import SaveImporter from "./SaveImporter";
+import KeyRemapDialog from "@/components/emulator/KeyRemapDialog";
 import type { PCBoxPokemon } from "@/types";
 
 /** Map uppercase GBA button names from useGamepad to mGBA emulator button names */
@@ -20,6 +22,13 @@ const GBA_TO_EMULATOR: Record<GBAButton, string> = {
   DOWN: "Down",
   LEFT: "Left",
   RIGHT: "Right",
+};
+
+// Map EmulatorButton names to mGBA button names
+const BUTTON_TO_MGBA: Record<string, string> = {
+  UP: "Up", DOWN: "Down", LEFT: "Left", RIGHT: "Right",
+  A: "A", B: "B", L: "L", R: "R",
+  START: "Start", SELECT: "Select",
 };
 
 interface GBAEmulatorTabProps {
@@ -45,6 +54,8 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
   const [showImporter, setShowImporter] = useState(false);
   const [importSaveData, setImportSaveData] = useState<Uint8Array | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [showRemap, setShowRemap] = useState(false);
+  const [keybindDisplay, setKeybindDisplay] = useState(() => getButtonToKey(loadKeybinds()));
   const { addToBox } = usePCBox();
 
   const onImportPokemon = useCallback(
@@ -107,23 +118,12 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
     }
   }, [initialFile, state.isReady, state.isRunning, loadROMFile]);
 
-  // Keyboard bindings
+  // Keyboard bindings — dynamic from keybinds utility
   const pressedKeysRef = useRef(new Set<string>());
   useEffect(() => {
     if (!state.isRunning || state.isPaused) return;
 
-    const keyMap: Record<string, string> = {
-      arrowup: "Up",
-      arrowdown: "Down",
-      arrowleft: "Left",
-      arrowright: "Right",
-      z: "A",
-      x: "B",
-      enter: "Start",
-      backspace: "Select",
-      a: "L",
-      s: "R",
-    };
+    let binds = loadKeybinds();
 
     const isTyping = () => {
       const tag = document.activeElement?.tagName;
@@ -132,34 +132,52 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isTyping()) return;
-      const btn = keyMap[e.key.toLowerCase()];
-      if (btn && !pressedKeysRef.current.has(btn)) {
-        e.preventDefault();
-        pressedKeysRef.current.add(btn);
-        buttonPress(btn);
+      const emButton = binds[e.key.toLowerCase()];
+      if (emButton) {
+        const mgbaBtn = BUTTON_TO_MGBA[emButton];
+        if (mgbaBtn && !pressedKeysRef.current.has(mgbaBtn)) {
+          e.preventDefault();
+          pressedKeysRef.current.add(mgbaBtn);
+          buttonPress(mgbaBtn);
+        }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (isTyping()) return;
-      const btn = keyMap[e.key.toLowerCase()];
-      if (btn) {
-        e.preventDefault();
-        pressedKeysRef.current.delete(btn);
-        buttonUnpress(btn);
+      const emButton = binds[e.key.toLowerCase()];
+      if (emButton) {
+        const mgbaBtn = BUTTON_TO_MGBA[emButton];
+        if (mgbaBtn) {
+          e.preventDefault();
+          pressedKeysRef.current.delete(mgbaBtn);
+          buttonUnpress(mgbaBtn);
+        }
       }
+    };
+
+    const onKeybindsChanged = () => {
+      binds = loadKeybinds();
+      setKeybindDisplay(getButtonToKey(binds));
     };
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("keybinds-changed", onKeybindsChanged);
     return () => {
-      // Release all pressed keys on cleanup
       pressedKeysRef.current.forEach((btn) => buttonUnpress(btn));
       pressedKeysRef.current.clear();
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("keybinds-changed", onKeybindsChanged);
     };
   }, [state.isRunning, state.isPaused, buttonPress, buttonUnpress]);
+
+  // Refresh keybind display when remap dialog closes
+  const handleCloseRemap = useCallback(() => {
+    setShowRemap(false);
+    setKeybindDisplay(getButtonToKey(loadKeybinds()));
+  }, []);
 
   // ROM file handler
   const handleROMFile = useCallback(
@@ -261,6 +279,9 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
 
   return (
     <div className="space-y-4">
+      {/* Key Remap Dialog */}
+      {showRemap && <KeyRemapDialog onClose={handleCloseRemap} />}
+
       {/* Error display */}
       {state.error && (
         <div className="bg-[#e8433f]/20 border border-[#e8433f] rounded-lg p-3 text-sm text-[#f0f0e8] font-pixel">
@@ -285,6 +306,7 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
         onSetVolume={setVolume}
         onImportPokemon={handleImportPokemon}
         onScreenshot={handleScreenshot}
+        onOpenKeyRemap={() => setShowRemap(true)}
         gamepadConnected={gamepadConnected}
         gamepadName={gamepadName}
       />
@@ -378,90 +400,35 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
           )}
         </div>
 
-        {/* Keyboard mapping info */}
+        {/* Dynamic keyboard mapping info */}
         {state.isRunning && (
           <div className="text-[10px] text-[#8b9bb4] text-center space-y-1">
             <p>
-              <span className="text-[#f0f0e8]">Arrow Keys</span> = D-Pad
+              <span className="text-[#f0f0e8]">{keybindDisplay.UP}/{keybindDisplay.DOWN}/{keybindDisplay.LEFT}/{keybindDisplay.RIGHT}</span> = D-Pad
               {" | "}
-              <span className="text-[#f0f0e8]">Z</span> = A
+              <span className="text-[#f0f0e8]">{keybindDisplay.A}</span> = A
               {" | "}
-              <span className="text-[#f0f0e8]">X</span> = B
+              <span className="text-[#f0f0e8]">{keybindDisplay.B}</span> = B
               {" | "}
-              <span className="text-[#f0f0e8]">Enter</span> = Start
+              <span className="text-[#f0f0e8]">{keybindDisplay.START}</span> = Start
               {" | "}
-              <span className="text-[#f0f0e8]">Backspace</span> = Select
+              <span className="text-[#f0f0e8]">{keybindDisplay.SELECT}</span> = Select
               {" | "}
-              <span className="text-[#f0f0e8]">A</span> = L
+              <span className="text-[#f0f0e8]">{keybindDisplay.L}</span> = L
               {" | "}
-              <span className="text-[#f0f0e8]">S</span> = R
+              <span className="text-[#f0f0e8]">{keybindDisplay.R}</span> = R
             </p>
           </div>
         )}
 
-        {/* On-screen controls for mobile */}
+        {/* On-screen controls for mobile — GBA layout */}
         {state.isRunning && (
           <div
-            className="flex items-center justify-between w-full px-4 select-none"
+            className="w-full select-none space-y-3 px-2"
             style={{ WebkitTapHighlightColor: "transparent" } as React.CSSProperties}
           >
-            {/* D-Pad */}
-            <div className="grid grid-cols-3 grid-rows-3 w-28 h-28 gap-0.5">
-              {DPAD_BUTTONS.map((btn) => (
-                <button
-                  key={btn.name}
-                  onMouseDown={handleTouchStart(btn.name)}
-                  onMouseUp={handleTouchEnd(btn.name)}
-                  onMouseLeave={handleTouchEnd(btn.name)}
-                  onTouchStart={handleTouchStart(btn.name)}
-                  onTouchEnd={handleTouchEnd(btn.name)}
-                  className="bg-[#3a4466] text-[#f0f0e8] rounded text-lg active:bg-[#4a5577] select-none"
-                  style={{
-                    gridColumn: btn.x + 1,
-                    gridRow: btn.y + 1,
-                  }}
-                >
-                  {btn.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Start / Select */}
-            <div className="flex gap-2">
-              {(["Select", "Start"] as const).map((btn) => (
-                <button
-                  key={btn}
-                  onMouseDown={handleTouchStart(btn)}
-                  onMouseUp={handleTouchEnd(btn)}
-                  onMouseLeave={handleTouchEnd(btn)}
-                  onTouchStart={handleTouchStart(btn)}
-                  onTouchEnd={handleTouchEnd(btn)}
-                  className="px-3 py-1.5 bg-[#3a4466] text-[#8b9bb4] rounded text-[10px] font-pixel active:bg-[#4a5577] select-none"
-                >
-                  {btn}
-                </button>
-              ))}
-            </div>
-
-            {/* A/B buttons */}
-            <div className="flex gap-3 items-center">
-              {ACTION_BUTTONS.map((btn) => (
-                <button
-                  key={btn.name}
-                  onMouseDown={handleTouchStart(btn.name)}
-                  onMouseUp={handleTouchEnd(btn.name)}
-                  onMouseLeave={handleTouchEnd(btn.name)}
-                  onTouchStart={handleTouchStart(btn.name)}
-                  onTouchEnd={handleTouchEnd(btn.name)}
-                  className={`w-12 h-12 rounded-full ${btn.color} text-[#f0f0e8] font-pixel text-sm font-bold active:brightness-125 select-none`}
-                >
-                  {btn.label}
-                </button>
-              ))}
-            </div>
-
-            {/* L/R bumpers */}
-            <div className="flex flex-col gap-1">
+            {/* L / R bumpers */}
+            <div className="flex justify-between">
               {(["L", "R"] as const).map((btn) => (
                 <button
                   key={btn}
@@ -470,7 +437,72 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
                   onMouseLeave={handleTouchEnd(btn)}
                   onTouchStart={handleTouchStart(btn)}
                   onTouchEnd={handleTouchEnd(btn)}
-                  className="px-4 py-2 bg-[#3a4466] text-[#f0f0e8] rounded font-pixel text-xs active:bg-[#4a5577] select-none"
+                  className="px-8 py-2 bg-[#3a4466] text-[#f0f0e8] rounded-lg font-pixel text-sm active:bg-[#4a5577] select-none"
+                >
+                  {btn}
+                </button>
+              ))}
+            </div>
+
+            {/* D-Pad + A/B row */}
+            <div className="flex items-center justify-between">
+              {/* D-Pad */}
+              <div className="grid grid-cols-3 grid-rows-3 w-[7.5rem] h-[7.5rem] gap-0.5">
+                {DPAD_BUTTONS.map((btn) => (
+                  <button
+                    key={btn.name}
+                    onMouseDown={handleTouchStart(btn.name)}
+                    onMouseUp={handleTouchEnd(btn.name)}
+                    onMouseLeave={handleTouchEnd(btn.name)}
+                    onTouchStart={handleTouchStart(btn.name)}
+                    onTouchEnd={handleTouchEnd(btn.name)}
+                    className="bg-[#3a4466] text-[#f0f0e8] rounded-lg text-xl active:bg-[#4a5577] select-none"
+                    style={{
+                      gridColumn: btn.x + 1,
+                      gridRow: btn.y + 1,
+                    }}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* A/B buttons — GBA layout: B left, A right, A slightly higher */}
+              <div className="relative w-[7.5rem] h-[7.5rem]">
+                <button
+                  onMouseDown={handleTouchStart("B")}
+                  onMouseUp={handleTouchEnd("B")}
+                  onMouseLeave={handleTouchEnd("B")}
+                  onTouchStart={handleTouchStart("B")}
+                  onTouchEnd={handleTouchEnd("B")}
+                  className="absolute left-0 bottom-2 w-14 h-14 rounded-full bg-[#3a6050] text-[#f0f0e8] font-pixel text-base font-bold active:brightness-125 select-none"
+                >
+                  B
+                </button>
+                <button
+                  onMouseDown={handleTouchStart("A")}
+                  onMouseUp={handleTouchEnd("A")}
+                  onMouseLeave={handleTouchEnd("A")}
+                  onTouchStart={handleTouchStart("A")}
+                  onTouchEnd={handleTouchEnd("A")}
+                  className="absolute right-0 top-2 w-14 h-14 rounded-full bg-[#e8433f] text-[#f0f0e8] font-pixel text-base font-bold active:brightness-125 select-none"
+                >
+                  A
+                </button>
+              </div>
+            </div>
+
+            {/* Start / Select — centered */}
+            <div className="flex justify-center gap-6">
+              {(["Select", "Start"] as const).map((btn) => (
+                <button
+                  key={btn}
+                  onMouseDown={handleTouchStart(btn)}
+                  onMouseUp={handleTouchEnd(btn)}
+                  onMouseLeave={handleTouchEnd(btn)}
+                  onTouchStart={handleTouchStart(btn)}
+                  onTouchEnd={handleTouchEnd(btn)}
+                  className="px-5 py-2 bg-[#3a4466] text-[#8b9bb4] rounded-full text-xs font-pixel active:bg-[#4a5577] select-none"
                 >
                   {btn}
                 </button>

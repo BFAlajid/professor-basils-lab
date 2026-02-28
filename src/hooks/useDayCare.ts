@@ -5,6 +5,7 @@ import { DayCareState, DayCareAction, BreedingPair, PCBoxPokemon, BreedingEgg } 
 import { fetchEggGroups, checkCompatibility, getOffspringSpeciesId, createEgg } from "@/utils/breedingWasm";
 import { NATURES } from "@/data/natures";
 import { generateRandomIVs } from "@/utils/wildBattle";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 
 const STORAGE_KEY = "pokemon-daycare";
 
@@ -136,11 +137,8 @@ export function useDayCare(box: PCBoxPokemon[]) {
     // Fetch species name
     let speciesName = p1.pokemon.name;
     try {
-      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${speciesId}`);
-      if (res.ok) {
-        const data = await res.json();
-        speciesName = data.name;
-      }
+      const data = await fetchPokemonData(speciesId);
+      speciesName = data.name;
     } catch {
       // use parent name
     }
@@ -156,9 +154,7 @@ export function useDayCare(box: PCBoxPokemon[]) {
     // Fetch the offspring Pokemon data
     let pokemon;
     try {
-      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${egg.speciesId}`);
-      if (!res.ok) return;
-      pokemon = await res.json();
+      pokemon = await fetchPokemonData(egg.speciesId);
     } catch {
       return;
     }

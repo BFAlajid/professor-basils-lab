@@ -8,6 +8,7 @@ import { usePokedexContext } from "@/contexts/PokedexContext";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { NATURES } from "@/data/natures";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
+import { importFromShowdown } from "@/utils/showdownFormatWasm";
 import type { TeamSlot } from "@/types";
 import dynamic from "next/dynamic";
 import SkeletonLoader from "@/components/SkeletonLoader";
@@ -43,6 +44,21 @@ const SpeedTierChart = dynamic(() => import("@/components/SpeedTierChart"), {
 });
 const PokemonComparison = dynamic(() => import("@/components/PokemonComparison"), {
   loading: () => <SkeletonLoader label="Loading comparison..." lines={3} />,
+});
+const TierWarnings = dynamic(() => import("@/components/TierWarnings"), {
+  loading: () => <SkeletonLoader label="Loading tier validation..." lines={2} />,
+});
+const DamageMatrix = dynamic(() => import("@/components/DamageMatrix"), {
+  loading: () => <SkeletonLoader label="Loading damage matrix..." lines={3} />,
+});
+const TeamTemplates = dynamic(() => import("@/components/TeamTemplates"), {
+  loading: () => <SkeletonLoader label="Loading templates..." lines={2} />,
+});
+const MovePoolBrowser = dynamic(() => import("@/components/MovePoolBrowser"), {
+  loading: () => <SkeletonLoader label="Loading move pool..." lines={3} />,
+});
+const EvolutionTreeViewer = dynamic(() => import("@/components/EvolutionTreeViewer"), {
+  loading: () => <SkeletonLoader label="Loading evolution tree..." lines={2} />,
 });
 const UnifiedEmulatorTab = dynamic(() => import("@/components/emulator/UnifiedEmulatorTab"), {
   ssr: false,
@@ -185,6 +201,13 @@ export default function Home() {
     });
   }, [team]);
 
+  const handleLoadTemplate = useCallback(async (showdownPaste: string) => {
+    const slots = await importFromShowdown(showdownPaste);
+    if (slots.length > 0) setTeam(slots);
+  }, [setTeam]);
+
+  const [selectedTeamPokemonIdx, setSelectedTeamPokemonIdx] = useState(0);
+
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent, tabId: Tab) => {
       const idx = tabs.findIndex((t) => t.id === tabId);
@@ -219,12 +242,12 @@ export default function Home() {
 
       {/* Header */}
       <header className="border-b border-[#3a4466] bg-[#262b44]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 gap-2 flex-wrap sm:flex-nowrap">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-4 gap-2 flex-wrap sm:flex-nowrap">
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold text-[#f0f0e8] font-pixel truncate">
+            <h1 className="text-xl sm:text-2xl font-bold text-[#f0f0e8] font-pixel truncate">
               Pokemon Team Builder
             </h1>
-            <p className="text-xs text-[#8b9bb4] hidden sm:block">
+            <p className="text-sm text-[#8b9bb4] hidden sm:block">
               Build, analyze, and simulate battles
             </p>
           </div>
@@ -235,20 +258,20 @@ export default function Home() {
                 <button
                   onClick={handleShare}
                   aria-label="Share team link"
-                  className="rounded-lg bg-[#3a4466] px-3 py-1.5 text-sm text-[#f0f0e8] hover:bg-[#4a5577] transition-colors"
+                  className="rounded-lg bg-[#3a4466] px-4 py-2 text-base text-[#f0f0e8] hover:bg-[#4a5577] transition-colors"
                 >
                   {shareMessage || "Share Team"}
                 </button>
                 <button
                   onClick={clearTeam}
                   aria-label="Clear all team members"
-                  className="rounded-lg bg-[#3a4466] px-3 py-1.5 text-sm text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
+                  className="rounded-lg bg-[#3a4466] px-4 py-2 text-base text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
                 >
                   Clear
                 </button>
               </>
             )}
-            <span className="text-sm text-[#8b9bb4]" aria-live="polite">
+            <span className="text-base text-[#8b9bb4]" aria-live="polite">
               {team.length}/6
             </span>
           </div>
@@ -257,7 +280,7 @@ export default function Home() {
 
       {/* Tabs */}
       <nav className="border-b border-[#3a4466]" aria-label="Main navigation">
-        <div className="mx-auto flex max-w-6xl px-4 overflow-x-auto" role="tablist" aria-label="App sections">
+        <div className="mx-auto flex max-w-[1400px] px-6 overflow-x-auto" role="tablist" aria-label="App sections">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -268,7 +291,7 @@ export default function Home() {
               tabIndex={activeTab === tab.id ? 0 : -1}
               onClick={() => setActiveTab(tab.id)}
               onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
-              className={`relative px-3 py-3 text-sm font-medium font-pixel transition-colors whitespace-nowrap ${
+              className={`relative px-4 py-3 text-base font-medium font-pixel transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "text-[#f0f0e8]"
                   : "text-[#8b9bb4] hover:text-[#f0f0e8]"
@@ -290,7 +313,7 @@ export default function Home() {
       {/* Content */}
       <main
         id="main-content"
-        className="mx-auto max-w-6xl px-4 py-6"
+        className="mx-auto max-w-[1400px] px-6 py-8"
         role="tabpanel"
         aria-labelledby={`tab-${activeTab}`}
       >
@@ -309,21 +332,25 @@ export default function Home() {
               transition={{ duration: motionDuration }}
             >
               {activeTab === "team" && (
-                <TeamRoster
-                  team={team}
-                  onAdd={addPokemon}
-                  onRemove={removePokemon}
-                  isFull={isFull}
-                  onSetNature={setNature}
-                  onSetEvs={setEvs}
-                  onSetIvs={setIvs}
-                  onSetAbility={setAbility}
-                  onSetHeldItem={setHeldItem}
-                  onSetMoves={setMoves}
-                  onSetTeraType={setTeraType}
-                  onSetForme={setForme}
-                  onSetTeam={setTeam}
-                />
+                <div className="space-y-6">
+                  <TeamRoster
+                    team={team}
+                    onAdd={addPokemon}
+                    onRemove={removePokemon}
+                    isFull={isFull}
+                    onSetNature={setNature}
+                    onSetEvs={setEvs}
+                    onSetIvs={setIvs}
+                    onSetAbility={setAbility}
+                    onSetHeldItem={setHeldItem}
+                    onSetMoves={setMoves}
+                    onSetTeraType={setTeraType}
+                    onSetForme={setForme}
+                    onSetTeam={setTeam}
+                  />
+                  <TierWarnings team={team} />
+                  <TeamTemplates onLoadTeam={handleLoadTemplate} />
+                </div>
               )}
               {activeTab === "analysis" && (
                 <div className="space-y-6">
@@ -337,10 +364,41 @@ export default function Home() {
                   <SpeedTierChart team={team} />
                   <PokemonComparison team={team} />
                   <TeamSummary team={teamPokemon} />
+                  {team.length > 0 && (
+                    <>
+                      <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <h3 className="text-sm font-bold text-[#f0f0e8] font-pixel">Move Pool</h3>
+                          <div className="flex gap-1">
+                            {team.map((s, i) => (
+                              <button
+                                type="button"
+                                key={i}
+                                onClick={() => setSelectedTeamPokemonIdx(i)}
+                                className={`px-2 py-0.5 text-[10px] font-pixel rounded transition-colors ${
+                                  selectedTeamPokemonIdx === i
+                                    ? "bg-[#e8433f] text-[#f0f0e8]"
+                                    : "bg-[#3a4466] text-[#8b9bb4] hover:text-[#f0f0e8]"
+                                }`}
+                                aria-label={`View moves for ${s.pokemon.name}`}
+                              >
+                                {s.pokemon.name.charAt(0).toUpperCase() + s.pokemon.name.slice(1, 6)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <MovePoolBrowser pokemon={team[selectedTeamPokemonIdx]?.pokemon} />
+                      </div>
+                      <EvolutionTreeViewer pokemonId={team[selectedTeamPokemonIdx]?.pokemon.id} />
+                    </>
+                  )}
                 </div>
               )}
               {activeTab === "damage" && (
-                <DamageCalculator team={teamPokemon} />
+                <div className="space-y-6">
+                  <DamageCalculator team={teamPokemon} />
+                  <DamageMatrix team={team} />
+                </div>
               )}
               {activeTab === "battle" && (
                 <BattleTab team={team} />

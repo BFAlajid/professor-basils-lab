@@ -11,6 +11,7 @@ import {
 import { pickRandomFromPool } from "@/data/wonderTradePool";
 import { NATURES } from "@/data/natures";
 import { generateRandomIVs } from "@/utils/wildBattle";
+import { shuffleArray } from "@/utils/random";
 
 const WONDER_TRADE_KEY = "pokemon-wonder-trade";
 
@@ -126,7 +127,7 @@ export function useWonderTrade() {
           "spDef",
           "speed",
         ];
-        const shuffledStats = [...allStats].sort(() => Math.random() - 0.5);
+        const shuffledStats = shuffleArray(allStats);
         const perfectStats = shuffledStats.slice(0, 3);
         for (const stat of perfectStats) {
           ivs[stat] = 31;

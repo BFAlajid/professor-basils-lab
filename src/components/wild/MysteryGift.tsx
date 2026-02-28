@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 import { PCBoxPokemon } from "@/types";
 import { useMysteryGift } from "@/hooks/useMysteryGift";
 import { playCry } from "@/utils/cryPlayer";

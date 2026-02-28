@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 import { TeamSlot, BattleMode, GenerationalMechanic, DifficultyLevel } from "@/types";
 import LoadingSpinner from "../LoadingSpinner";
 import TypeBadge from "../TypeBadge";

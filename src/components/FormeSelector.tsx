@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Pokemon } from "@/types";
 import { getKnownVariants, formatFormeName } from "@/data/formes";
+import { fetchSpeciesData } from "@/utils/pokeApiClient";
 
 interface FormeSelectorProps {
   pokemon: Pokemon;
@@ -24,8 +25,7 @@ export default function FormeSelector({ pokemon, value, onChange }: FormeSelecto
 
     // Then try PokeAPI species endpoint
     setLoading(true);
-    fetch(`https://pokeapi.co/api/v2/pokemon-species/${pokemon.id}`)
-      .then(res => res.ok ? res.json() : null)
+    fetchSpeciesData(pokemon.id)
       .then(data => {
         if (data?.varieties) {
           const variants = data.varieties

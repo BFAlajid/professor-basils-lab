@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 import { SafariZoneState, SafariCaughtEntry } from "@/types";
 import { SAFARI_REGIONS } from "@/data/safariZoneEncounters";
 
@@ -29,7 +29,7 @@ const REGION_LABELS: Record<string, string> = {
   sinnoh: "Sinnoh",
 };
 
-export default function SafariZone({
+export default memo(function SafariZone({
   state,
   isSearching,
   onEnter,
@@ -501,4 +501,4 @@ export default function SafariZone({
       </AnimatePresence>
     </div>
   );
-}
+});

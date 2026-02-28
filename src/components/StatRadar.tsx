@@ -1,15 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import {
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
+import SVGRadar from "@/components/charts/SVGRadar";
 import { TeamSlot } from "@/types";
 import { extractBaseStats } from "@/utils/damageWasm";
 
@@ -29,24 +21,17 @@ export default function StatRadar({ team }: StatRadarProps) {
     return init;
   });
 
-  const data = useMemo(() => {
-    return STAT_LABELS.map((label, i) => {
-      const entry: Record<string, string | number> = { stat: label };
-      team.forEach((slot) => {
-        const stats = extractBaseStats(slot.pokemon);
-        const values = [
-          stats.hp,
-          stats.attack,
-          stats.defense,
-          stats.spAtk,
-          stats.spDef,
-          stats.speed,
-        ];
-        entry[slot.pokemon.name] = values[i];
-      });
-      return entry;
+  const datasets = useMemo(() => {
+    return team.map((slot, i) => {
+      const stats = extractBaseStats(slot.pokemon);
+      return {
+        label: slot.pokemon.name,
+        values: [stats.hp, stats.attack, stats.defense, stats.spAtk, stats.spDef, stats.speed],
+        color: COLORS[i % COLORS.length],
+        visible: visible[i] !== false,
+      };
     });
-  }, [team]);
+  }, [team, visible]);
 
   if (team.length === 0) {
     return (
@@ -84,34 +69,7 @@ export default function StatRadar({ team }: StatRadarProps) {
         ))}
       </div>
 
-      <ResponsiveContainer width="100%" height={350}>
-        <RadarChart data={data}>
-          <PolarGrid stroke="#3a4466" />
-          <PolarAngleAxis dataKey="stat" tick={{ fill: "#8b9bb4", fontSize: 12 }} />
-          <PolarRadiusAxis
-            angle={90}
-            domain={[0, 255]}
-            tick={{ fill: "#8b9bb4", fontSize: 10 }}
-            axisLine={false}
-          />
-          {team.map((slot, i) =>
-            visible[i] !== false ? (
-              <Radar
-                key={slot.pokemon.id}
-                name={slot.pokemon.name}
-                dataKey={slot.pokemon.name}
-                stroke={COLORS[i % COLORS.length]}
-                fill={COLORS[i % COLORS.length]}
-                fillOpacity={0.15}
-                strokeWidth={2}
-              />
-            ) : null
-          )}
-          <Legend
-            wrapperStyle={{ fontSize: 12, textTransform: "capitalize" }}
-          />
-        </RadarChart>
-      </ResponsiveContainer>
+      <SVGRadar labels={STAT_LABELS} datasets={datasets} maxValue={255} />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { HELD_ITEMS } from "@/data/heldItems";
+import ItemSprite from "@/components/ItemSprite";
 
 interface HeldItemSelectorProps {
   value: string | null;
@@ -59,7 +60,10 @@ export default function HeldItemSelector({ value, onChange }: HeldItemSelectorPr
                   value === item.name ? "bg-[#3a4466]" : ""
                 }`}
               >
-                <span className="text-[#f0f0e8]">{item.displayName}</span>
+                <span className="inline-flex items-center gap-2">
+                  <ItemSprite name={item.name} size={20} />
+                  <span className="text-[#f0f0e8]">{item.displayName}</span>
+                </span>
                 <span className="ml-2 text-[10px] text-[#8b9bb4]">{item.effect}</span>
               </button>
             ))}

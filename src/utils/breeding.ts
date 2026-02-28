@@ -1,7 +1,8 @@
 import { IVSpread, PCBoxPokemon, BreedingEgg, Nature } from "@/types";
 import { NATURES } from "@/data/natures";
 import { generateRandomIVs } from "./wildBattle";
-import { randomInt } from "./random";
+import { randomInt, shuffleArray } from "./random";
+import { fetchSpeciesData } from "@/utils/pokeApiClient";
 
 // --- Egg Group fetching ---
 
@@ -15,9 +16,7 @@ const eggGroupCache = new Map<number, string[]>();
 export async function fetchEggGroups(speciesId: number): Promise<string[]> {
   if (eggGroupCache.has(speciesId)) return eggGroupCache.get(speciesId)!;
   try {
-    const res = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${speciesId}`);
-    if (!res.ok) return [];
-    const data: EggGroupData = await res.json();
+    const data: EggGroupData = await fetchSpeciesData(speciesId);
     const groups = data.egg_groups.map((g) => g.name);
     eggGroupCache.set(speciesId, groups);
     return groups;
@@ -78,9 +77,7 @@ export async function getOffspringSpeciesId(
   }
 
   try {
-    const speciesRes = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${speciesId}`);
-    if (!speciesRes.ok) return speciesId;
-    const speciesData = await speciesRes.json();
+    const speciesData = await fetchSpeciesData(speciesId);
 
     if (!speciesData.evolution_chain?.url) return speciesId;
 
@@ -113,7 +110,7 @@ export function inheritIVs(
   const numInherited = hasDestinyKnot ? 5 : 3;
 
   // Shuffle stat keys and pick the first N
-  const shuffled = [...statKeys].sort(() => Math.random() - 0.5);
+  const shuffled = shuffleArray(statKeys);
   const inherited: { stat: keyof IVSpread; fromParent: 1 | 2 }[] = [];
 
   for (let i = 0; i < numInherited; i++) {

@@ -3,6 +3,7 @@
 import { useReducer, useEffect, useCallback, useRef } from "react";
 import { Pokemon, TeamSlot, TeamAction, Nature, EVSpread, IVSpread, TypeName } from "@/types";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 
 const MAX_TEAM_SIZE = 6;
 const STORAGE_KEY = "pokemon-team-builder-team";
@@ -139,9 +140,7 @@ export function useTeam() {
       Promise.all(
         ids.map(async (id) => {
           try {
-            const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
-            if (!res.ok) return null;
-            return (await res.json()) as Pokemon;
+            return await fetchPokemonData(id) as Pokemon;
           } catch {
             return null;
           }
@@ -159,9 +158,7 @@ export function useTeam() {
       Promise.all(
         savedSlots.map(async (s) => {
           try {
-            const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${s.pokemonId}`);
-            if (!res.ok) return null;
-            const pokemon = (await res.json()) as Pokemon;
+            const pokemon = await fetchPokemonData(s.pokemonId) as Pokemon;
             return {
               pokemon,
               position: 0,

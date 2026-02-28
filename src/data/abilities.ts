@@ -54,6 +54,19 @@ export interface AbilityHooks {
 
   /** Prevent indirect damage (weather, status, hazards) */
   preventIndirectDamage?: boolean;
+
+  /** Triggered when a stat is dropped by the opponent (Defiant, Competitive) */
+  onStatDrop?: (context: {
+    pokemon: BattlePokemon;
+    stat: string;
+    stages: number;
+  }) => StatBoostResult | null;
+
+  /** Check if this ability traps the opponent (Arena Trap, Shadow Tag, Magnet Pull) */
+  onTrapping?: (context: {
+    pokemon: BattlePokemon;
+    opponent: BattlePokemon;
+  }) => boolean; // true = opponent is trapped
 }
 
 // --- Result Types ---
@@ -371,6 +384,83 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
   "magic-guard": {
     preventIndirectDamage: true,
   },
+
+  // === modifyIncomingDamage — damage reduction abilities ===
+
+  "thick-fat": {
+    modifyIncomingDamage: ({ moveType, defender }) => {
+      if (moveType === "fire" || moveType === "ice") {
+        return { multiplier: 0.5, message: `${defender.slot.pokemon.name}'s Thick Fat weakened the attack!` };
+      }
+      return null;
+    },
+  },
+
+  filter: {
+    modifyIncomingDamage: ({ defender, attacker, moveType }) => {
+      // Applied in damage calc based on type effectiveness, but we use a flat 0.75x for SE here
+      return null; // Handled via damage calc to check effectiveness
+    },
+  },
+
+  "solid-rock": {
+    modifyIncomingDamage: ({ defender }) => {
+      // Same as Filter — handled via damage calc
+      return null;
+    },
+  },
+
+  // === onStatDrop abilities (Defiant, Competitive) ===
+
+  defiant: {
+    onStatDrop: ({ pokemon }) => ({
+      stat: "attack",
+      stages: 2,
+      message: `${pokemon.slot.pokemon.name}'s Defiant sharply raised its Attack!`,
+    }),
+  },
+
+  competitive: {
+    onStatDrop: ({ pokemon }) => ({
+      stat: "spAtk",
+      stages: 2,
+      message: `${pokemon.slot.pokemon.name}'s Competitive sharply raised its Sp. Atk!`,
+    }),
+  },
+
+  // === onTrapping abilities ===
+
+  "arena-trap": {
+    onTrapping: ({ opponent }) => {
+      const oppTypes = opponent.slot.pokemon.types.map(t => t.type.name);
+      // Flying types and Levitate are immune to trapping
+      if (oppTypes.includes("flying")) return false;
+      if (oppTypes.includes("ghost")) return false;
+      const oppAbility = opponent.slot.ability?.toLowerCase().replace(/\s+/g, "-");
+      if (oppAbility === "levitate") return false;
+      return true;
+    },
+  },
+
+  "shadow-tag": {
+    onTrapping: ({ opponent }) => {
+      const oppTypes = opponent.slot.pokemon.types.map(t => t.type.name);
+      if (oppTypes.includes("ghost")) return false;
+      const oppAbility = opponent.slot.ability?.toLowerCase().replace(/\s+/g, "-");
+      if (oppAbility === "shadow-tag") return false;
+      return true;
+    },
+  },
+
+  "magnet-pull": {
+    onTrapping: ({ opponent }) => {
+      const oppTypes = opponent.slot.pokemon.types.map(t => t.type.name);
+      return oppTypes.includes("steel");
+    },
+  },
+
+  // === Additional common abilities ===
+
 };
 
 // --- Public API ---

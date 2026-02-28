@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image from "@/components/PokeImage";
 import { BattleTeam } from "@/types";
 import HealthBar from "./HealthBar";
 import StatusIcon from "./StatusIcon";

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BATTLE_ITEMS, getBattleItem } from "@/data/battleItems";
+import ItemSprite from "@/components/ItemSprite";
 
 interface ItemPanelProps {
   inventory: Record<string, number>; // itemId -> quantity
@@ -142,6 +143,7 @@ export default function ItemPanel({
                   : "bg-[#1a1c2c] hover:bg-[#3a4466] cursor-pointer"
               }`}
             >
+              <ItemSprite name={item.id} size={24} />
               <div className="min-w-0 flex-1">
                 <span className="block text-sm font-pixel text-[#f0f0e8]">
                   {item.name}
