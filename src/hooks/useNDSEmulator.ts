@@ -8,7 +8,9 @@ import {
   loadNDSROM,
   listNDSROMs,
 } from "@/utils/ndsEmulatorStorage";
-import { registerEmulator, updateCallbacks, unregister } from "@/utils/emulatorManager";
+import { registerEmulator, updateCallbacks } from "@/utils/emulatorManager";
+import { useNDSInput } from "./useNDSInput";
+import { useNDSSave } from "./useNDSSave";
 
 // NDS button bit positions (kept for NDSEmulatorTab compatibility)
 export const NDS_KEYS = {
@@ -38,22 +40,6 @@ export interface NDSEmulatorState {
   volume: number;
   savedROMs: string[];
 }
-
-// Map NDS button bit → keyboard event props for dispatching to RetroArch
-const BIT_TO_KEY: Record<number, { key: string; code: string; keyCode: number }> = {
-  [NDS_KEYS.A]:      { key: "z",          code: "KeyZ",       keyCode: 90 },
-  [NDS_KEYS.B]:      { key: "x",          code: "KeyX",       keyCode: 88 },
-  [NDS_KEYS.X]:      { key: "c",          code: "KeyC",       keyCode: 67 },
-  [NDS_KEYS.Y]:      { key: "v",          code: "KeyV",       keyCode: 86 },
-  [NDS_KEYS.L]:      { key: "a",          code: "KeyA",       keyCode: 65 },
-  [NDS_KEYS.R]:      { key: "s",          code: "KeyS",       keyCode: 83 },
-  [NDS_KEYS.START]:  { key: "Enter",      code: "Enter",      keyCode: 13 },
-  [NDS_KEYS.SELECT]: { key: "Backspace",  code: "Backspace",  keyCode: 8  },
-  [NDS_KEYS.UP]:     { key: "ArrowUp",    code: "ArrowUp",    keyCode: 38 },
-  [NDS_KEYS.DOWN]:   { key: "ArrowDown",  code: "ArrowDown",  keyCode: 40 },
-  [NDS_KEYS.LEFT]:   { key: "ArrowLeft",  code: "ArrowLeft",  keyCode: 37 },
-  [NDS_KEYS.RIGHT]:  { key: "ArrowRight", code: "ArrowRight", keyCode: 39 },
-};
 
 // RetroArch config: our keybinds + disable all hotkeys + melonDS touch
 const RETROARCH_CFG = [
@@ -141,6 +127,12 @@ export function useNDSEmulator() {
     savedROMs: [],
   });
 
+  // ── Sub-hooks ──
+  const canvasRefObj = useRef(persistentCanvas);
+  canvasRefObj.current = persistentCanvas;
+  const { persistSave, exportSave, importSave } = useNDSSave(romNameRef);
+  const { buttonPress, buttonUnpress, touchStart, touchMove, touchEnd } = useNDSInput(canvasRefObj);
+
   // ── Attach persistent canvas to container on mount ──
   const setContainerRef = useCallback((node: HTMLDivElement | null) => {
     containerRef.current = node;
@@ -149,23 +141,6 @@ export function useNDSEmulator() {
       if (canvas.parentNode !== node) {
         node.appendChild(canvas);
       }
-    }
-  }, []);
-
-  // ── Persist save from FS → IndexedDB ──
-  const persistSave = useCallback(async () => {
-    const win = window as unknown as Win;
-    const romName = romNameRef.current;
-    if (!romName || !win.Module || !win.FS) return;
-    try {
-      win.Module._cmd_savefiles?.();
-      const savePath = SAVE_DIR + "rom.srm";
-      if (win.FS.analyzePath(savePath).exists) {
-        const data: Uint8Array = win.FS.readFile(savePath);
-        await storeNDSSave(romName, data);
-      }
-    } catch (e) {
-      console.warn("[NDS] persistSave failed:", e);
     }
   }, []);
 
@@ -432,71 +407,6 @@ export function useNDSEmulator() {
     win.Module?._cmd_reset?.();
     isPausedModule = false;
     setState((s) => ({ ...s, isPaused: false }));
-  }, []);
-
-  // Dispatch to the canvas element so Emscripten's keyboard handler receives it
-  const buttonPress = useCallback((bit: number) => {
-    const kv = BIT_TO_KEY[bit];
-    if (!kv) return;
-    const target = persistentCanvas || document;
-    target.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: kv.key,
-        code: kv.code,
-        keyCode: kv.keyCode,
-        bubbles: true,
-        cancelable: true,
-      })
-    );
-  }, []);
-
-  const buttonUnpress = useCallback((bit: number) => {
-    const kv = BIT_TO_KEY[bit];
-    if (!kv) return;
-    const target = persistentCanvas || document;
-    target.dispatchEvent(
-      new KeyboardEvent("keyup", {
-        key: kv.key,
-        code: kv.code,
-        keyCode: kv.keyCode,
-        bubbles: true,
-        cancelable: true,
-      })
-    );
-  }, []);
-
-  // ── Touch input — RetroArch handles pointer events on canvas natively ──
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const touchStart = useCallback((_x: number, _y: number) => {}, []);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const touchMove = useCallback((_x: number, _y: number) => {}, []);
-  const touchEnd = useCallback(() => {}, []);
-
-  // ── Export save ──
-  const exportSave = useCallback((): Uint8Array | null => {
-    const win = window as unknown as Win;
-    if (!win.Module || !win.FS) return null;
-    try {
-      win.Module._cmd_savefiles();
-      const savePath = SAVE_DIR + "rom.srm";
-      if (win.FS.analyzePath(savePath).exists) {
-        return win.FS.readFile(savePath) as Uint8Array;
-      }
-    } catch { /* no save */ }
-    return null;
-  }, []);
-
-  // ── Import save ──
-  const importSave = useCallback(async (file: File) => {
-    const win = window as unknown as Win;
-    if (!win.Module || !win.FS) return;
-    const buffer = await file.arrayBuffer();
-    const data = new Uint8Array(buffer);
-    win.FS.writeFile(SAVE_DIR + "rom.srm", data);
-    win.Module._cmd_reset?.();
-    if (romNameRef.current) {
-      await storeNDSSave(romNameRef.current, data);
-    }
   }, []);
 
   // ── Volume ──

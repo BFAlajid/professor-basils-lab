@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import { storeSave, loadSave, storeROM, loadROM as loadROMFromDB, listROMs } from "@/utils/emulatorStorage";
-import { registerEmulator, updateCallbacks, unregister } from "@/utils/emulatorManager";
+import { loadSave, storeROM, loadROM as loadROMFromDB, listROMs } from "@/utils/emulatorStorage";
+import { registerEmulator, updateCallbacks } from "@/utils/emulatorManager";
 import type { GBAEmulatorWindow } from "@/types/emulator";
+import { useGBASave } from "./useGBASave";
 
 // Dynamically import mGBA to avoid SSR issues
 type mGBAEmulator = {
@@ -54,9 +55,9 @@ export interface GBAEmulatorState {
 
 export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
   const emulatorRef = useRef<mGBAEmulator | null>(null);
-  const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pausedRef = useRef(false);
   const romNameRef = useRef<string | null>(null);
+  const { persistSave, exportSave, importSave, startAutoSave, clearAutoSave } = useGBASave(emulatorRef, romNameRef);
   const [state, setState] = useState<GBAEmulatorState>({
     isReady: false,
     isLoading: false,
@@ -145,24 +146,10 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
     }
   }, [canvasRef]);
 
-  // Persist save to IndexedDB
-  const persistSave = useCallback(async () => {
-    const emu = emulatorRef.current;
-    const romName = romNameRef.current;
-    if (!emu || !romName) return;
-    const save = emu.getSave();
-    if (save) {
-      await storeSave(romName, save);
-    }
-  }, []);
-
   // Shutdown callback for emulatorManager
   const shutdown = useCallback(async () => {
     await persistSave();
-    if (autoSaveRef.current) {
-      clearInterval(autoSaveRef.current);
-      autoSaveRef.current = null;
-    }
+    clearAutoSave();
     emulatorRef.current?.quitGame();
     pausedRef.current = false;
     romNameRef.current = null;
@@ -172,19 +159,7 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       isPaused: false,
       romName: null,
     }));
-  }, [persistSave]);
-
-  const startAutoSave = useCallback((romName: string) => {
-    if (autoSaveRef.current) clearInterval(autoSaveRef.current);
-    autoSaveRef.current = setInterval(async () => {
-      const emu = emulatorRef.current;
-      if (!emu) return;
-      const save = emu.getSave();
-      if (save) {
-        await storeSave(romName, save);
-      }
-    }, 30000);
-  }, []);
+  }, [persistSave, clearAutoSave]);
 
   // Register with emulator manager (called after ROM loads)
   const registerWithManager = useCallback(async () => {
@@ -340,27 +315,6 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
   }, []);
 
   // Export save (.sav file)
-  const exportSave = useCallback((): Uint8Array | null => {
-    return emulatorRef.current?.getSave() ?? null;
-  }, []);
-
-  // Import save (.sav file)
-  const importSave = useCallback(async (file: File) => {
-    const emu = emulatorRef.current;
-    const romName = romNameRef.current;
-    if (!emu || !romName) return;
-    const buffer = await file.arrayBuffer();
-    const data = new Uint8Array(buffer);
-
-    const paths = emu.filePaths();
-    const saveName = romName.replace(/\.[^.]+$/, ".sav");
-    emu.FS.writeFile(`${paths.savePath}/${saveName}`, data);
-    await storeSave(romName, data);
-
-    const romPath = `${paths.gamePath}/${romName}`;
-    emu.loadGame(romPath);
-  }, []);
-
   // Volume
   const setVolume = useCallback((v: number) => {
     emulatorRef.current?.setVolume(v);
@@ -428,11 +382,11 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
-      if (autoSaveRef.current) clearInterval(autoSaveRef.current);
+      clearAutoSave();
       emulatorRef.current?.pauseGame();
       persistSave();
     };
-  }, [persistSave]);
+  }, [persistSave, clearAutoSave]);
 
   return {
     state,
