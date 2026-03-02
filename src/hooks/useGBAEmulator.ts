@@ -314,7 +314,8 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
     return emulatorRef.current?.loadState(slot) ?? false;
   }, []);
 
-  // Export save (.sav file)
+  // Export/import save provided by useGBASave sub-hook
+
   // Volume
   const setVolume = useCallback((v: number) => {
     emulatorRef.current?.setVolume(v);
