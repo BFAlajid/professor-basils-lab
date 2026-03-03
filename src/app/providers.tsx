@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { PokedexProvider } from "@/contexts/PokedexContext";
 import { AchievementsProvider } from "@/contexts/AchievementsContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -21,12 +22,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <PokedexProvider>
-        <AchievementsProvider>
-          {children}
-        </AchievementsProvider>
-      </PokedexProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <PokedexProvider>
+          <AchievementsProvider>
+            {children}
+          </AchievementsProvider>
+        </PokedexProvider>
+      </QueryClientProvider>
+    </AuthProvider>
   );
 }

@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  displayName  String?
+  mfaSecret    String?
+  mfaEnabled   Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions Session[]
+  teams    Team[]
+
+  @@index([email])
+}
+
+/// One row = one device session = one refresh token slot.
+/// tokenHash is SHA-256 of the raw refresh JWT.
+model Session {
+  id             String   @id @default(cuid())
+  userId         String
+  tokenHash      String   @unique
+  deviceInfo     String?
+  ipAddress      String?
+  userAgent      String?
+  countryCode    String?
+  flaggedIpChange Boolean @default(false)
+  createdAt      DateTime @default(now())
+  lastActive     DateTime @default(now())
+  expiresAt      DateTime
+  isRevoked      Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+}
+
+/// data is TeamSlot[] JSON — matches the existing frontend type shape.
+model Team {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  format    String   @default("OU")
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
