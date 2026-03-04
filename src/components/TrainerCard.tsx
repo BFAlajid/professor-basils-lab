@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, memo } from "react";
 import { motion } from "framer-motion";
 import Image from "@/components/PokeImage";
 import type { TeamSlot } from "@/types";
@@ -195,7 +195,7 @@ function drawCardToCanvas(
 
 // ── Component ───────────────────────────────────────────────────────────
 
-export default function TrainerCard({ team, stats }: TrainerCardProps) {
+export default memo(function TrainerCard({ team, stats }: TrainerCardProps) {
   const { cardData, setTrainerName, exportAsImage } = useTrainerCard(stats);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(cardData.name);
@@ -448,4 +448,4 @@ export default function TrainerCard({ team, stats }: TrainerCardProps) {
       />
     </motion.div>
   );
-}
+});
