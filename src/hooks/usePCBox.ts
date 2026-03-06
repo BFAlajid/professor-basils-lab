@@ -1,10 +1,9 @@
 "use client";
 
-import { useReducer, useEffect, useCallback, useRef } from "react";
+import { useReducer, useEffect, useCallback, useRef, useState } from "react";
 import { PCBoxPokemon, PCBoxAction, BallType, TeamSlot } from "@/types";
 import { DEFAULT_BALL_INVENTORY } from "@/data/pokeBalls";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
-import { useState } from "react";
 
 const PC_BOX_KEY = "pokemon-team-builder-pc-box";
 const BALL_INVENTORY_KEY = "pokemon-team-builder-ball-inventory";

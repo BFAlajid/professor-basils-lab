@@ -2,11 +2,9 @@
 
 import { motion } from "framer-motion";
 import Image from "@/components/PokeImage";
-import { BattlePokemon } from "@/types";
+import { BattlePokemon, SpriteAnimationState } from "@/types";
 import HealthBar from "./HealthBar";
 import StatusIcon from "./StatusIcon";
-
-import { SpriteAnimationState } from "@/types";
 
 interface PokemonBattleSpriteProps {
   pokemon: BattlePokemon;

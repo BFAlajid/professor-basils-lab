@@ -132,7 +132,7 @@ export function resumeTrack(): void {
   if (ctx.state === "suspended") ctx.resume();
 
   if (currentAudio) {
-    currentAudio.play().catch(() => {});
+    currentAudio.play().catch(() => { /* user hasn't interacted yet */ });
   } else {
     startPlayback(trackSources[currentTrack], 0);
   }

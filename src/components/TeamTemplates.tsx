@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { TOAST_DURATION } from "@/data/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { TEAM_PRESETS, TeamPreset } from "@/data/teamPresets";
 
@@ -23,7 +24,7 @@ export default function TeamTemplates({ onLoadTeam }: TeamTemplatesProps) {
   const handleLoad = (preset: TeamPreset) => {
     onLoadTeam(preset.showdownPaste);
     setLoadedName(preset.name);
-    setTimeout(() => setLoadedName(null), 2000);
+    setTimeout(() => setLoadedName(null), TOAST_DURATION);
   };
 
   const getArchetypeStyle = (name: string) =>

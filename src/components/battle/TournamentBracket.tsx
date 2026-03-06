@@ -1,9 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { TournamentTrainer, TournamentState, TeamSlot } from "@/types";
+import { TournamentTrainer, TournamentState, TeamSlot, TypeName } from "@/types";
 import { typeColors } from "@/data/typeColors";
-import { TypeName } from "@/types";
 
 interface TournamentBracketProps {
   state: TournamentState;

@@ -8,10 +8,10 @@ import {
   IVSpread,
   Move,
   TypeName,
+  BattleMoveData,
 } from "@/types";
 import { extractBaseStats, calculateDamage } from "./damage";
 import { calculateAllStats, DEFAULT_EVS } from "./stats";
-import { BattleMoveData } from "@/types";
 import { initBattlePokemon, initStatStages, getStatStageMultiplier, cacheBattleMove, getCachedMoves } from "./battle";
 import { getDefensiveMultiplier } from "@/data/typeChart";
 import { NATURES } from "@/data/natures";

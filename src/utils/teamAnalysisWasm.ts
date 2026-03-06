@@ -3,12 +3,10 @@ import { TYPE_LIST } from "@/data/typeChart";
 import { typeToIndex } from "./typeChartWasm";
 import {
   analyzeTeam as analyzeTeam_JS,
+  analyzeDefensiveCoverage as analyzeDefensiveCoverage_JS,
   type TeamWeaknessReport,
   type DefensiveEntry,
   type SuggestedType,
-} from "./teamAnalysis";
-import {
-  analyzeDefensiveCoverage as analyzeDefensiveCoverage_JS,
   type CoverageResult,
 } from "./teamAnalysis";
 import { capitalize } from "./format";

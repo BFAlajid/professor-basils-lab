@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { HELD_ITEMS } from "@/data/heldItems";
+import { DROPDOWN_BLUR_DELAY } from "@/data/constants";
 import ItemSprite from "@/components/ItemSprite";
 
 interface HeldItemSelectorProps {
@@ -41,7 +42,7 @@ export default function HeldItemSelector({ value, onChange }: HeldItemSelectorPr
             setOpen(true);
             setSearch("");
           }}
-          onBlur={() => setTimeout(() => setOpen(false), 200)}
+          onBlur={() => setTimeout(() => setOpen(false), DROPDOWN_BLUR_DELAY)}
           placeholder="Search items..."
           className="w-full rounded-lg border border-[#3a4466] bg-[#1a1c2c] px-3 py-2 text-sm text-[#f0f0e8] placeholder-[#8b9bb4] outline-none focus:border-[#e8433f]"
         />

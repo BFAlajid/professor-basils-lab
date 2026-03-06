@@ -262,8 +262,8 @@ export function useNDSEmulator() {
             reject(new Error(`Emulator aborted: ${what}`));
           },
 
-          print: (...args: unknown[]) => console.log("[NDS]", ...args),
-          printErr: (...args: unknown[]) => console.warn("[NDS]", ...args),
+          print: (...args: unknown[]) => { if (process.env.NODE_ENV === "development") console.log("[NDS]", ...args); },
+          printErr: (...args: unknown[]) => { if (process.env.NODE_ENV === "development") console.warn("[NDS]", ...args); },
         };
 
         const script = document.createElement("script");

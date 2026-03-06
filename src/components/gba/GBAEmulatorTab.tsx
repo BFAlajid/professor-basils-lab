@@ -7,6 +7,8 @@ import { usePCBox } from "@/hooks/usePCBox";
 import { loadKeybinds, getButtonToKey } from "@/utils/keybinds";
 import EmulatorControls from "./EmulatorControls";
 import SaveImporter from "./SaveImporter";
+import GBATouchControls from "./GBATouchControls";
+import GBARomOverlay from "./GBARomOverlay";
 import KeyRemapDialog from "@/components/emulator/KeyRemapDialog";
 import type { PCBoxPokemon } from "@/types";
 
@@ -34,18 +36,6 @@ const BUTTON_TO_MGBA: Record<string, string> = {
 interface GBAEmulatorTabProps {
   initialFile?: File | null;
 }
-
-const DPAD_BUTTONS = [
-  { name: "Up", label: "▲", x: 1, y: 0 },
-  { name: "Down", label: "▼", x: 1, y: 2 },
-  { name: "Left", label: "◀", x: 0, y: 1 },
-  { name: "Right", label: "▶", x: 2, y: 1 },
-] as const;
-
-const ACTION_BUTTONS = [
-  { name: "A", label: "A", color: "bg-[#e8433f]" },
-  { name: "B", label: "B", color: "bg-[#3a6050]" },
-] as const;
 
 export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -335,69 +325,15 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
             className="block w-full aspect-[3/2]"
           />
 
-          {/* Overlay when no ROM loaded */}
-          {!state.isRunning && state.isReady && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-4">
-              <div className="text-center space-y-2">
-                <p className="text-[#f0f0e8] font-pixel text-sm">
-                  GBA Emulator
-                </p>
-                <p className="text-[#8b9bb4] text-xs hidden sm:block">
-                  Drag & drop a .gba ROM file here
-                </p>
-                <p className="text-[#8b9bb4] text-xs hidden sm:block">or</p>
-                <button
-                  onClick={() => romInputRef.current?.click()}
-                  className="px-6 py-3 sm:px-4 sm:py-2 rounded-lg bg-[#e8433f] text-[#f0f0e8] text-sm sm:text-xs font-pixel hover:bg-[#f05050] active:bg-[#f05050] transition-colors"
-                >
-                  Choose ROM File
-                </button>
-              </div>
-
-              {/* Previously loaded ROMs */}
-              {state.savedROMs.length > 0 && (
-                <div className="space-y-2 text-center">
-                  <p className="text-[#8b9bb4] text-[10px] font-pixel">
-                    Previously loaded:
-                  </p>
-                  <div className="flex flex-wrap gap-2 justify-center max-w-md">
-                    {state.savedROMs.map((rom) => (
-                      <button
-                        key={rom}
-                        onClick={() => loadSavedROM(rom)}
-                        className="px-3 py-1.5 rounded bg-[#3a4466] text-[#f0f0e8] text-[10px] font-pixel hover:bg-[#4a5577] transition-colors truncate max-w-[200px]"
-                      >
-                        {rom}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <p className="text-[#8b9bb4] text-[9px] italic mt-4 max-w-sm text-center">
-                Load your own legally obtained ROM files.
-                No ROMs are provided or distributed by this application.
-              </p>
-            </div>
-          )}
-
-          {/* Loading overlay */}
-          {!state.isReady && !state.error && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black">
-              <p className="text-[#8b9bb4] font-pixel text-xs animate-pulse">
-                Loading emulator...
-              </p>
-            </div>
-          )}
-
-          {/* ROM / emulator loading overlay */}
-          {state.isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
-              <p className="text-[#8b9bb4] font-pixel text-xs animate-pulse">
-                Loading emulator...
-              </p>
-            </div>
-          )}
+          <GBARomOverlay
+            isReady={state.isReady}
+            isRunning={state.isRunning}
+            isLoading={state.isLoading}
+            error={state.error}
+            savedROMs={state.savedROMs}
+            onChooseROM={() => romInputRef.current?.click()}
+            onLoadSavedROM={loadSavedROM}
+          />
         </div>
 
         {/* Dynamic keyboard mapping info */}
@@ -421,94 +357,9 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
           </div>
         )}
 
-        {/* On-screen controls for mobile — GBA layout */}
+        {/* On-screen controls for mobile */}
         {state.isRunning && (
-          <div
-            className="w-full select-none space-y-3 px-2"
-            style={{ WebkitTapHighlightColor: "transparent" } as React.CSSProperties}
-          >
-            {/* L / R bumpers */}
-            <div className="flex justify-between">
-              {(["L", "R"] as const).map((btn) => (
-                <button
-                  key={btn}
-                  onMouseDown={handleTouchStart(btn)}
-                  onMouseUp={handleTouchEnd(btn)}
-                  onMouseLeave={handleTouchEnd(btn)}
-                  onTouchStart={handleTouchStart(btn)}
-                  onTouchEnd={handleTouchEnd(btn)}
-                  className="px-8 py-2 bg-[#3a4466] text-[#f0f0e8] rounded-lg font-pixel text-sm active:bg-[#4a5577] select-none"
-                >
-                  {btn}
-                </button>
-              ))}
-            </div>
-
-            {/* D-Pad + A/B row */}
-            <div className="flex items-center justify-between">
-              {/* D-Pad */}
-              <div className="grid grid-cols-3 grid-rows-3 w-[7.5rem] h-[7.5rem] gap-0.5">
-                {DPAD_BUTTONS.map((btn) => (
-                  <button
-                    key={btn.name}
-                    onMouseDown={handleTouchStart(btn.name)}
-                    onMouseUp={handleTouchEnd(btn.name)}
-                    onMouseLeave={handleTouchEnd(btn.name)}
-                    onTouchStart={handleTouchStart(btn.name)}
-                    onTouchEnd={handleTouchEnd(btn.name)}
-                    className="bg-[#3a4466] text-[#f0f0e8] rounded-lg text-xl active:bg-[#4a5577] select-none"
-                    style={{
-                      gridColumn: btn.x + 1,
-                      gridRow: btn.y + 1,
-                    }}
-                  >
-                    {btn.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* A/B buttons — GBA layout: B left, A right, A slightly higher */}
-              <div className="relative w-[7.5rem] h-[7.5rem]">
-                <button
-                  onMouseDown={handleTouchStart("B")}
-                  onMouseUp={handleTouchEnd("B")}
-                  onMouseLeave={handleTouchEnd("B")}
-                  onTouchStart={handleTouchStart("B")}
-                  onTouchEnd={handleTouchEnd("B")}
-                  className="absolute left-0 bottom-2 w-14 h-14 rounded-full bg-[#3a6050] text-[#f0f0e8] font-pixel text-base font-bold active:brightness-125 select-none"
-                >
-                  B
-                </button>
-                <button
-                  onMouseDown={handleTouchStart("A")}
-                  onMouseUp={handleTouchEnd("A")}
-                  onMouseLeave={handleTouchEnd("A")}
-                  onTouchStart={handleTouchStart("A")}
-                  onTouchEnd={handleTouchEnd("A")}
-                  className="absolute right-0 top-2 w-14 h-14 rounded-full bg-[#e8433f] text-[#f0f0e8] font-pixel text-base font-bold active:brightness-125 select-none"
-                >
-                  A
-                </button>
-              </div>
-            </div>
-
-            {/* Start / Select — centered */}
-            <div className="flex justify-center gap-6">
-              {(["Select", "Start"] as const).map((btn) => (
-                <button
-                  key={btn}
-                  onMouseDown={handleTouchStart(btn)}
-                  onMouseUp={handleTouchEnd(btn)}
-                  onMouseLeave={handleTouchEnd(btn)}
-                  onTouchStart={handleTouchStart(btn)}
-                  onTouchEnd={handleTouchEnd(btn)}
-                  className="px-5 py-2 bg-[#3a4466] text-[#8b9bb4] rounded-full text-xs font-pixel active:bg-[#4a5577] select-none"
-                >
-                  {btn}
-                </button>
-              ))}
-            </div>
-          </div>
+          <GBATouchControls onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} />
         )}
       </div>
 

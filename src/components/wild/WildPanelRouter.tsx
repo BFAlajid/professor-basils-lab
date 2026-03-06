@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { TeamSlot, BallType, PCBoxPokemon, Pokemon } from "@/types";
+import { TeamSlot, BallType, PCBoxPokemon, Pokemon, OnlineState, SafariZoneState, LinkMode, TradeOffer } from "@/types";
 import type { WildPanel } from "./WildToolbar";
 import PCBox from "./PCBox";
 import DayCare from "./DayCare";
@@ -34,17 +34,26 @@ interface WildPanelRouterProps {
   onGiftClaimed: () => void;
   // Link Cable / Trade
   linkView: "cable" | "trade";
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  online: any;
-  /* eslint-enable @typescript-eslint/no-explicit-any */
+  online: {
+    state: OnlineState;
+    createLobby: () => Promise<void>;
+    joinLobby: (code: string) => Promise<void>;
+    setLinkMode: (mode: LinkMode) => void;
+    disconnect: () => void;
+    shareMyBox: (box: PCBoxPokemon[]) => void;
+    sendTradeOffer: (offer: TradeOffer) => void;
+    confirmTrade: () => void;
+    rejectTrade: () => void;
+    completeTrade: (sent: PCBoxPokemon) => void;
+    resetTrade: () => void;
+  };
   onLinkBattle: () => void;
   onLinkTrade: () => void;
   onLinkBack: () => void;
   onTradeSwitchToCable: () => void;
   // Safari Zone
-  /* eslint-disable @typescript-eslint/no-explicit-any */
   safari: {
-    state: any;
+    state: SafariZoneState;
     isSearching: boolean;
     enterSafari: (region: string) => void;
     search: () => Promise<void>;
@@ -56,7 +65,6 @@ interface WildPanelRouterProps {
     exitSafari: () => void;
     reset: () => void;
   };
-  /* eslint-enable @typescript-eslint/no-explicit-any */
   onSafariAddAll: (entries: { pokemon: Pokemon; level: number; isShiny: boolean }[]) => void;
   onSafariTrip: () => void;
   onSafariClose: () => void;

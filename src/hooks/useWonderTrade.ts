@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer, useEffect, useCallback, useRef } from "react";
+import { SHINY_RATE } from "@/data/constants";
 import {
   WonderTradeState,
   WonderTradeAction,
@@ -142,7 +143,7 @@ export function useWonderTrade() {
             : "unknown";
 
         // Shiny chance
-        const isShiny = Math.random() < 1 / 4096;
+        const isShiny = Math.random() < SHINY_RATE;
 
         const receivedPokemon: PCBoxPokemon = {
           pokemon: pokemonData,

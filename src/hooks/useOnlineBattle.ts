@@ -6,15 +6,11 @@ import {
   validateOnlineMessage,
   validateTeamSlots,
   validateBattleTurnAction,
-  validatePCBoxPokemon,
-  validateSinglePCBoxPokemon,
-  validateTradeOffer,
-  validateLinkMode,
 } from "@/utils/validateOnlineMessage";
+import { useOnlineTrade } from "./useOnlineTrade";
 
 const OPPONENT_ACTION_TIMEOUT_MS = 30_000;
 const MIN_MESSAGE_INTERVAL_MS = 50;
-const ESCROW_TIMEOUT_MS = 15_000;
 
 const initialTradeState: LinkTradeState = {
   mode: "idle",
@@ -117,22 +113,6 @@ function generateRoomCode(): string {
   return Array.from(array, b => chars[b % chars.length]).join("");
 }
 
-interface EscrowState {
-  mySent: PCBoxPokemon | null;
-  opponentSent: PCBoxPokemon | null;
-  myFinalized: boolean;
-  opponentFinalized: boolean;
-  timeout: ReturnType<typeof setTimeout> | null;
-}
-
-const initialEscrow: EscrowState = {
-  mySent: null,
-  opponentSent: null,
-  myFinalized: false,
-  opponentFinalized: false,
-  timeout: null,
-};
-
 export function useOnlineBattle() {
   const [state, dispatch] = useReducer(onlineReducer, initialState);
   const peerRef = useRef<import("peerjs").default | null>(null);
@@ -141,23 +121,22 @@ export function useOnlineBattle() {
   const actionResolverRef = useRef<((action: BattleTurnAction) => void) | null>(null);
   const actionRejectRef = useRef<((reason: Error) => void) | null>(null);
   const lastMessageTimeRef = useRef<number>(0);
-  const escrowRef = useRef<EscrowState>({ ...initialEscrow });
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  const resetEscrow = useCallback(() => {
-    if (escrowRef.current.timeout) clearTimeout(escrowRef.current.timeout);
-    escrowRef.current = { ...initialEscrow };
-  }, []);
-
-  // Finalize trade once both sides escrowed and both sides sent TRADE_FINALIZE
-  const tryFinalizeTrade = useCallback(() => {
-    const escrow = escrowRef.current;
-    if (escrow.opponentSent && escrow.myFinalized && escrow.opponentFinalized) {
-      dispatch({ type: "TRADE_DONE", received: escrow.opponentSent });
-      resetEscrow();
-    }
-  }, [resetEscrow]);
+  const {
+    setLinkMode,
+    shareMyBox,
+    sendTradeOffer,
+    acceptTrade,
+    rejectTrade,
+    confirmTrade,
+    completeTrade,
+    resetTrade,
+    resetEscrow,
+    handleTradeMessage,
+    handleConnectionClose,
+  } = useOnlineTrade(connRef, dispatch, stateRef);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -221,80 +200,21 @@ export function useOnlineBattle() {
         case "DISCONNECT":
           dispatch({ type: "DISCONNECT" });
           break;
-        // Trade messages
-        case "LINK_MODE": {
-          const mode = validateLinkMode(msg.payload);
-          if (!mode) return;
-          dispatch({ type: "SET_LINK_MODE", mode });
+        default:
+          handleTradeMessage(msg, conn);
           break;
-        }
-        case "PC_BOX_SHARE": {
-          const box = validatePCBoxPokemon(msg.payload, 30);
-          if (!box) return;
-          dispatch({ type: "RECEIVE_OPPONENT_BOX", box });
-          break;
-        }
-        case "TRADE_OFFER": {
-          const offer = validateTradeOffer(msg.payload);
-          if (!offer) return;
-          dispatch({ type: "RECEIVE_OPPONENT_OFFER", offer });
-          break;
-        }
-        case "TRADE_ACCEPT":
-          dispatch({ type: "OPPONENT_ACCEPTED" });
-          break;
-        case "TRADE_REJECT":
-          dispatch({ type: "OPPONENT_REJECTED" });
-          break;
-        case "TRADE_CONFIRM":
-          dispatch({ type: "OPPONENT_CONFIRMED" });
-          break;
-        case "TRADE_COMPLETE": {
-          const received = validateSinglePCBoxPokemon(msg.payload);
-          if (!received) return;
-          // VULN-07: verify received pokemon matches the previously agreed offer
-          const expectedId = stateRef.current.trade.opponentOffer?.pokemon?.pokemon?.id;
-          if (expectedId != null && received.pokemon.id !== expectedId) return;
-          dispatch({ type: "TRADE_DONE", received });
-          break;
-        }
-        // Escrow-based trade messages (VULN-02 fix)
-        case "TRADE_ESCROW": {
-          const escrowed = validateSinglePCBoxPokemon(msg.payload);
-          if (!escrowed) return;
-          // Verify escrowed pokemon matches the agreed offer
-          const expectedEscrowId = stateRef.current.trade.opponentOffer?.pokemon?.pokemon?.id;
-          if (expectedEscrowId != null && escrowed.pokemon.id !== expectedEscrowId) return;
-          escrowRef.current.opponentSent = escrowed;
-          // If we already escrowed ours, send finalize
-          if (escrowRef.current.mySent && conn.open) {
-            escrowRef.current.myFinalized = true;
-            conn.send({ type: "TRADE_FINALIZE", payload: null, timestamp: Date.now() } as OnlineMessage);
-            tryFinalizeTrade();
-          }
-          break;
-        }
-        case "TRADE_FINALIZE": {
-          escrowRef.current.opponentFinalized = true;
-          tryFinalizeTrade();
-          break;
-        }
       }
     });
 
     conn.on("close", () => {
-      // If escrow is in progress and trade didn't complete, roll back
-      if (escrowRef.current.mySent && !escrowRef.current.opponentFinalized) {
-        resetEscrow();
-        dispatch({ type: "RESET_TRADE" });
-      }
+      handleConnectionClose();
       dispatch({ type: "DISCONNECT" });
     });
 
     conn.on("error", (err) => {
       dispatch({ type: "ERROR", error: err.message });
     });
-  }, [tryFinalizeTrade, resetEscrow]);
+  }, [handleTradeMessage, handleConnectionClose]);
 
   const createLobby = useCallback(async () => {
     const { default: Peer } = await import("peerjs");
@@ -372,74 +292,6 @@ export function useOnlineBattle() {
       actionResolverRef.current = resolve;
     });
   }, []);
-
-  // ── Trade Methods ──
-
-  const setLinkMode = useCallback((mode: LinkMode) => {
-    if (!connRef.current?.open) return;
-    dispatch({ type: "SET_LINK_MODE", mode });
-    connRef.current.send({ type: "LINK_MODE", payload: mode, timestamp: Date.now() } as OnlineMessage);
-  }, []);
-
-  const shareMyBox = useCallback((box: PCBoxPokemon[]) => {
-    if (!connRef.current?.open) return;
-    dispatch({ type: "SHARE_MY_BOX" });
-    connRef.current.send({ type: "PC_BOX_SHARE", payload: box, timestamp: Date.now() } as OnlineMessage);
-  }, []);
-
-  const sendTradeOffer = useCallback((offer: TradeOffer) => {
-    if (!connRef.current?.open) return;
-    dispatch({ type: "SET_MY_OFFER", offer });
-    connRef.current.send({ type: "TRADE_OFFER", payload: offer, timestamp: Date.now() } as OnlineMessage);
-  }, []);
-
-  const acceptTrade = useCallback(() => {
-    if (!connRef.current?.open) return;
-    connRef.current.send({ type: "TRADE_ACCEPT", payload: null, timestamp: Date.now() } as OnlineMessage);
-  }, []);
-
-  const rejectTrade = useCallback(() => {
-    if (!connRef.current?.open) return;
-    dispatch({ type: "OPPONENT_REJECTED" });
-    connRef.current.send({ type: "TRADE_REJECT", payload: null, timestamp: Date.now() } as OnlineMessage);
-  }, []);
-
-  const confirmTrade = useCallback(() => {
-    if (!connRef.current?.open) return;
-    dispatch({ type: "CONFIRM_TRADE" });
-    connRef.current.send({ type: "TRADE_CONFIRM", payload: null, timestamp: Date.now() } as OnlineMessage);
-  }, []);
-
-  const completeTrade = useCallback((sentPokemon: PCBoxPokemon) => {
-    if (!connRef.current?.open) return;
-
-    // Reset any prior escrow state
-    resetEscrow();
-
-    // Phase 1: Send our pokemon into escrow
-    escrowRef.current.mySent = sentPokemon;
-    connRef.current.send({ type: "TRADE_ESCROW", payload: sentPokemon, timestamp: Date.now() } as OnlineMessage);
-
-    // If opponent already escrowed, send finalize immediately
-    if (escrowRef.current.opponentSent && connRef.current.open) {
-      escrowRef.current.myFinalized = true;
-      connRef.current.send({ type: "TRADE_FINALIZE", payload: null, timestamp: Date.now() } as OnlineMessage);
-      tryFinalizeTrade();
-    }
-
-    // 15-second timeout: roll back if escrow flow doesn't complete
-    escrowRef.current.timeout = setTimeout(() => {
-      if (!escrowRef.current.myFinalized || !escrowRef.current.opponentFinalized) {
-        resetEscrow();
-        dispatch({ type: "RESET_TRADE" });
-      }
-    }, ESCROW_TIMEOUT_MS);
-  }, [resetEscrow, tryFinalizeTrade]);
-
-  const resetTrade = useCallback(() => {
-    resetEscrow();
-    dispatch({ type: "RESET_TRADE" });
-  }, [resetEscrow]);
 
   const disconnect = useCallback(() => {
     resetEscrow();

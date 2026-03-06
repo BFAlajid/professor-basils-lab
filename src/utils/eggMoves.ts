@@ -37,7 +37,7 @@ export async function fetchEggMoves(pokemonId: number): Promise<EggMoveChain[]> 
   try {
     const pokemonData = await fetchPokemonData(pokemonId);
 
-    const moves: PokeAPIMoveEntry[] = (pokemonData as any).moves;
+    const moves = pokemonData.moves as PokeAPIMoveEntry[];
     const eggMoves = moves.filter((m) =>
       m.version_group_details.some((d) => d.move_learn_method.name === "egg")
     );
@@ -70,9 +70,8 @@ export async function fetchEggMoves(pokemonId: number): Promise<EggMoveChain[]> 
       parentSample.map((name) =>
         fetchPokemonData(name)
           .then((data) => {
-            if (data) checkedParents.set(name, (data as any).moves);
+            if (data) checkedParents.set(name, data.moves as PokeAPIMoveEntry[]);
           })
-          .catch(() => {})
       )
     );
     void parentFetches;

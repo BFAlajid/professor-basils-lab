@@ -7,6 +7,7 @@ import { fetchPokemon } from "@/hooks/usePokemon";
 import { usePokedexContext } from "@/contexts/PokedexContext";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { NATURES } from "@/data/natures";
+import { TOAST_DURATION } from "@/data/constants";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
 import { importFromShowdown } from "@/utils/showdownFormatWasm";
 import type { TeamSlot } from "@/types";
@@ -155,7 +156,7 @@ export default function Home() {
             .filter((s): s is TeamSlot => s !== null)
             .map((s, i) => ({ ...s, position: i }));
           if (validSlots.length > 0) setTeam(validSlots);
-        });
+        }).catch(() => { /* URL team decode failed — ignore */ });
       }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -198,7 +199,7 @@ export default function Home() {
     const url = `${window.location.origin}${window.location.pathname}?team=${encoded}`;
     navigator.clipboard.writeText(url).then(() => {
       setShareMessage("Link copied!");
-      setTimeout(() => setShareMessage(""), 2000);
+      setTimeout(() => setShareMessage(""), TOAST_DURATION);
     });
   }, [team]);
 

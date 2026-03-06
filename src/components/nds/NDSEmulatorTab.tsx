@@ -5,6 +5,8 @@ import { useNDSEmulator, NDS_KEYS } from "@/hooks/useNDSEmulator";
 import { useGamepad, type GBAButton } from "@/hooks/useGamepad";
 import { loadKeybinds, getButtonToKey } from "@/utils/keybinds";
 import NDSEmulatorControls from "./NDSEmulatorControls";
+import NDSTouchControls from "./NDSTouchControls";
+import NDSRomOverlay from "./NDSRomOverlay";
 import KeyRemapDialog from "@/components/emulator/KeyRemapDialog";
 
 /** Map GBA-style button names from useGamepad to NDS key bit positions */
@@ -36,14 +38,6 @@ const BUTTON_TO_NDS_BIT: Record<string, number> = {
   LEFT: NDS_KEYS.LEFT,
   RIGHT: NDS_KEYS.RIGHT,
 };
-
-/** D-pad on-screen buttons */
-const DPAD_BUTTONS = [
-  { bit: NDS_KEYS.UP, label: "▲", x: 1, y: 0 },
-  { bit: NDS_KEYS.DOWN, label: "▼", x: 1, y: 2 },
-  { bit: NDS_KEYS.LEFT, label: "◀", x: 0, y: 1 },
-  { bit: NDS_KEYS.RIGHT, label: "▶", x: 2, y: 1 },
-] as const;
 
 interface NDSEmulatorTabProps {
   initialFile?: File | null;
@@ -286,54 +280,15 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
             } as React.CSSProperties}
           />
 
-          {!state.isRunning && state.isReady && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-4">
-              <div className="text-center space-y-2">
-                <p className="text-[#f0f0e8] font-pixel text-sm">NDS Emulator</p>
-                <p className="text-[#8b9bb4] text-xs hidden sm:block">Drag & drop a .nds ROM file here</p>
-                <p className="text-[#8b9bb4] text-xs hidden sm:block">or</p>
-                <button
-                  onClick={() => romInputRef.current?.click()}
-                  className="px-6 py-3 sm:px-4 sm:py-2 rounded-lg bg-[#e8433f] text-[#f0f0e8] text-sm sm:text-xs font-pixel hover:bg-[#f05050] active:bg-[#f05050] transition-colors"
-                >
-                  Choose ROM File
-                </button>
-              </div>
-
-              {state.savedROMs.length > 0 && (
-                <div className="space-y-2 text-center">
-                  <p className="text-[#8b9bb4] text-[10px] font-pixel">Previously loaded:</p>
-                  <div className="flex flex-wrap gap-2 justify-center max-w-md">
-                    {state.savedROMs.map((rom) => (
-                      <button
-                        key={rom}
-                        onClick={() => loadSavedROM(rom)}
-                        className="px-3 py-1.5 rounded bg-[#3a4466] text-[#f0f0e8] text-[10px] font-pixel hover:bg-[#4a5577] transition-colors truncate max-w-[200px]"
-                      >
-                        {rom}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <p className="text-[#8b9bb4] text-[9px] italic mt-4 max-w-sm text-center">
-                Load your own legally obtained ROM files. No ROMs are provided or distributed by this application.
-              </p>
-            </div>
-          )}
-
-          {!state.isReady && !state.error && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black">
-              <p className="text-[#8b9bb4] font-pixel text-xs animate-pulse">Loading NDS emulator...</p>
-            </div>
-          )}
-
-          {state.isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
-              <p className="text-[#f0f0e8] font-pixel text-xs animate-pulse">Loading ROM...</p>
-            </div>
-          )}
+          <NDSRomOverlay
+            isReady={state.isReady}
+            isRunning={state.isRunning}
+            isLoading={state.isLoading}
+            error={state.error}
+            savedROMs={state.savedROMs}
+            onChooseROM={() => romInputRef.current?.click()}
+            onLoadSavedROM={loadSavedROM}
+          />
         </div>
 
         {/* Dynamic keyboard mapping info */}
@@ -362,112 +317,8 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
           </div>
         )}
 
-        {/* On-screen controls for mobile — NDS layout */}
         {state.isRunning && (
-          <div
-            className="w-full select-none space-y-3 px-2"
-            style={{ WebkitTapHighlightColor: "transparent" } as React.CSSProperties}
-          >
-            <div className="flex justify-between">
-              {([
-                { bit: NDS_KEYS.L, label: "L" },
-                { bit: NDS_KEYS.R, label: "R" },
-              ] as const).map((btn) => (
-                <button
-                  key={btn.label}
-                  onMouseDown={handleBtnDown(btn.bit)}
-                  onMouseUp={handleBtnUp(btn.bit)}
-                  onMouseLeave={handleBtnUp(btn.bit)}
-                  onTouchStart={handleBtnDown(btn.bit)}
-                  onTouchEnd={handleBtnUp(btn.bit)}
-                  className="px-8 py-2 bg-[#3a4466] text-[#f0f0e8] rounded-lg font-pixel text-sm active:bg-[#4a5577] select-none"
-                >
-                  {btn.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="grid grid-cols-3 grid-rows-3 w-[7.5rem] h-[7.5rem] gap-0.5">
-                {DPAD_BUTTONS.map((btn) => (
-                  <button
-                    key={btn.bit}
-                    onMouseDown={handleBtnDown(btn.bit)}
-                    onMouseUp={handleBtnUp(btn.bit)}
-                    onMouseLeave={handleBtnUp(btn.bit)}
-                    onTouchStart={handleBtnDown(btn.bit)}
-                    onTouchEnd={handleBtnUp(btn.bit)}
-                    className="bg-[#3a4466] text-[#f0f0e8] rounded-lg text-xl active:bg-[#4a5577] select-none"
-                    style={{ gridColumn: btn.x + 1, gridRow: btn.y + 1 }}
-                  >
-                    {btn.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="relative w-[7.5rem] h-[7.5rem]">
-                <button
-                  onMouseDown={handleBtnDown(NDS_KEYS.Y)}
-                  onMouseUp={handleBtnUp(NDS_KEYS.Y)}
-                  onMouseLeave={handleBtnUp(NDS_KEYS.Y)}
-                  onTouchStart={handleBtnDown(NDS_KEYS.Y)}
-                  onTouchEnd={handleBtnUp(NDS_KEYS.Y)}
-                  className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-[#4a6a8a] text-[#f0f0e8] font-pixel text-base font-bold active:brightness-125 select-none"
-                >
-                  Y
-                </button>
-                <button
-                  onMouseDown={handleBtnDown(NDS_KEYS.X)}
-                  onMouseUp={handleBtnUp(NDS_KEYS.X)}
-                  onMouseLeave={handleBtnUp(NDS_KEYS.X)}
-                  onTouchStart={handleBtnDown(NDS_KEYS.X)}
-                  onTouchEnd={handleBtnUp(NDS_KEYS.X)}
-                  className="absolute top-1/2 left-0 -translate-y-1/2 w-12 h-12 rounded-full bg-[#6a6a3a] text-[#f0f0e8] font-pixel text-base font-bold active:brightness-125 select-none"
-                >
-                  X
-                </button>
-                <button
-                  onMouseDown={handleBtnDown(NDS_KEYS.A)}
-                  onMouseUp={handleBtnUp(NDS_KEYS.A)}
-                  onMouseLeave={handleBtnUp(NDS_KEYS.A)}
-                  onTouchStart={handleBtnDown(NDS_KEYS.A)}
-                  onTouchEnd={handleBtnUp(NDS_KEYS.A)}
-                  className="absolute top-1/2 right-0 -translate-y-1/2 w-12 h-12 rounded-full bg-[#e8433f] text-[#f0f0e8] font-pixel text-base font-bold active:brightness-125 select-none"
-                >
-                  A
-                </button>
-                <button
-                  onMouseDown={handleBtnDown(NDS_KEYS.B)}
-                  onMouseUp={handleBtnUp(NDS_KEYS.B)}
-                  onMouseLeave={handleBtnUp(NDS_KEYS.B)}
-                  onTouchStart={handleBtnDown(NDS_KEYS.B)}
-                  onTouchEnd={handleBtnUp(NDS_KEYS.B)}
-                  className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-[#3a6050] text-[#f0f0e8] font-pixel text-base font-bold active:brightness-125 select-none"
-                >
-                  B
-                </button>
-              </div>
-            </div>
-
-            <div className="flex justify-center gap-6">
-              {([
-                { bit: NDS_KEYS.SELECT, label: "Select" },
-                { bit: NDS_KEYS.START, label: "Start" },
-              ] as const).map((btn) => (
-                <button
-                  key={btn.label}
-                  onMouseDown={handleBtnDown(btn.bit)}
-                  onMouseUp={handleBtnUp(btn.bit)}
-                  onMouseLeave={handleBtnUp(btn.bit)}
-                  onTouchStart={handleBtnDown(btn.bit)}
-                  onTouchEnd={handleBtnUp(btn.bit)}
-                  className="px-5 py-2 bg-[#3a4466] text-[#8b9bb4] rounded-full text-xs font-pixel active:bg-[#4a5577] select-none"
-                >
-                  {btn.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <NDSTouchControls onButtonDown={handleBtnDown} onButtonUp={handleBtnUp} />
         )}
       </div>
 
