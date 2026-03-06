@@ -11,6 +11,7 @@ CRATES=(
   "pkmn-breeding"
   "pkmn-showdown"
   "gen3-parser"
+  "gen3-rom"
 )
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -23,6 +24,10 @@ for crate in "${CRATES[@]}"; do
   wasm-pack build --target web --release --out-dir pkg
   snake=$(echo "$crate" | tr '-' '_')
   cp "pkg/${snake}_bg.wasm" "$PUBLIC_WASM/"
+  # gen3-rom needs JS glue served from public/ (no JS fallback)
+  if [ "$crate" = "gen3-rom" ]; then
+    cp "pkg/${snake}.js" "$PUBLIC_WASM/"
+  fi
   echo "  -> deployed ${snake}_bg.wasm"
 done
 

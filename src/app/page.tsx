@@ -12,6 +12,7 @@ import { importFromShowdown } from "@/utils/showdownFormatWasm";
 import type { TeamSlot } from "@/types";
 import dynamic from "next/dynamic";
 import SkeletonLoader from "@/components/SkeletonLoader";
+import AuthButton from "@/components/AuthButton";
 
 // Lightweight — keep eager
 import TeamRoster from "@/components/TeamRoster";
@@ -68,8 +69,12 @@ const UnifiedEmulatorTab = dynamic(() => import("@/components/emulator/UnifiedEm
     </div>
   ),
 });
+const ExploreTab = dynamic(() => import("@/components/explore/ExploreTab"), {
+  ssr: false,
+  loading: () => <SkeletonLoader label="Loading explore..." lines={4} />,
+});
 
-type Tab = "team" | "analysis" | "stats" | "damage" | "battle" | "wild" | "emulator" | "pokedex" | "achievements";
+type Tab = "team" | "analysis" | "stats" | "damage" | "battle" | "wild" | "explore" | "emulator" | "pokedex" | "achievements";
 
 const tabs: { id: Tab; label: string; short: string }[] = [
   { id: "team", label: "Team", short: "TM" },
@@ -78,6 +83,7 @@ const tabs: { id: Tab; label: string; short: string }[] = [
   { id: "damage", label: "Damage", short: "DM" },
   { id: "battle", label: "Battle", short: "BT" },
   { id: "wild", label: "Wild", short: "WD" },
+  { id: "explore", label: "Explore", short: "EX" },
   { id: "emulator", label: "Emulator", short: "EM" },
   { id: "pokedex", label: "Pokédex", short: "PD" },
   { id: "achievements", label: "Badges", short: "BD" },
@@ -252,6 +258,7 @@ export default function Home() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <AuthButton />
             <AudioPlayer />
             {team.length > 0 && (
               <>
@@ -405,6 +412,9 @@ export default function Home() {
               )}
               {activeTab === "wild" && (
                 <WildTab team={team} onAddToTeam={addPokemon} onSetEvs={setEvs} onSetMoves={setMoves} />
+              )}
+              {activeTab === "explore" && (
+                <ExploreTab team={team} />
               )}
               {activeTab === "pokedex" && (
                 <PokedexTracker />

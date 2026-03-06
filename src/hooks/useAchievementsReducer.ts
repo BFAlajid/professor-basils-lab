@@ -42,6 +42,8 @@ export interface PlayerStats {
   totalMoneySpent: number;
   evTrainingSessions: number;
   heartScalesUsed: number;
+  exploreStepsWalked: number;
+  exploreMapsVisited: number;
 }
 
 export const DEFAULT_STATS: PlayerStats = {
@@ -88,6 +90,8 @@ export const DEFAULT_STATS: PlayerStats = {
   totalMoneySpent: 0,
   evTrainingSessions: 0,
   heartScalesUsed: 0,
+  exploreStepsWalked: 0,
+  exploreMapsVisited: 0,
 };
 
 export type StatsAction =

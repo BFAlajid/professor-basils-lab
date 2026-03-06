@@ -160,7 +160,7 @@ async function __wbg_init(module_or_path) {
     }
 
     if (module_or_path === undefined) {
-        throw new Error('WASM path must be provided');
+        module_or_path = new URL('pkmn_catch_rate_bg.wasm', import.meta.url);
     }
     const imports = __wbg_get_imports();
 

@@ -24,6 +24,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "gen3-rom"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde-wasm-bindgen",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"

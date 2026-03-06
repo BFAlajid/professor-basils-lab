@@ -22,6 +22,10 @@ import { GYM_BADGE_NAMES } from "@/data/gymLeaders";
 import ChallengeCode from "./ChallengeCode";
 import BattleHistoryDashboard from "./BattleHistoryDashboard";
 import ELOLeaderboard from "./ELOLeaderboard";
+import RankedLeaderboard from "./RankedLeaderboard";
+import RankedQueue from "./RankedQueue";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRankedQueue } from "@/hooks/useRankedQueue";
 
 interface BattleTabProps {
   team: TeamSlot[];
@@ -52,7 +56,11 @@ export default function BattleTab({ team }: BattleTabProps) {
   const facilityRecorded = useRef(false);
   const [viewingReplay, setViewingReplay] = useState<BattleReplay | null>(null);
   const [replaySaved, setReplaySaved] = useState(false);
-  const [activeBattleMode, setActiveBattleMode] = useState<"ai" | "pvp" | "tournament" | "online" | "facility" | "factory" | null>(null);
+  const [activeBattleMode, setActiveBattleMode] = useState<"ai" | "pvp" | "tournament" | "online" | "facility" | "factory" | "ranked" | null>(null);
+  const { player } = useAuth();
+  const ranked = useRankedQueue();
+  const rankedBattleIdRef = useRef<string | null>(null);
+  const rankedOpponentIdRef = useRef<string | null>(null);
 
   // Determine which battle state to use
   const isFacilityMode = activeBattleMode === "facility";
@@ -69,11 +77,17 @@ export default function BattleTab({ team }: BattleTabProps) {
         if (activeBattleMode === "tournament") {
           tournament.reportWin();
         }
+        if (activeBattleMode === "ranked") {
+          ranked.reportResult(true);
+        }
       } else {
         recordBattleLoss();
         updateElo(false);
         if (activeBattleMode === "tournament") {
           tournament.reportLoss();
+        }
+        if (activeBattleMode === "ranked") {
+          ranked.reportResult(false);
         }
       }
     }
@@ -369,6 +383,24 @@ export default function BattleTab({ team }: BattleTabProps) {
       );
     }
 
+    // Ranked mode active
+    if (activeBattleMode === "ranked") {
+      return (
+        <div className="space-y-6">
+          <RankedQueue
+            onMatchFound={(roomCode, battleId, opponentId) => {
+              rankedBattleIdRef.current = battleId;
+              rankedOpponentIdRef.current = opponentId;
+              // Use the PeerJS online flow to connect via the roomCode
+              online.joinLobby(roomCode);
+            }}
+            onCancel={() => setActiveBattleMode(null)}
+          />
+          <RankedLeaderboard />
+        </div>
+      );
+    }
+
     // Online mode active
     if (activeBattleMode === "online" || online.state.phase !== "idle") {
       return (
@@ -424,6 +456,16 @@ export default function BattleTab({ team }: BattleTabProps) {
             });
           }}
         />
+        {player && (
+          <div className="flex justify-center">
+            <button
+              onClick={() => setActiveBattleMode("ranked")}
+              className="rounded-lg bg-[#7B62A1] px-6 py-3 text-xs font-bold font-pixel text-[#f0f0e8] transition-colors hover:bg-[#694f8e] shadow-lg"
+            >
+              Ranked Battle
+            </button>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <BattleHistoryDashboard
             stats={{
@@ -433,11 +475,15 @@ export default function BattleTab({ team }: BattleTabProps) {
             }}
             replays={replayRecorder.loadReplays()}
           />
-          <ELOLeaderboard
-            eloRating={stats.eloRating}
-            totalWins={stats.totalBattlesWon}
-            totalLosses={stats.totalBattlesPlayed - stats.totalBattlesWon}
-          />
+          {player ? (
+            <RankedLeaderboard />
+          ) : (
+            <ELOLeaderboard
+              eloRating={stats.eloRating}
+              totalWins={stats.totalBattlesWon}
+              totalLosses={stats.totalBattlesPlayed - stats.totalBattlesWon}
+            />
+          )}
         </div>
         <ReplayList onViewReplay={handleViewReplay} />
       </div>

@@ -13,6 +13,7 @@
     "build:wasm": "cd rust && bash build-all.sh"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.98.0",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-virtual": "^3.13.19",
     "@thenick775/mgba-wasm": "^2.4.1",
