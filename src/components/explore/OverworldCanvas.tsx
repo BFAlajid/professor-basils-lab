@@ -5,6 +5,7 @@ import type { FullMapData, PlayerState, NpcData } from "@/types/explore";
 import { VIEWPORT_TILES_X, VIEWPORT_TILES_Y, TILE_SIZE } from "@/types/explore";
 import type { CachedTileset } from "@/utils/tileCache";
 import type { ConnectedMap } from "@/hooks/useExplore";
+import type { RemotePlayer } from "@/hooks/useOverworldPresence";
 import { renderFrame } from "@/utils/mapRenderer";
 
 interface OverworldCanvasProps {
@@ -14,6 +15,7 @@ interface OverworldCanvasProps {
   npcs: NpcData[];
   camera: { x: number; y: number };
   connectedMaps: ConnectedMap[];
+  remotePlayers?: Map<string, RemotePlayer>;
 }
 
 // Native GBA resolution — CSS handles upscaling with pixelated rendering
@@ -27,6 +29,7 @@ export default function OverworldCanvas({
   npcs,
   camera,
   connectedMaps,
+  remotePlayers,
 }: OverworldCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
@@ -39,8 +42,8 @@ export default function OverworldCanvas({
     if (!ctx) return;
 
     ctx.imageSmoothingEnabled = false;
-    renderFrame(ctx, map, tileset, player, npcs, camera, 1, GBA_WIDTH, GBA_HEIGHT, connectedMaps);
-  }, [map, tileset, player, npcs, camera, connectedMaps]);
+    renderFrame(ctx, map, tileset, player, npcs, camera, 1, GBA_WIDTH, GBA_HEIGHT, connectedMaps, remotePlayers);
+  }, [map, tileset, player, npcs, camera, connectedMaps, remotePlayers]);
 
   useEffect(() => {
     let running = true;

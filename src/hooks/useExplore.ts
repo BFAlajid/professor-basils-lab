@@ -1,4 +1,4 @@
-import { useReducer, useCallback, useRef, useEffect } from "react";
+import { useReducer, useCallback, useRef, useEffect, useState } from "react";
 import type {
   ExploreState,
   ExploreAction,
@@ -140,9 +140,17 @@ function exploreReducer(
         },
       };
 
+    case "COMPLETE_DIALOG_LINE":
+      if (!state.dialog || state.dialog.isComplete) return state;
+      return {
+        ...state,
+        dialog: { ...state.dialog, isComplete: true },
+      };
+
     case "ADVANCE_DIALOG":
       if (!state.dialog) return state;
       if (!state.dialog.isComplete) {
+        // User pressed advance while typing — skip to full line
         return {
           ...state,
           dialog: { ...state.dialog, isComplete: true },
@@ -154,6 +162,7 @@ function exploreReducer(
           dialog: {
             ...state.dialog,
             currentLine: state.dialog.currentLine + 1,
+            charIndex: 0,
             isComplete: false,
           },
         };
@@ -276,8 +285,8 @@ export interface ConnectedMap {
 export function useExplore() {
   const [state, dispatch] = useReducer(exploreReducer, initialState);
   const romBufferRef = useRef<Uint8Array | null>(null);
-  const tilesetRef = useRef<CachedTileset | null>(null);
-  const connectedMapsRef = useRef<ConnectedMap[]>([]);
+  const [tileset, setTileset] = useState<CachedTileset | null>(null);
+  const [connectedMaps, setConnectedMaps] = useState<ConnectedMap[]>([]);
 
   const camera = useExploreCamera(
     state.player,
@@ -297,12 +306,12 @@ export function useExplore() {
       }
 
       // Decode tileset for this map
-      const tileset = decodeTileset(
+      const ts = decodeTileset(
         buffer,
         mapData.map.primaryTilesetPtr,
         mapData.map.secondaryTilesetPtr
       );
-      tilesetRef.current = tileset;
+      setTileset(ts);
 
       // Preload player + NPC sprites
       decodeSprite(buffer, 0);
@@ -334,7 +343,7 @@ export function useExplore() {
           });
         }
       }
-      connectedMapsRef.current = connected;
+      setConnectedMaps(connected);
 
       if (startX !== undefined && startY !== undefined) {
         dispatch({ type: "SET_POSITION", x: startX, y: startY });
@@ -381,6 +390,7 @@ export function useExplore() {
   // Handle grass step encounter check
   const onGrassStep = useCallback(
     (encounterRate: number) => {
+      if (state.isTransitioning || state.isBattleTransitioning) return;
       if (state.encounterCooldown < 3) return;
 
       const roll = Math.random();
@@ -409,7 +419,7 @@ export function useExplore() {
         }, 600);
       }
     },
-    [state.encounterCooldown, state.currentMap]
+    [state.encounterCooldown, state.currentMap, state.isTransitioning, state.isBattleTransitioning]
   );
 
   // Handle NPC interaction
@@ -422,7 +432,7 @@ export function useExplore() {
   );
 
   // Set up movement
-  useExploreMovement(state, dispatch, tilesetRef.current, {
+  useExploreMovement(state, dispatch, tileset, {
     onWarp,
     onGrassStep,
     onNpcInteract,
@@ -518,8 +528,8 @@ export function useExplore() {
   return {
     state,
     camera,
-    tileset: tilesetRef.current,
-    connectedMaps: connectedMapsRef.current,
+    tileset,
+    connectedMaps,
     loadRomFromFile,
     endBattle,
     dispatch,

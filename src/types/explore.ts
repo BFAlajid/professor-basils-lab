@@ -182,6 +182,7 @@ export type ExploreAction =
   | { type: "SET_ANIM_FRAME"; frame: number }
   | { type: "START_DIALOG"; lines: string[]; onClose?: () => void }
   | { type: "ADVANCE_DIALOG" }
+  | { type: "COMPLETE_DIALOG_LINE" }
   | { type: "CLOSE_DIALOG" }
   | { type: "START_TRANSITION" }
   | { type: "END_TRANSITION" }

@@ -6,11 +6,12 @@ import type { DialogState } from "@/types/explore";
 interface DialogBoxProps {
   dialog: DialogState;
   onAdvance: () => void;
+  onLineComplete?: () => void;
 }
 
 const CHARS_PER_SEC = 30;
 
-export default function DialogBox({ dialog, onAdvance }: DialogBoxProps) {
+export default function DialogBox({ dialog, onAdvance, onLineComplete }: DialogBoxProps) {
   const [displayedText, setDisplayedText] = useState("");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentLine = dialog.lines[dialog.currentLine] ?? "";
@@ -29,14 +30,14 @@ export default function DialogBox({ dialog, onAdvance }: DialogBoxProps) {
       setDisplayedText(currentLine.slice(0, charIdx));
       if (charIdx >= currentLine.length) {
         if (intervalRef.current) clearInterval(intervalRef.current);
-        onAdvance(); // mark line complete
+        onLineComplete?.();
       }
     }, 1000 / CHARS_PER_SEC);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [dialog.currentLine, dialog.isComplete, currentLine, onAdvance]);
+  }, [dialog.currentLine, dialog.isComplete, currentLine, onLineComplete]);
 
   return (
     <div

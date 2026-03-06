@@ -3,6 +3,7 @@ import { TILE_SIZE } from "@/types/explore";
 import type { CachedTileset } from "./tileCache";
 import { getSpriteFrame } from "./spriteCache";
 import type { ConnectedMap } from "@/hooks/useExplore";
+import type { RemotePlayer } from "@/hooks/useOverworldPresence";
 
 interface Camera {
   x: number;
@@ -113,7 +114,8 @@ export function renderFrame(
   scale: number,
   viewWidth: number,
   viewHeight: number,
-  connectedMaps: ConnectedMap[] = []
+  connectedMaps: ConnectedMap[] = [],
+  remotePlayers?: Map<string, RemotePlayer>
 ): void {
   const tilePixels = TILE_SIZE * scale;
   const { width, height, grid } = map.map;
@@ -186,6 +188,37 @@ export function renderFrame(
         (TILE_SIZE - 4) * scale,
         (TILE_SIZE - 4) * scale
       );
+    }
+  }
+
+  // Draw remote players (other players in multiplayer)
+  if (remotePlayers && remotePlayers.size > 0) {
+    const sortedRemote = [...remotePlayers.values()].sort((a, b) => a.y - b.y);
+    for (const rp of sortedRemote) {
+      const rpScreenX = (rp.x * TILE_SIZE - camera.x) * scale;
+      const rpScreenY = ((rp.y - 1) * TILE_SIZE - camera.y) * scale;
+
+      // Try to render sprite; fall back to colored square
+      const frame = getSpriteFrame(rp.spriteId || 0, rp.direction, rp.isMoving ? 1 : 0);
+      if (frame) {
+        ctx.drawImage(frame, rpScreenX, rpScreenY, frame.width * scale, frame.height * scale);
+      } else {
+        const px = (rp.x * TILE_SIZE - camera.x) * scale;
+        const py = (rp.y * TILE_SIZE - camera.y) * scale;
+        ctx.fillStyle = "#5b6ee1";
+        ctx.fillRect(px + 2 * scale, py + 2 * scale, (TILE_SIZE - 4) * scale, (TILE_SIZE - 4) * scale);
+      }
+
+      // Name tag above sprite
+      const nameX = (rp.x * TILE_SIZE - camera.x + TILE_SIZE / 2) * scale;
+      const nameY = ((rp.y - 1) * TILE_SIZE - camera.y - 2) * scale;
+      ctx.font = `${Math.max(6, 7 * scale)}px monospace`;
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+      const textWidth = ctx.measureText(rp.displayName).width;
+      ctx.fillRect(nameX - textWidth / 2 - 2, nameY - 7 * scale, textWidth + 4, 8 * scale);
+      ctx.fillStyle = "#f0f0e8";
+      ctx.fillText(rp.displayName, nameX, nameY);
     }
   }
 

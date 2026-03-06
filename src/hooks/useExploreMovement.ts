@@ -59,6 +59,10 @@ export function useExploreMovement(
   const keysDown = useRef(new Set<string>());
   const movingRef = useRef(false);
   const animIntervalRef = useRef<number | null>(null);
+  const currentMapRef = useRef(state.currentMap);
+  const callbacksRef = useRef(callbacks);
+  currentMapRef.current = state.currentMap;
+  callbacksRef.current = callbacks;
 
   const canMoveTo = useCallback(
     (map: FullMapData, x: number, y: number): boolean => {
@@ -83,8 +87,11 @@ export function useExploreMovement(
 
   const getBehavior = useCallback(
     (map: FullMapData, x: number, y: number): number => {
-      const { width, grid } = map.map;
-      const cell = grid[y * width + x];
+      const { width, height, grid } = map.map;
+      if (x < 0 || y < 0 || x >= width || y >= height) return 0;
+      const idx = y * width + x;
+      if (idx >= grid.length) return 0;
+      const cell = grid[idx];
       if (tileset && cell.metatileId < tileset.behaviors.length) {
         return tileset.behaviors[cell.metatileId];
       }
@@ -106,7 +113,7 @@ export function useExploreMovement(
         const warp = map.warps.find((w) => w.x === x && w.y === y);
         if (warp) {
           playWarp();
-          callbacks.onWarp(warp);
+          callbacksRef.current.onWarp(warp);
           return;
         }
       }
@@ -116,11 +123,11 @@ export function useExploreMovement(
         playGrassStep();
         const rate = map.encounters?.land?.encounterRate ?? 0;
         if (rate > 0) {
-          callbacks.onGrassStep(rate);
+          callbacksRef.current.onGrassStep(rate);
         }
       }
     },
-    [getBehavior, callbacks]
+    [getBehavior]
   );
 
   const move = useCallback(
@@ -128,7 +135,9 @@ export function useExploreMovement(
       if (
         movingRef.current ||
         !state.currentMap ||
-        state.phase !== "exploring"
+        state.phase !== "exploring" ||
+        state.isTransitioning ||
+        state.isBattleTransitioning
       ) {
         if (!movingRef.current) {
           dispatch({ type: "SET_DIRECTION", direction });
@@ -200,8 +209,9 @@ export function useExploreMovement(
           dispatch({ type: "MOVE_COMPLETE" });
           movingRef.current = false;
 
-          if (state.currentMap) {
-            checkTileActions(state.currentMap, targetX, targetY);
+          const mapNow = currentMapRef.current;
+          if (mapNow) {
+            checkTileActions(mapNow, targetX, targetY);
           }
         }
       };
@@ -222,9 +232,9 @@ export function useExploreMovement(
       (n) => n.x === facingX && n.y === facingY
     );
     if (npc) {
-      callbacks.onNpcInteract(npc);
+      callbacksRef.current.onNpcInteract(npc);
     }
-  }, [state, callbacks]);
+  }, [state]);
 
   // Keyboard input
   useEffect(() => {
@@ -304,7 +314,7 @@ export function useExploreMovement(
 
   // Continuous movement when holding direction keys
   useEffect(() => {
-    if (movingRef.current || state.phase !== "exploring") return;
+    if (movingRef.current || state.phase !== "exploring" || state.isTransitioning || state.isBattleTransitioning) return;
 
     const directions: [string[], Direction][] = [
       [["ArrowUp", "KeyW"], "up"],

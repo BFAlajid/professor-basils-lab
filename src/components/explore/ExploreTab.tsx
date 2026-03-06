@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { TeamSlot } from "@/types";
 import { useExplore } from "@/hooks/useExplore";
+import { useOverworldPresence } from "@/hooks/useOverworldPresence";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import RomPrompt from "./RomPrompt";
 import OverworldCanvas from "./OverworldCanvas";
@@ -21,10 +22,16 @@ interface ExploreTabProps {
 export default function ExploreTab({ team }: ExploreTabProps) {
   const { state, camera, tileset, connectedMaps, loadRomFromFile, endBattle, dispatch } =
     useExplore();
+  const presence = useOverworldPresence();
   const { incrementStat } = useAchievementsContext();
 
   const advanceDialog = useCallback(
     () => dispatch({ type: "ADVANCE_DIALOG" }),
+    [dispatch]
+  );
+
+  const completeDialogLine = useCallback(
+    () => dispatch({ type: "COMPLETE_DIALOG_LINE" }),
     [dispatch]
   );
 
@@ -33,6 +40,28 @@ export default function ExploreTab({ team }: ExploreTabProps) {
     const { group, num } = state.currentMap.map;
     return `Map ${group}-${num}`;
   }, [state.currentMap]);
+
+  // Overworld presence: join/leave map channel on map change
+  useEffect(() => {
+    if (state.currentMap && state.phase === "exploring") {
+      const mapId = `${state.currentMap.map.group}-${state.currentMap.map.num}`;
+      presence.joinMap(mapId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.currentMap?.map.group, state.currentMap?.map.num, state.phase]);
+
+  // Overworld presence: broadcast position on movement
+  useEffect(() => {
+    if (state.phase === "exploring" && state.currentMap) {
+      presence.updatePosition(
+        state.player.x,
+        state.player.y,
+        state.player.direction,
+        state.player.isMoving
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.player.x, state.player.y, state.player.direction, state.player.isMoving, state.phase]);
 
   // Track steps walked for achievements
   const prevCooldown = useRef(state.encounterCooldown);
@@ -113,6 +142,7 @@ export default function ExploreTab({ team }: ExploreTabProps) {
           npcs={state.currentMap?.npcs ?? []}
           camera={camera}
           connectedMaps={connectedMaps}
+          remotePlayers={presence.remotePlayers}
         />
 
         {/* Weather effects */}
@@ -135,6 +165,7 @@ export default function ExploreTab({ team }: ExploreTabProps) {
           <DialogBox
             dialog={state.dialog}
             onAdvance={advanceDialog}
+            onLineComplete={completeDialogLine}
           />
         )}
 
