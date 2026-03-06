@@ -4,16 +4,10 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { fetchEvolutionChain, EvolutionNode } from "@/utils/evolutionChain";
+import { formatName } from "@/utils/format";
 
 interface EvolutionTreeViewerProps {
   pokemonId: number;
-}
-
-function formatName(name: string): string {
-  return name
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 }
 
 function getSpriteUrl(id: number): string {

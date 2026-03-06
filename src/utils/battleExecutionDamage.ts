@@ -23,6 +23,353 @@ import {
   applyFieldEffect,
 } from "./battleHelpers";
 
+const DAMAGE_ROLL_MIN = 0.85;
+const DAMAGE_ROLL_RANGE = 0.15;
+const MULTI_HIT_2 = 0.35;
+const MULTI_HIT_3 = 0.70;
+const MULTI_HIT_4 = 0.85;
+
+type MoveData = ReturnType<typeof getBattleMove>;
+
+function resolveAccuracy(
+  state: BattleState,
+  attacker: BattlePokemon,
+  defender: BattlePokemon,
+  moveData: MoveData,
+  originalMoveName: string,
+  isDynamaxMove: boolean,
+  log: BattleLogEntry[]
+): boolean {
+  if (isDynamaxMove) return true;
+
+  let accuracy = moveData.accuracy ?? 100;
+
+  const weatherAccuracyMoves = ["thunder", "hurricane"];
+  if (weatherAccuracyMoves.includes(originalMoveName) && state.field.weather) {
+    if (state.field.weather === "rain") accuracy = 100;
+    else if (state.field.weather === "sun") accuracy = 50;
+  }
+
+  const accMod = getStatStageMultiplier(attacker.statStages.accuracy) /
+                 getStatStageMultiplier(defender.statStages.evasion);
+  if (Math.random() * 100 >= accuracy * accMod) {
+    log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name}'s attack missed!`, kind: "miss" });
+    return false;
+  }
+
+  return true;
+}
+
+function resolveMultiHit(moveData: MoveData): number {
+  const minHits = moveData.meta?.min_hits ?? null;
+  const maxHits = moveData.meta?.max_hits ?? null;
+  let hitCount = 1;
+  if (minHits && maxHits && maxHits > 1) {
+    if (minHits === maxHits) {
+      hitCount = minHits;
+    } else {
+      const roll = Math.random();
+      if (roll < MULTI_HIT_2) hitCount = 2;
+      else if (roll < MULTI_HIT_3) hitCount = 3;
+      else if (roll < MULTI_HIT_4) hitCount = 4;
+      else hitCount = 5;
+      hitCount = Math.min(hitCount, maxHits);
+    }
+  }
+  return hitCount;
+}
+
+function applyDamageLoop(
+  state: BattleState,
+  attacker: BattlePokemon,
+  defender: BattlePokemon,
+  defenderPlayer: "player1" | "player2",
+  defenderTeam: BattleState["player1"],
+  result: { max: number; isCritical: boolean; effectiveness: number },
+  hitCount: number,
+  isCritical: boolean,
+  moveData: MoveData,
+  defenderAbility: ReturnType<typeof getAbilityHooks>,
+  log: BattleLogEntry[]
+): { state: BattleState; newDefender: BattlePokemon; totalDamage: number } {
+  let totalDamage = 0;
+  let newDefender = { ...defender };
+  let firstHitSurvivalUsed = false;
+
+  for (let hit = 0; hit < hitCount; hit++) {
+    if (newDefender.isFainted) break;
+
+    const hitCritical = hitCount > 1 ? Math.random() < (1 / 16) : isCritical;
+    const hitRandomFactor = DAMAGE_ROLL_MIN + Math.random() * DAMAGE_ROLL_RANGE;
+    let hitDamage = Math.max(1, Math.floor(result.max * hitRandomFactor));
+
+    // Ability: Multiscale halves damage at full HP (only applies on first hit)
+    if (hit === 0 && defenderAbility?.modifyIncomingDamage) {
+      const multiscaleResult = defenderAbility.modifyIncomingDamage({
+        defender: newDefender,
+        attacker,
+        moveType: moveData.type.name as TypeName,
+        movePower: moveData.power ?? 0,
+      });
+      if (multiscaleResult && multiscaleResult.multiplier > 0 && multiscaleResult.multiplier < 1) {
+        hitDamage = Math.max(1, Math.floor(hitDamage * multiscaleResult.multiplier));
+        if (multiscaleResult.message) {
+          log.push({ turn: state.turn, message: multiscaleResult.message, kind: "status" });
+        }
+      }
+    }
+
+    const newHp = Math.max(0, newDefender.currentHp - hitDamage);
+    newDefender = { ...newDefender, currentHp: newHp };
+
+    // Ability: modifySurvival (Sturdy)
+    if (newHp <= 0 && !firstHitSurvivalUsed && defenderAbility?.modifySurvival) {
+      const survivalResult = defenderAbility.modifySurvival({ pokemon: defender, incomingDamage: hitDamage });
+      if (survivalResult) {
+        newDefender = { ...newDefender, currentHp: survivalResult.surviveWithHp };
+        firstHitSurvivalUsed = true;
+        if (survivalResult.message) {
+          log.push({ turn: state.turn, message: survivalResult.message, kind: "info" });
+        }
+      }
+    }
+
+    // Focus Sash check
+    if (newDefender.currentHp <= 0 && !firstHitSurvivalUsed && defender.currentHp === defender.maxHp && defender.slot.heldItem === "focus-sash") {
+      newDefender = { ...newDefender, currentHp: 1 };
+      firstHitSurvivalUsed = true;
+      log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} hung on using its Focus Sash!`, kind: "info" });
+    }
+
+    if (newDefender.currentHp <= 0) {
+      newDefender = { ...newDefender, currentHp: 0, isFainted: true, isActive: false };
+    }
+
+    totalDamage += hitDamage;
+  }
+
+  // Log damage
+  if (hitCount > 1) {
+    log.push({
+      turn: state.turn,
+      message: `Hit ${hitCount} time(s) for ${totalDamage} total damage! (${Math.round((newDefender.currentHp / defender.maxHp) * 100)}% HP remaining)`,
+      kind: "damage",
+    });
+  } else {
+    log.push({
+      turn: state.turn,
+      message: `${defender.slot.pokemon.name} took ${totalDamage} damage! (${Math.round((newDefender.currentHp / defender.maxHp) * 100)}% HP remaining)`,
+      kind: "damage",
+    });
+  }
+
+  if (result.isCritical && hitCount === 1) {
+    log.push({ turn: state.turn, message: "A critical hit!", kind: "critical" });
+  }
+  if (result.effectiveness > 1) {
+    log.push({ turn: state.turn, message: "It's super effective!", kind: "damage" });
+  } else if (result.effectiveness < 1) {
+    log.push({ turn: state.turn, message: "It's not very effective...", kind: "damage" });
+  }
+
+  if (newDefender.isFainted) {
+    log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} fainted!`, kind: "faint" });
+  }
+
+  state = updatePokemon(state, defenderPlayer, defenderTeam.activePokemonIndex, newDefender);
+
+  return { state, newDefender, totalDamage };
+}
+
+function applyRecoilDrain(
+  state: BattleState,
+  attackerPlayer: "player1" | "player2",
+  attacker: BattlePokemon,
+  originalName: string,
+  totalDamage: number,
+  log: BattleLogEntry[]
+): BattleState {
+  // Life Orb recoil
+  if (attacker.slot.heldItem === "life-orb" && totalDamage > 0) {
+    const recoil = Math.max(1, Math.floor(attacker.maxHp / 10));
+    const attackerAfterRecoil = {
+      ...getActivePokemon(state[attackerPlayer]),
+      currentHp: Math.max(0, getActivePokemon(state[attackerPlayer]).currentHp - recoil),
+    };
+    if (attackerAfterRecoil.currentHp <= 0) {
+      attackerAfterRecoil.currentHp = 0;
+      attackerAfterRecoil.isFainted = true;
+      attackerAfterRecoil.isActive = false;
+      log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} was hurt by its Life Orb!`, kind: "damage" });
+      log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} fainted!`, kind: "faint" });
+    } else {
+      log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} was hurt by its Life Orb!`, kind: "damage" });
+    }
+    state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, attackerAfterRecoil);
+  }
+
+  // Recoil moves
+  const RECOIL_MOVES: Record<string, number> = {
+    "brave-bird": 1/3, "flare-blitz": 1/3, "double-edge": 1/3,
+    "wild-charge": 1/4, "take-down": 1/4, "submission": 1/4,
+    "head-smash": 1/2, "wood-hammer": 1/3,
+    "volt-tackle": 1/3, "wave-crash": 1/3, "light-of-ruin": 1/2,
+    "head-charge": 1/4, "struggle": 1/4,
+  };
+  const recoilFraction = RECOIL_MOVES[originalName];
+  if (recoilFraction && totalDamage > 0) {
+    const currentAttacker = getActivePokemon(state[attackerPlayer]);
+    const atkAbility = getAbilityHooks(currentAttacker.slot.ability);
+    if (!atkAbility?.preventIndirectDamage) {
+      const recoilDmg = Math.max(1, Math.floor(totalDamage * recoilFraction));
+      const newAtkHp = Math.max(0, currentAttacker.currentHp - recoilDmg);
+      let recoilAttacker = { ...currentAttacker, currentHp: newAtkHp };
+      log.push({ turn: state.turn, message: `${currentAttacker.slot.pokemon.name} was hurt by recoil!`, kind: "damage" });
+      if (newAtkHp <= 0) {
+        recoilAttacker = { ...recoilAttacker, currentHp: 0, isFainted: true, isActive: false };
+        log.push({ turn: state.turn, message: `${currentAttacker.slot.pokemon.name} fainted!`, kind: "faint" });
+      }
+      state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, recoilAttacker);
+    }
+  }
+
+  // Drain moves
+  const DRAIN_MOVES: Record<string, number> = {
+    "giga-drain": 0.5, "drain-punch": 0.5, "horn-leech": 0.5,
+    "absorb": 0.5, "mega-drain": 0.5, "leech-life": 0.5,
+    "parabolic-charge": 0.5, "draining-kiss": 0.75,
+    "oblivion-wing": 0.75, "bouncy-bubble": 0.5,
+  };
+  const drainFraction = DRAIN_MOVES[originalName];
+  if (drainFraction && totalDamage > 0) {
+    const currentAttacker = getActivePokemon(state[attackerPlayer]);
+    if (!currentAttacker.isFainted) {
+      const healAmount = Math.max(1, Math.floor(totalDamage * drainFraction));
+      const newAtkHp = Math.min(currentAttacker.maxHp, currentAttacker.currentHp + healAmount);
+      state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, { ...currentAttacker, currentHp: newAtkHp });
+      log.push({ turn: state.turn, message: `${currentAttacker.slot.pokemon.name} restored HP!`, kind: "heal" });
+    }
+  }
+
+  return state;
+}
+
+function applySecondaryEffects(
+  state: BattleState,
+  attackerPlayer: "player1" | "player2",
+  defenderPlayer: "player1" | "player2",
+  attacker: BattlePokemon,
+  defender: BattlePokemon,
+  moveData: MoveData,
+  moveIndex: number,
+  originalName: string,
+  isDynamaxMove: boolean,
+  totalDamage: number,
+  newDefender: BattlePokemon,
+  log: BattleLogEntry[]
+): BattleState {
+  // Apply Max Move field effects
+  if (isDynamaxMove && totalDamage > 0) {
+    const maxEffect = getMaxMoveEffect(moveData.name);
+    if (maxEffect) {
+      if (maxEffect.type === "weather" || maxEffect.type === "terrain") {
+        state = applyFieldEffect(state, maxEffect, log);
+      } else if (maxEffect.type === "stat_boost") {
+        const active = getActivePokemon(state[attackerPlayer]);
+        const statKey = maxEffect.stat as keyof StatStages;
+        const oldStage = active.statStages[statKey] ?? 0;
+        const newStage = Math.min(6, oldStage + 1);
+        if (newStage !== oldStage) {
+          const updatedStages = { ...active.statStages, [statKey]: newStage };
+          state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, { ...active, statStages: updatedStages });
+          log.push({ turn: state.turn, message: `${active.slot.pokemon.name}'s ${maxEffect.stat} rose!`, kind: "status" });
+        }
+      } else if (maxEffect.type === "stat_drop") {
+        const target = getActivePokemon(state[defenderPlayer]);
+        if (!target.isFainted) {
+          const statKey = maxEffect.stat as keyof StatStages;
+          const oldStage = target.statStages[statKey] ?? 0;
+          const newStage = Math.max(-6, oldStage - 1);
+          if (newStage !== oldStage) {
+            const updatedStages = { ...target.statStages, [statKey]: newStage };
+            state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...target, statStages: updatedStages });
+            log.push({ turn: state.turn, message: `${target.slot.pokemon.name}'s ${maxEffect.stat} fell!`, kind: "status" });
+          }
+        }
+      }
+    }
+  }
+
+  // Apply secondary status effects from damaging moves
+  const moveInfo = getBattleMove(attacker, moveIndex);
+  if (moveInfo.meta?.ailment?.name && moveInfo.meta.ailment.name !== "none" && !newDefender.isFainted) {
+    const chance = moveInfo.meta.ailment_chance ?? 0;
+    if (chance === 0 || Math.random() * 100 < chance) {
+      const statusName = moveInfo.meta.ailment.name as string;
+      const statusMap: Record<string, StatusCondition> = {
+        "burn": "burn",
+        "paralysis": "paralyze",
+        "poison": "poison",
+        "freeze": "freeze",
+        "sleep": "sleep",
+        "toxic": "toxic",
+      };
+      const newStatus = statusMap[statusName];
+      if (newStatus && !newDefender.status) {
+        const defAbilitySecondary = getAbilityHooks(newDefender.slot.ability);
+        const statusBlocked = defAbilitySecondary?.preventStatus && defAbilitySecondary.preventStatus({ pokemon: newDefender, status: newStatus });
+        if (!statusBlocked) {
+          newDefender = { ...newDefender, status: newStatus };
+          if (newStatus === "sleep") {
+            newDefender.sleepTurns = 1 + Math.floor(Math.random() * 3);
+          }
+          log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} was ${getStatusText(newStatus)}!`, kind: "status" });
+          state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, newDefender);
+        }
+      }
+    }
+  }
+
+  // Fake Out flinch
+  if (originalName === "fake-out" && !newDefender.isFainted) {
+    const latestDefender = getActivePokemon(state[defenderPlayer]);
+    state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...latestDefender, isFlinched: true });
+  }
+
+  // Flinch chance from damaging moves
+  const FLINCH_MOVES: Record<string, number> = {
+    "iron-head": 30, "rock-slide": 30, "air-slash": 30,
+    "zen-headbutt": 20, "bite": 30, "dark-pulse": 20,
+    "waterfall": 20, "headbutt": 30, "icicle-crash": 30,
+    "stomp": 30, "snore": 30, "dragon-rush": 20,
+    "astonish": 30, "extrasensory": 10, "heart-stamp": 30,
+    "twister": 20, "needle-arm": 30, "sky-attack": 30,
+  };
+  const flinchChance = FLINCH_MOVES[originalName];
+  if (flinchChance && totalDamage > 0 && !newDefender.isFainted) {
+    if (Math.random() * 100 < flinchChance) {
+      const latestDefender = getActivePokemon(state[defenderPlayer]);
+      if (!latestDefender.isFainted) {
+        state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...latestDefender, isFlinched: true });
+      }
+    }
+  }
+
+  // U-turn / Volt Switch pivot
+  const PIVOT_MOVES = ["u-turn", "volt-switch", "flip-turn"];
+  if (PIVOT_MOVES.includes(originalName) && totalDamage > 0) {
+    const currentAttacker = getActivePokemon(state[attackerPlayer]);
+    if (!currentAttacker.isFainted) {
+      const hasSwitch = state[attackerPlayer].pokemon.some((p, i) => i !== state[attackerPlayer].activePokemonIndex && !p.isFainted);
+      if (hasSwitch) {
+        state = { ...state, pendingPivotSwitch: attackerPlayer };
+      }
+    }
+  }
+
+  return state;
+}
+
 export function executeDamagingMove(
   state: BattleState,
   attackerPlayer: "player1" | "player2",
@@ -117,22 +464,9 @@ export function executeDamagingMove(
     }
   );
 
-  // Accuracy check — Max Moves always hit
-  if (!isDynamaxMove) {
-    let accuracy = moveData.accuracy ?? 100;
-
-    const weatherAccuracyMoves = ["thunder", "hurricane"];
-    if (weatherAccuracyMoves.includes(originalMoveName) && state.field.weather) {
-      if (state.field.weather === "rain") accuracy = 100;
-      else if (state.field.weather === "sun") accuracy = 50;
-    }
-
-    const accMod = getStatStageMultiplier(attacker.statStages.accuracy) /
-                   getStatStageMultiplier(defender.statStages.evasion);
-    if (Math.random() * 100 >= accuracy * accMod) {
-      log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name}'s attack missed!`, kind: "miss" });
-      return state;
-    }
+  // Accuracy check
+  if (!resolveAccuracy(state, attacker, defender, moveData, originalMoveName, isDynamaxMove, log)) {
+    return state;
   }
 
   // Solar Beam power reduction in non-sun weather
@@ -186,108 +520,17 @@ export function executeDamagingMove(
     }
   }
 
-  // Determine hit count (multi-hit moves)
-  const minHits = moveData.meta?.min_hits ?? null;
-  const maxHits = moveData.meta?.max_hits ?? null;
-  let hitCount = 1;
-  if (minHits && maxHits && maxHits > 1) {
-    if (minHits === maxHits) {
-      hitCount = minHits;
-    } else {
-      const roll = Math.random();
-      if (roll < 0.35) hitCount = 2;
-      else if (roll < 0.70) hitCount = 3;
-      else if (roll < 0.85) hitCount = 4;
-      else hitCount = 5;
-      hitCount = Math.min(hitCount, maxHits);
-    }
-  }
+  // Multi-hit resolution
+  const hitCount = resolveMultiHit(moveData);
 
-  let totalDamage = 0;
-  let newDefender = { ...defender };
-  let firstHitSurvivalUsed = false;
-
-  for (let hit = 0; hit < hitCount; hit++) {
-    if (newDefender.isFainted) break;
-
-    const hitCritical = hitCount > 1 ? Math.random() < (1 / 16) : isCritical;
-    const hitRandomFactor = 0.85 + Math.random() * 0.15;
-    let hitDamage = Math.max(1, Math.floor(result.max * hitRandomFactor));
-
-    // Ability: Multiscale halves damage at full HP (only applies on first hit)
-    if (hit === 0 && defenderAbility?.modifyIncomingDamage) {
-      const multiscaleResult = defenderAbility.modifyIncomingDamage({
-        defender: newDefender,
-        attacker,
-        moveType: moveData.type.name as TypeName,
-        movePower: moveData.power ?? 0,
-      });
-      if (multiscaleResult && multiscaleResult.multiplier > 0 && multiscaleResult.multiplier < 1) {
-        hitDamage = Math.max(1, Math.floor(hitDamage * multiscaleResult.multiplier));
-        if (multiscaleResult.message) {
-          log.push({ turn: state.turn, message: multiscaleResult.message, kind: "status" });
-        }
-      }
-    }
-
-    const newHp = Math.max(0, newDefender.currentHp - hitDamage);
-    newDefender = { ...newDefender, currentHp: newHp };
-
-    // Ability: modifySurvival (Sturdy)
-    if (newHp <= 0 && !firstHitSurvivalUsed && defenderAbility?.modifySurvival) {
-      const survivalResult = defenderAbility.modifySurvival({ pokemon: defender, incomingDamage: hitDamage });
-      if (survivalResult) {
-        newDefender = { ...newDefender, currentHp: survivalResult.surviveWithHp };
-        firstHitSurvivalUsed = true;
-        if (survivalResult.message) {
-          log.push({ turn: state.turn, message: survivalResult.message, kind: "info" });
-        }
-      }
-    }
-
-    // Focus Sash check
-    if (newDefender.currentHp <= 0 && !firstHitSurvivalUsed && defender.currentHp === defender.maxHp && defender.slot.heldItem === "focus-sash") {
-      newDefender = { ...newDefender, currentHp: 1 };
-      firstHitSurvivalUsed = true;
-      log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} hung on using its Focus Sash!`, kind: "info" });
-    }
-
-    if (newDefender.currentHp <= 0) {
-      newDefender = { ...newDefender, currentHp: 0, isFainted: true, isActive: false };
-    }
-
-    totalDamage += hitDamage;
-  }
-
-  // Log damage
-  if (hitCount > 1) {
-    log.push({
-      turn: state.turn,
-      message: `Hit ${hitCount} time(s) for ${totalDamage} total damage! (${Math.round((newDefender.currentHp / defender.maxHp) * 100)}% HP remaining)`,
-      kind: "damage",
-    });
-  } else {
-    log.push({
-      turn: state.turn,
-      message: `${defender.slot.pokemon.name} took ${totalDamage} damage! (${Math.round((newDefender.currentHp / defender.maxHp) * 100)}% HP remaining)`,
-      kind: "damage",
-    });
-  }
-
-  if (result.isCritical && hitCount === 1) {
-    log.push({ turn: state.turn, message: "A critical hit!", kind: "critical" });
-  }
-  if (result.effectiveness > 1) {
-    log.push({ turn: state.turn, message: "It's super effective!", kind: "damage" });
-  } else if (result.effectiveness < 1) {
-    log.push({ turn: state.turn, message: "It's not very effective...", kind: "damage" });
-  }
-
-  if (newDefender.isFainted) {
-    log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} fainted!`, kind: "faint" });
-  }
-
-  state = updatePokemon(state, defenderPlayer, defenderTeam.activePokemonIndex, newDefender);
+  // Damage loop + logging
+  const damageResult = applyDamageLoop(
+    state, attacker, defender, defenderPlayer, defenderTeam,
+    result, hitCount, isCritical, moveData, defenderAbility, log
+  );
+  state = damageResult.state;
+  const newDefender = damageResult.newDefender;
+  const totalDamage = damageResult.totalDamage;
 
   // Ability: onAfterKO (Moxie, Beast Boost)
   if (newDefender.isFainted) {
@@ -315,166 +558,14 @@ export function executeDamagingMove(
     }
   }
 
-  // Life Orb recoil
-  if (attacker.slot.heldItem === "life-orb" && totalDamage > 0) {
-    const recoil = Math.max(1, Math.floor(attacker.maxHp / 10));
-    const attackerAfterRecoil = {
-      ...getActivePokemon(state[attackerPlayer]),
-      currentHp: Math.max(0, getActivePokemon(state[attackerPlayer]).currentHp - recoil),
-    };
-    if (attackerAfterRecoil.currentHp <= 0) {
-      attackerAfterRecoil.currentHp = 0;
-      attackerAfterRecoil.isFainted = true;
-      attackerAfterRecoil.isActive = false;
-      log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} was hurt by its Life Orb!`, kind: "damage" });
-      log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} fainted!`, kind: "faint" });
-    } else {
-      log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} was hurt by its Life Orb!`, kind: "damage" });
-    }
-    state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, attackerAfterRecoil);
-  }
+  // Life Orb recoil, recoil moves, drain moves
+  state = applyRecoilDrain(state, attackerPlayer, attacker, originalName, totalDamage, log);
 
-  // Apply Max Move field effects
-  if (isDynamaxMove && totalDamage > 0) {
-    const maxEffect = getMaxMoveEffect(moveData.name);
-    if (maxEffect) {
-      if (maxEffect.type === "weather" || maxEffect.type === "terrain") {
-        state = applyFieldEffect(state, maxEffect, log);
-      } else if (maxEffect.type === "stat_boost") {
-        const active = getActivePokemon(state[attackerPlayer]);
-        const statKey = maxEffect.stat as keyof StatStages;
-        const oldStage = active.statStages[statKey] ?? 0;
-        const newStage = Math.min(6, oldStage + 1);
-        if (newStage !== oldStage) {
-          const updatedStages = { ...active.statStages, [statKey]: newStage };
-          state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, { ...active, statStages: updatedStages });
-          log.push({ turn: state.turn, message: `${active.slot.pokemon.name}'s ${maxEffect.stat} rose!`, kind: "status" });
-        }
-      } else if (maxEffect.type === "stat_drop") {
-        const target = getActivePokemon(state[defenderPlayer]);
-        if (!target.isFainted) {
-          const statKey = maxEffect.stat as keyof StatStages;
-          const oldStage = target.statStages[statKey] ?? 0;
-          const newStage = Math.max(-6, oldStage - 1);
-          if (newStage !== oldStage) {
-            const updatedStages = { ...target.statStages, [statKey]: newStage };
-            state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...target, statStages: updatedStages });
-            log.push({ turn: state.turn, message: `${target.slot.pokemon.name}'s ${maxEffect.stat} fell!`, kind: "status" });
-          }
-        }
-      }
-    }
-  }
-
-  // Apply secondary status effects from damaging moves
-  const moveInfo = getBattleMove(attacker, moveIndex);
-  if (moveInfo.meta?.ailment?.name && moveInfo.meta.ailment.name !== "none" && !newDefender.isFainted) {
-    const chance = moveInfo.meta.ailment_chance ?? 0;
-    if (chance === 0 || Math.random() * 100 < chance) {
-      const statusName = moveInfo.meta.ailment.name as string;
-      const statusMap: Record<string, StatusCondition> = {
-        "burn": "burn",
-        "paralysis": "paralyze",
-        "poison": "poison",
-        "freeze": "freeze",
-        "sleep": "sleep",
-        "toxic": "toxic",
-      };
-      const newStatus = statusMap[statusName];
-      if (newStatus && !newDefender.status) {
-        const defAbilitySecondary = getAbilityHooks(newDefender.slot.ability);
-        const statusBlocked = defAbilitySecondary?.preventStatus && defAbilitySecondary.preventStatus({ pokemon: newDefender, status: newStatus });
-        if (!statusBlocked) {
-          newDefender = { ...newDefender, status: newStatus };
-          if (newStatus === "sleep") {
-            newDefender.sleepTurns = 1 + Math.floor(Math.random() * 3);
-          }
-          log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} was ${getStatusText(newStatus)}!`, kind: "status" });
-          state = updatePokemon(state, defenderPlayer, defenderTeam.activePokemonIndex, newDefender);
-        }
-      }
-    }
-  }
-
-  // Recoil moves
-  const RECOIL_MOVES: Record<string, number> = {
-    "brave-bird": 1/3, "flare-blitz": 1/3, "double-edge": 1/3,
-    "wild-charge": 1/4, "take-down": 1/4, "submission": 1/4,
-    "head-smash": 1/2, "wood-hammer": 1/3,
-    "volt-tackle": 1/3, "wave-crash": 1/3, "light-of-ruin": 1/2,
-    "head-charge": 1/4, "struggle": 1/4,
-  };
-  const recoilFraction = RECOIL_MOVES[originalName];
-  if (recoilFraction && totalDamage > 0) {
-    const currentAttacker = getActivePokemon(state[attackerPlayer]);
-    const atkAbility = getAbilityHooks(currentAttacker.slot.ability);
-    if (!atkAbility?.preventIndirectDamage) {
-      const recoilDmg = Math.max(1, Math.floor(totalDamage * recoilFraction));
-      const newAtkHp = Math.max(0, currentAttacker.currentHp - recoilDmg);
-      let recoilAttacker = { ...currentAttacker, currentHp: newAtkHp };
-      log.push({ turn: state.turn, message: `${currentAttacker.slot.pokemon.name} was hurt by recoil!`, kind: "damage" });
-      if (newAtkHp <= 0) {
-        recoilAttacker = { ...recoilAttacker, currentHp: 0, isFainted: true, isActive: false };
-        log.push({ turn: state.turn, message: `${currentAttacker.slot.pokemon.name} fainted!`, kind: "faint" });
-      }
-      state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, recoilAttacker);
-    }
-  }
-
-  // Drain moves
-  const DRAIN_MOVES: Record<string, number> = {
-    "giga-drain": 0.5, "drain-punch": 0.5, "horn-leech": 0.5,
-    "absorb": 0.5, "mega-drain": 0.5, "leech-life": 0.5,
-    "parabolic-charge": 0.5, "draining-kiss": 0.75,
-    "oblivion-wing": 0.75, "bouncy-bubble": 0.5,
-  };
-  const drainFraction = DRAIN_MOVES[originalName];
-  if (drainFraction && totalDamage > 0) {
-    const currentAttacker = getActivePokemon(state[attackerPlayer]);
-    if (!currentAttacker.isFainted) {
-      const healAmount = Math.max(1, Math.floor(totalDamage * drainFraction));
-      const newAtkHp = Math.min(currentAttacker.maxHp, currentAttacker.currentHp + healAmount);
-      state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, { ...currentAttacker, currentHp: newAtkHp });
-      log.push({ turn: state.turn, message: `${currentAttacker.slot.pokemon.name} restored HP!`, kind: "heal" });
-    }
-  }
-
-  // Fake Out flinch
-  if (originalName === "fake-out" && !newDefender.isFainted) {
-    const latestDefender = getActivePokemon(state[defenderPlayer]);
-    state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...latestDefender, isFlinched: true });
-  }
-
-  // Flinch chance from damaging moves
-  const FLINCH_MOVES: Record<string, number> = {
-    "iron-head": 30, "rock-slide": 30, "air-slash": 30,
-    "zen-headbutt": 20, "bite": 30, "dark-pulse": 20,
-    "waterfall": 20, "headbutt": 30, "icicle-crash": 30,
-    "stomp": 30, "snore": 30, "dragon-rush": 20,
-    "astonish": 30, "extrasensory": 10, "heart-stamp": 30,
-    "twister": 20, "needle-arm": 30, "sky-attack": 30,
-  };
-  const flinchChance = FLINCH_MOVES[originalName];
-  if (flinchChance && totalDamage > 0 && !newDefender.isFainted) {
-    if (Math.random() * 100 < flinchChance) {
-      const latestDefender = getActivePokemon(state[defenderPlayer]);
-      if (!latestDefender.isFainted) {
-        state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...latestDefender, isFlinched: true });
-      }
-    }
-  }
-
-  // U-turn / Volt Switch pivot
-  const PIVOT_MOVES = ["u-turn", "volt-switch", "flip-turn"];
-  if (PIVOT_MOVES.includes(originalName) && totalDamage > 0) {
-    const currentAttacker = getActivePokemon(state[attackerPlayer]);
-    if (!currentAttacker.isFainted) {
-      const hasSwitch = state[attackerPlayer].pokemon.some((p, i) => i !== state[attackerPlayer].activePokemonIndex && !p.isFainted);
-      if (hasSwitch) {
-        state = { ...state, pendingPivotSwitch: attackerPlayer };
-      }
-    }
-  }
+  // Max Move effects, secondary status, flinch, pivot moves
+  state = applySecondaryEffects(
+    state, attackerPlayer, defenderPlayer, attacker, defender,
+    moveData, moveIndex, originalName, isDynamaxMove, totalDamage, newDefender, log
+  );
 
   // Track last move used, reset consecutiveProtects, apply Choice lock
   const currentAttackerFinal = getActivePokemon(state[attackerPlayer]);

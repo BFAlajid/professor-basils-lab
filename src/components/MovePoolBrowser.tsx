@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Pokemon, TypeName } from "@/types";
 import { typeColors } from "@/data/typeColors";
+import { formatName } from "@/utils/format";
 
 type LearnMethod = "level-up" | "machine" | "egg" | "tutor";
 type SortKey = "level" | "power" | "type" | "name";
@@ -43,13 +44,6 @@ interface PokeAPIVersionGroupDetail {
 interface PokeAPIMoveRef {
   move: { name: string; url: string };
   version_group_details: PokeAPIVersionGroupDetail[];
-}
-
-function formatName(name: string): string {
-  return name
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 }
 
 function classifyMethod(method: string): LearnMethod {

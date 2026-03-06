@@ -9,6 +9,7 @@ import { usePokemonList } from "@/hooks/usePokemonList";
 import { fetchPokemon } from "@/hooks/usePokemon";
 import { calculateDamage, extractBaseStats } from "@/utils/damage";
 import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
+import { formatName } from "@/utils/format";
 import LoadingSpinner from "./LoadingSpinner";
 import TypeBadge from "./TypeBadge";
 
@@ -19,13 +20,6 @@ interface DamageMatrixProps {
 interface ThreatEntry {
   pokemon: Pokemon;
   moves: Move[];
-}
-
-function formatName(raw: string): string {
-  return raw
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 }
 
 async function fetchMoveData(moveName: string): Promise<Move> {

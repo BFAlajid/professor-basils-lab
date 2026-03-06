@@ -17,11 +17,15 @@ function TileCell({
   revealed,
   onClick,
   disabled,
+  row,
+  col,
 }: {
   value: number;
   revealed: boolean;
   onClick: () => void;
   disabled: boolean;
+  row: number;
+  col: number;
 }) {
   const colors: Record<number, { bg: string; text: string; label: string }> = {
     0: { bg: "#e8433f", text: "#f0f0e8", label: "V" },
@@ -36,6 +40,7 @@ function TileCell({
     <motion.button
       onClick={onClick}
       disabled={disabled || revealed}
+      aria-label={revealed ? (value === 0 ? `Voltorb at row ${row + 1} column ${col + 1}` : `Tile value ${value} at row ${row + 1} column ${col + 1}`) : `Flip tile row ${row + 1} column ${col + 1}`}
       className="relative w-full aspect-square rounded-md border-2 font-pixel text-sm flex items-center justify-center transition-colors select-none"
       style={{
         backgroundColor: revealed ? c.bg : "#262b44",
@@ -152,6 +157,7 @@ function PrizeShop({
               <button
                 onClick={() => onBuy(prize)}
                 disabled={!canAfford}
+                aria-label={`Buy ${prize.name} for ${prize.cost} coins`}
                 className="ml-2 px-2.5 py-1 rounded-md text-[9px] font-pixel transition-colors shrink-0"
                 style={{
                   backgroundColor: canAfford ? "#38b764" : "#3a4466",
@@ -259,6 +265,8 @@ export default function VoltorbFlip({ onAddToBox, onCoinsEarned }: VoltorbFlipPr
                           revealed={state.revealed[ri][ci]}
                           onClick={() => flipTile(ri, ci)}
                           disabled={!isPlaying}
+                          row={ri}
+                          col={ci}
                         />
                       ))
                     )}

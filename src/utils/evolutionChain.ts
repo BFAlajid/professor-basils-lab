@@ -1,4 +1,5 @@
 import { fetchSpeciesData } from "@/utils/pokeApiClient";
+import { formatName } from "@/utils/format";
 
 export interface EvolutionOption {
   targetSpeciesId: number;
@@ -60,13 +61,6 @@ function buildTriggerLabel(detail: PokeAPIEvolutionDetail): string {
   if (detail.trigger.name === "trade") parts.push("Trade");
   if (parts.length === 0) parts.push(formatName(detail.trigger.name));
   return parts.join(", ");
-}
-
-function formatName(name: string): string {
-  return name
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 }
 
 function parseChainLink(link: PokeAPIChainLink): EvolutionNode {

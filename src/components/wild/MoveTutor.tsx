@@ -144,6 +144,7 @@ export default function MoveTutor({ team, heartScales, onTeachMove, onSpendHeart
               <button
                 key={i}
                 onClick={() => setSelectedPokemon(i)}
+                aria-label={`Select ${slot.pokemon.name.replace(/-/g, " ")} for move tutoring`}
                 className="rounded-lg border border-[#3a4466] bg-[#262b44] p-2 text-center hover:border-[#f7a838] transition-colors"
               >
                 <p className="font-pixel text-[10px] text-[#f0f0e8] capitalize truncate">
@@ -172,6 +173,7 @@ export default function MoveTutor({ team, heartScales, onTeachMove, onSpendHeart
             </p>
             <button
               onClick={() => { setSelectedPokemon(null); setFilter(""); }}
+              aria-label="Back to Pokemon selection"
               className="font-pixel text-[8px] text-[#8b9bb4] hover:text-[#f0f0e8]"
             >
               Back
@@ -193,6 +195,7 @@ export default function MoveTutor({ team, heartScales, onTeachMove, onSpendHeart
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Search moves..."
+            aria-label="Search available moves"
             className="w-full mb-2 px-2 py-1 text-[9px] font-pixel rounded border border-[#3a4466] bg-[#262b44] text-[#f0f0e8] outline-none focus:border-[#f7a838]"
           />
 
@@ -246,6 +249,7 @@ export default function MoveTutor({ team, heartScales, onTeachMove, onSpendHeart
                       <button
                         onClick={() => handleTeach(move.name)}
                         disabled={isFull || noScales}
+                        aria-label={`Teach move ${move.name.replace(/-/g, " ")}`}
                         className="px-2 py-0.5 text-[8px] font-pixel rounded bg-[#4a90d9] text-[#f0f0e8] hover:bg-[#3a7dc4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                       >
                         {isFull ? "Full" : noScales ? "No Scales" : "Teach (1)"}

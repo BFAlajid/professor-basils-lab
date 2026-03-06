@@ -6,19 +6,13 @@ import Image from "@/components/PokeImage";
 import { TeamSlot, TypeName } from "@/types";
 import TypeBadge from "../TypeBadge";
 import ItemSprite from "@/components/ItemSprite";
+import { formatName } from "@/utils/format";
 
 interface TeamPreviewProps {
   player1Team: TeamSlot[];
   player2Team: TeamSlot[];
   onConfirm: (leadIndex: number) => void;
   isOnline?: boolean;
-}
-
-function formatName(raw: string): string {
-  return raw
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 }
 
 function PokemonPreviewCard({

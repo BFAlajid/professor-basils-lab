@@ -7,6 +7,7 @@ import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
 import { extractBaseStats } from "@/utils/damageWasm";
 import { usePokemonList } from "@/hooks/usePokemonList";
 import { fetchPokemon } from "@/hooks/usePokemon";
+import { formatName } from "@/utils/format";
 
 interface SpeedTierChartProps {
   team: TeamSlot[];
@@ -48,13 +49,6 @@ const MODIFIER_OPTIONS: { key: SpeedModifier; label: string; mult: number }[] = 
   { key: "paralyzed", label: "Paralyzed", mult: 0.5 },
   { key: "tailwind", label: "Tailwind", mult: 2 },
 ];
-
-function formatName(raw: string): string {
-  return raw
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
 
 export default function SpeedTierChart({ team }: SpeedTierChartProps) {
   const [modifier, setModifier] = useState<SpeedModifier>("base");

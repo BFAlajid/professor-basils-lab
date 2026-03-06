@@ -1,4 +1,5 @@
 import { fetchPokemonData, fetchSpeciesData, type PokemonSpeciesData } from "@/utils/pokeApiClient";
+import { formatName } from "@/utils/format";
 
 export interface EggMoveChain {
   moveName: string;
@@ -24,13 +25,6 @@ interface PokeAPIEggGroupMember {
 function extractId(url: string): number {
   const parts = url.replace(/\/$/, "").split("/");
   return parseInt(parts[parts.length - 1], 10);
-}
-
-function formatName(name: string): string {
-  return name
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 }
 
 export async function fetchEggMoves(pokemonId: number): Promise<EggMoveChain[]> {
