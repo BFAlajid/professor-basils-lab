@@ -3,6 +3,7 @@
 import { useReducer, useEffect, useCallback, useRef, useMemo, useState } from "react";
 import { ACHIEVEMENT_DEFINITIONS } from "@/data/achievementDefinitions";
 import { type PlayerStats, DEFAULT_STATS, statsReducer } from "./useAchievementsReducer";
+import { validatePlayerStats } from "@/utils/validatePlayerStats";
 
 export type { PlayerStats };
 
@@ -38,10 +39,26 @@ function loadFromStorage(): PersistedData | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as PersistedData;
+    const parsed = JSON.parse(raw);
+    if (parsed == null || typeof parsed !== "object") return null;
+    return {
+      stats: validatePlayerStats(parsed.stats),
+      unlockedIds: validateUnlockedIds(parsed.unlockedIds),
+    };
   } catch {
     return null;
   }
+}
+
+function validateUnlockedIds(raw: unknown): Record<string, string> {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const result: Record<string, string> = {};
+  for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof key === "string" && typeof val === "string") {
+      result[key] = val;
+    }
+  }
+  return result;
 }
 
 function saveToStorage(data: PersistedData): void {
@@ -70,7 +87,7 @@ export function useAchievements() {
 
     const saved = loadFromStorage();
     if (saved) {
-      dispatchStats({ type: "SET_STATS", stats: { ...DEFAULT_STATS, ...saved.stats } });
+      dispatchStats({ type: "SET_STATS", stats: saved.stats });
       setUnlockedMap(saved.unlockedIds ?? {});
     }
   }, []);

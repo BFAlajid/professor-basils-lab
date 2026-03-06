@@ -5,8 +5,9 @@ import type { BaseStats, EVSpread, IVSpread, Nature, StatKey } from "@/types";
 export { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 export type { CalculatedStats } from "./stats";
 import { getNatureModifier } from "@/data/natures";
+import { createWasmWrapper } from "./createWasmWrapper";
 
-let wasmModule: {
+type StatsWasmModule = {
   calculate_hp: (base: number, iv: number, ev: number, level: number) => number;
   calculate_stat: (base: number, iv: number, ev: number, nature_modifier: number, level: number) => number;
   calculate_all_stats: (
@@ -15,46 +16,24 @@ let wasmModule: {
     hp_ev: number, atk_ev: number, def_ev: number, spa_ev: number, spd_ev: number, spe_ev: number,
     atk_nature: number, def_nature: number, spa_nature: number, spd_nature: number, spe_nature: number,
   ) => Uint32Array;
-} | null = null;
+};
 
-let wasmInitPromise: Promise<boolean> | null = null;
-let wasmFailed = false;
+const wrapper = createWasmWrapper<StatsWasmModule>("pkmn-stats", async () => {
+  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
+  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-stats/pkg/pkmn_stats.js");
+  await mod.default("/wasm/pkmn_stats_bg.wasm");
+  return {
+    calculate_hp: mod.calculate_hp,
+    calculate_stat: mod.calculate_stat,
+    calculate_all_stats: mod.calculate_all_stats,
+  };
+});
 
-async function initWasm(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-
-  try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-stats/pkg/pkmn_stats.js");
-    await mod.default("/wasm/pkmn_stats_bg.wasm");
-    wasmModule = {
-      calculate_hp: mod.calculate_hp,
-      calculate_stat: mod.calculate_stat,
-      calculate_all_stats: mod.calculate_all_stats,
-    };
-    return true;
-  } catch (e) {
-    console.warn("[pkmn-stats] WASM init failed, using JS fallback:", e);
-    wasmFailed = true;
-    return false;
-  }
-}
-
-export async function ensureWasmReady(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-  if (!wasmInitPromise) {
-    wasmInitPromise = initWasm();
-  }
-  return wasmInitPromise;
-}
-
-export function isWasmActive(): boolean {
-  return wasmModule !== null;
-}
+export const ensureWasmReady = wrapper.ensureReady;
+export const isWasmActive = wrapper.isActive;
 
 export function calculateHP(base: number, iv: number, ev: number, level: number = 50): number {
+  const wasmModule = wrapper.getModule();
   if (wasmModule) {
     try {
       return wasmModule.calculate_hp(base, iv, ev, level);
@@ -74,6 +53,7 @@ export function calculateStat(
   level: number = 50
 ): number {
   const modifier = nature ? getNatureModifier(nature, statKey) : 1.0;
+  const wasmModule = wrapper.getModule();
   if (wasmModule) {
     try {
       return wasmModule.calculate_stat(base, iv, ev, modifier, level);
@@ -90,6 +70,7 @@ export function calculateAllStats(
   evs: EVSpread,
   nature: Nature | null
 ): CalculatedStats {
+  const wasmModule = wrapper.getModule();
   if (wasmModule) {
     try {
       const atkMod = nature ? getNatureModifier(nature, "attack") : 1.0;

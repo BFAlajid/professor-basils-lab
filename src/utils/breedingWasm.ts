@@ -20,46 +20,27 @@ function eggGroupToId(name: string): number {
   return EGG_GROUP_MAP[name] ?? 255;
 }
 
-let wasmModule: {
+import { createWasmWrapper } from "./createWasmWrapper";
+
+type BreedingWasmModule = {
   check_compatibility: (g1: Uint8Array, g2: Uint8Array, d1: boolean, d2: boolean) => number;
   inherit_ivs: (p1: Uint8Array, p2: Uint8Array, dk: boolean, seed: number) => Uint8Array;
   determine_offspring_nature: (n1: number, n2: number, ev: number, seed: number) => number;
-} | null = null;
+};
 
-let wasmInitPromise: Promise<boolean> | null = null;
-let wasmFailed = false;
+const wrapper = createWasmWrapper<BreedingWasmModule>("pkmn-breeding", async () => {
+  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
+  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-breeding/pkg/pkmn_breeding.js");
+  await mod.default("/wasm/pkmn_breeding_bg.wasm");
+  return {
+    check_compatibility: mod.check_compatibility,
+    inherit_ivs: mod.inherit_ivs,
+    determine_offspring_nature: mod.determine_offspring_nature,
+  };
+});
 
-async function initWasm(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-
-  try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-breeding/pkg/pkmn_breeding.js");
-    await mod.default("/wasm/pkmn_breeding_bg.wasm");
-    wasmModule = {
-      check_compatibility: mod.check_compatibility,
-      inherit_ivs: mod.inherit_ivs,
-      determine_offspring_nature: mod.determine_offspring_nature,
-    };
-    return true;
-  } catch (e) {
-    console.warn("[pkmn-breeding] WASM init failed, using JS fallback:", e);
-    wasmFailed = true;
-    return false;
-  }
-}
-
-export async function ensureWasmReady(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-  if (!wasmInitPromise) wasmInitPromise = initWasm();
-  return wasmInitPromise;
-}
-
-export function isWasmActive(): boolean {
-  return wasmModule !== null;
-}
+export const ensureWasmReady = wrapper.ensureReady;
+export const isWasmActive = wrapper.isActive;
 
 export function checkCompatibility(
   groups1: string[],
@@ -67,6 +48,7 @@ export function checkCompatibility(
   isDitto1: boolean,
   isDitto2: boolean,
 ): { compatible: boolean; message: string } {
+  const wasmModule = wrapper.getModule();
   if (wasmModule) {
     try {
       const g1 = new Uint8Array(groups1.map(eggGroupToId));
@@ -90,6 +72,7 @@ export function inheritIVs(
   p2: PCBoxPokemon,
   hasDestinyKnot: boolean,
 ): { stat: keyof IVSpread; fromParent: 1 | 2 }[] {
+  const wasmModule = wrapper.getModule();
   if (wasmModule) {
     try {
       const statKeys: (keyof IVSpread)[] = ["hp", "attack", "defense", "spAtk", "spDef", "speed"];
@@ -116,6 +99,7 @@ export function inheritNature(
   p2: PCBoxPokemon,
   everstoneHolder: 1 | 2 | null,
 ): { nature: Nature; from: 1 | 2 | "random" } {
+  const wasmModule = wrapper.getModule();
   if (wasmModule) {
     try {
       const n1 = NATURES.findIndex((n) => n.name === p1.nature.name);

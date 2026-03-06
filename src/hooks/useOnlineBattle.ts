@@ -2,6 +2,19 @@
 
 import { useReducer, useCallback, useRef, useEffect } from "react";
 import { OnlineState, OnlinePhase, OnlineMessage, TeamSlot, BattleTurnAction, PCBoxPokemon, LinkMode, LinkTradeState, TradeOffer } from "@/types";
+import {
+  validateOnlineMessage,
+  validateTeamSlots,
+  validateBattleTurnAction,
+  validatePCBoxPokemon,
+  validateSinglePCBoxPokemon,
+  validateTradeOffer,
+  validateLinkMode,
+} from "@/utils/validateOnlineMessage";
+
+const OPPONENT_ACTION_TIMEOUT_MS = 30_000;
+const MIN_MESSAGE_INTERVAL_MS = 50;
+const ESCROW_TIMEOUT_MS = 15_000;
 
 const initialTradeState: LinkTradeState = {
   mode: "idle",
@@ -99,12 +112,26 @@ function onlineReducer(state: OnlineState, action: OnlineAction): OnlineState {
 
 function generateRoomCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
+  const array = new Uint8Array(8);
+  crypto.getRandomValues(array);
+  return Array.from(array, b => chars[b % chars.length]).join("");
 }
+
+interface EscrowState {
+  mySent: PCBoxPokemon | null;
+  opponentSent: PCBoxPokemon | null;
+  myFinalized: boolean;
+  opponentFinalized: boolean;
+  timeout: ReturnType<typeof setTimeout> | null;
+}
+
+const initialEscrow: EscrowState = {
+  mySent: null,
+  opponentSent: null,
+  myFinalized: false,
+  opponentFinalized: false,
+  timeout: null,
+};
 
 export function useOnlineBattle() {
   const [state, dispatch] = useReducer(onlineReducer, initialState);
@@ -112,6 +139,25 @@ export function useOnlineBattle() {
   const connRef = useRef<import("peerjs").DataConnection | null>(null);
   const pingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const actionResolverRef = useRef<((action: BattleTurnAction) => void) | null>(null);
+  const actionRejectRef = useRef<((reason: Error) => void) | null>(null);
+  const lastMessageTimeRef = useRef<number>(0);
+  const escrowRef = useRef<EscrowState>({ ...initialEscrow });
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const resetEscrow = useCallback(() => {
+    if (escrowRef.current.timeout) clearTimeout(escrowRef.current.timeout);
+    escrowRef.current = { ...initialEscrow };
+  }, []);
+
+  // Finalize trade once both sides escrowed and both sides sent TRADE_FINALIZE
+  const tryFinalizeTrade = useCallback(() => {
+    const escrow = escrowRef.current;
+    if (escrow.opponentSent && escrow.myFinalized && escrow.opponentFinalized) {
+      dispatch({ type: "TRADE_DONE", received: escrow.opponentSent });
+      resetEscrow();
+    }
+  }, [resetEscrow]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -134,7 +180,16 @@ export function useOnlineBattle() {
     });
 
     conn.on("data", (raw) => {
-      const msg = raw as OnlineMessage;
+      const msg = validateOnlineMessage(raw);
+      if (!msg) return;
+
+      // Rate limit: drop non-heartbeat messages arriving too fast
+      const now = Date.now();
+      if (msg.type !== "PING" && msg.type !== "PONG") {
+        if (now - lastMessageTimeRef.current < MIN_MESSAGE_INTERVAL_MS) return;
+        lastMessageTimeRef.current = now;
+      }
+
       switch (msg.type) {
         case "PING":
           conn.send({ type: "PONG", payload: null, timestamp: Date.now() } as OnlineMessage);
@@ -143,16 +198,23 @@ export function useOnlineBattle() {
         case "PONG":
           dispatch({ type: "PING" });
           break;
-        case "TEAM_SUBMIT":
-          dispatch({ type: "OPPONENT_TEAM", team: msg.payload as TeamSlot[] });
+        case "TEAM_SUBMIT": {
+          const team = validateTeamSlots(msg.payload);
+          if (!team) return;
+          dispatch({ type: "OPPONENT_TEAM", team });
           break;
+        }
         case "ACTION":
-        case "FORCE_SWITCH_ACTION":
+        case "FORCE_SWITCH_ACTION": {
+          const action = validateBattleTurnAction(msg.payload);
+          if (!action) return;
           if (actionResolverRef.current) {
-            actionResolverRef.current(msg.payload as BattleTurnAction);
+            actionResolverRef.current(action);
             actionResolverRef.current = null;
+            actionRejectRef.current = null;
           }
           break;
+        }
         case "READY":
           dispatch({ type: "SET_PHASE", phase: "battling" });
           break;
@@ -160,15 +222,24 @@ export function useOnlineBattle() {
           dispatch({ type: "DISCONNECT" });
           break;
         // Trade messages
-        case "LINK_MODE":
-          dispatch({ type: "SET_LINK_MODE", mode: msg.payload as LinkMode });
+        case "LINK_MODE": {
+          const mode = validateLinkMode(msg.payload);
+          if (!mode) return;
+          dispatch({ type: "SET_LINK_MODE", mode });
           break;
-        case "PC_BOX_SHARE":
-          dispatch({ type: "RECEIVE_OPPONENT_BOX", box: msg.payload as PCBoxPokemon[] });
+        }
+        case "PC_BOX_SHARE": {
+          const box = validatePCBoxPokemon(msg.payload, 30);
+          if (!box) return;
+          dispatch({ type: "RECEIVE_OPPONENT_BOX", box });
           break;
-        case "TRADE_OFFER":
-          dispatch({ type: "RECEIVE_OPPONENT_OFFER", offer: msg.payload as TradeOffer });
+        }
+        case "TRADE_OFFER": {
+          const offer = validateTradeOffer(msg.payload);
+          if (!offer) return;
+          dispatch({ type: "RECEIVE_OPPONENT_OFFER", offer });
           break;
+        }
         case "TRADE_ACCEPT":
           dispatch({ type: "OPPONENT_ACCEPTED" });
           break;
@@ -178,20 +249,52 @@ export function useOnlineBattle() {
         case "TRADE_CONFIRM":
           dispatch({ type: "OPPONENT_CONFIRMED" });
           break;
-        case "TRADE_COMPLETE":
-          dispatch({ type: "TRADE_DONE", received: msg.payload as PCBoxPokemon });
+        case "TRADE_COMPLETE": {
+          const received = validateSinglePCBoxPokemon(msg.payload);
+          if (!received) return;
+          // VULN-07: verify received pokemon matches the previously agreed offer
+          const expectedId = stateRef.current.trade.opponentOffer?.pokemon?.pokemon?.id;
+          if (expectedId != null && received.pokemon.id !== expectedId) return;
+          dispatch({ type: "TRADE_DONE", received });
           break;
+        }
+        // Escrow-based trade messages (VULN-02 fix)
+        case "TRADE_ESCROW": {
+          const escrowed = validateSinglePCBoxPokemon(msg.payload);
+          if (!escrowed) return;
+          // Verify escrowed pokemon matches the agreed offer
+          const expectedEscrowId = stateRef.current.trade.opponentOffer?.pokemon?.pokemon?.id;
+          if (expectedEscrowId != null && escrowed.pokemon.id !== expectedEscrowId) return;
+          escrowRef.current.opponentSent = escrowed;
+          // If we already escrowed ours, send finalize
+          if (escrowRef.current.mySent && conn.open) {
+            escrowRef.current.myFinalized = true;
+            conn.send({ type: "TRADE_FINALIZE", payload: null, timestamp: Date.now() } as OnlineMessage);
+            tryFinalizeTrade();
+          }
+          break;
+        }
+        case "TRADE_FINALIZE": {
+          escrowRef.current.opponentFinalized = true;
+          tryFinalizeTrade();
+          break;
+        }
       }
     });
 
     conn.on("close", () => {
+      // If escrow is in progress and trade didn't complete, roll back
+      if (escrowRef.current.mySent && !escrowRef.current.opponentFinalized) {
+        resetEscrow();
+        dispatch({ type: "RESET_TRADE" });
+      }
       dispatch({ type: "DISCONNECT" });
     });
 
     conn.on("error", (err) => {
       dispatch({ type: "ERROR", error: err.message });
     });
-  }, []);
+  }, [tryFinalizeTrade, resetEscrow]);
 
   const createLobby = useCallback(async () => {
     const { default: Peer } = await import("peerjs");
@@ -309,14 +412,37 @@ export function useOnlineBattle() {
 
   const completeTrade = useCallback((sentPokemon: PCBoxPokemon) => {
     if (!connRef.current?.open) return;
-    connRef.current.send({ type: "TRADE_COMPLETE", payload: sentPokemon, timestamp: Date.now() } as OnlineMessage);
-  }, []);
+
+    // Reset any prior escrow state
+    resetEscrow();
+
+    // Phase 1: Send our pokemon into escrow
+    escrowRef.current.mySent = sentPokemon;
+    connRef.current.send({ type: "TRADE_ESCROW", payload: sentPokemon, timestamp: Date.now() } as OnlineMessage);
+
+    // If opponent already escrowed, send finalize immediately
+    if (escrowRef.current.opponentSent && connRef.current.open) {
+      escrowRef.current.myFinalized = true;
+      connRef.current.send({ type: "TRADE_FINALIZE", payload: null, timestamp: Date.now() } as OnlineMessage);
+      tryFinalizeTrade();
+    }
+
+    // 15-second timeout: roll back if escrow flow doesn't complete
+    escrowRef.current.timeout = setTimeout(() => {
+      if (!escrowRef.current.myFinalized || !escrowRef.current.opponentFinalized) {
+        resetEscrow();
+        dispatch({ type: "RESET_TRADE" });
+      }
+    }, ESCROW_TIMEOUT_MS);
+  }, [resetEscrow, tryFinalizeTrade]);
 
   const resetTrade = useCallback(() => {
+    resetEscrow();
     dispatch({ type: "RESET_TRADE" });
-  }, []);
+  }, [resetEscrow]);
 
   const disconnect = useCallback(() => {
+    resetEscrow();
     if (connRef.current?.open) {
       connRef.current.send({ type: "DISCONNECT", payload: null, timestamp: Date.now() } as OnlineMessage);
       connRef.current.close();
@@ -326,7 +452,7 @@ export function useOnlineBattle() {
     peerRef.current = null;
     connRef.current = null;
     dispatch({ type: "RESET" });
-  }, []);
+  }, [resetEscrow]);
 
   return {
     state,

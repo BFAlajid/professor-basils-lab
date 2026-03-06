@@ -6,8 +6,9 @@ import {
   shouldWildFlee as shouldWildFlee_JS,
   getStatusModifier,
 } from "./catchRate";
+import { createWasmWrapper } from "./createWasmWrapper";
 
-let wasmModule: {
+type CatchRateWasmModule = {
   calculate_catch_probability: (
     capture_rate: number,
     current_hp: number,
@@ -21,43 +22,20 @@ let wasmModule: {
     turn: number,
     seed: number,
   ) => number;
-} | null = null;
+};
 
-let wasmInitPromise: Promise<boolean> | null = null;
-let wasmFailed = false;
+const wrapper = createWasmWrapper<CatchRateWasmModule>("pkmn-catch-rate", async () => {
+  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
+  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-catch-rate/pkg/pkmn_catch_rate.js");
+  await mod.default("/wasm/pkmn_catch_rate_bg.wasm");
+  return {
+    calculate_catch_probability: mod.calculate_catch_probability,
+    should_wild_flee: mod.should_wild_flee,
+  };
+});
 
-async function initWasm(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-
-  try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-catch-rate/pkg/pkmn_catch_rate.js");
-    await mod.default("/wasm/pkmn_catch_rate_bg.wasm");
-    wasmModule = {
-      calculate_catch_probability: mod.calculate_catch_probability,
-      should_wild_flee: mod.should_wild_flee,
-    };
-    return true;
-  } catch (e) {
-    console.warn("[pkmn-catch-rate] WASM init failed, using JS fallback:", e);
-    wasmFailed = true;
-    return false;
-  }
-}
-
-export async function ensureWasmReady(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-  if (!wasmInitPromise) {
-    wasmInitPromise = initWasm();
-  }
-  return wasmInitPromise;
-}
-
-export function isWasmActive(): boolean {
-  return wasmModule !== null;
-}
+export const ensureWasmReady = wrapper.ensureReady;
+export const isWasmActive = wrapper.isActive;
 
 export function calculateCatchProbability(
   captureRate: number,
@@ -67,6 +45,7 @@ export function calculateCatchProbability(
   ball: BallType,
   context: CatchContext
 ): { shakeChecks: boolean[]; isCaught: boolean } {
+  const wasmModule = wrapper.getModule();
   if (wasmModule) {
     try {
       if (ball === "master-ball") {
@@ -103,6 +82,7 @@ export function calculateCatchProbability(
 }
 
 export function shouldWildFlee(captureRate: number, turn: number): boolean {
+  const wasmModule = wrapper.getModule();
   if (wasmModule) {
     try {
       return wasmModule.should_wild_flee(captureRate, turn, randomSeed()) > 0;

@@ -9,44 +9,25 @@ import {
 
 const STAT_KEYS: (keyof EVSpread)[] = ["hp", "attack", "defense", "spAtk", "spDef", "speed"];
 
-let wasmModule: {
+import { createWasmWrapper } from "./createWasmWrapper";
+
+type ShowdownWasmModule = {
   parse_showdown_paste: (input: string) => string;
   export_showdown_paste: (json: string) => string;
-} | null = null;
+};
 
-let wasmInitPromise: Promise<boolean> | null = null;
-let wasmFailed = false;
+const wrapper = createWasmWrapper<ShowdownWasmModule>("pkmn-showdown", async () => {
+  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
+  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-showdown/pkg/pkmn_showdown.js");
+  await mod.default("/wasm/pkmn_showdown_bg.wasm");
+  return {
+    parse_showdown_paste: mod.parse_showdown_paste,
+    export_showdown_paste: mod.export_showdown_paste,
+  };
+});
 
-async function initWasm(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-
-  try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-showdown/pkg/pkmn_showdown.js");
-    await mod.default("/wasm/pkmn_showdown_bg.wasm");
-    wasmModule = {
-      parse_showdown_paste: mod.parse_showdown_paste,
-      export_showdown_paste: mod.export_showdown_paste,
-    };
-    return true;
-  } catch (e) {
-    console.warn("[pkmn-showdown] WASM init failed, using JS fallback:", e);
-    wasmFailed = true;
-    return false;
-  }
-}
-
-export async function ensureWasmReady(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-  if (!wasmInitPromise) wasmInitPromise = initWasm();
-  return wasmInitPromise;
-}
-
-export function isWasmActive(): boolean {
-  return wasmModule !== null;
-}
+export const ensureWasmReady = wrapper.ensureReady;
+export const isWasmActive = wrapper.isActive;
 
 interface ParsedBlock {
   species: string;
@@ -60,6 +41,7 @@ interface ParsedBlock {
 }
 
 export async function importFromShowdown(text: string): Promise<TeamSlot[]> {
+  const wasmModule = wrapper.getModule();
   if (wasmModule) {
     try {
       const jsonStr = wasmModule.parse_showdown_paste(text);
@@ -113,6 +95,7 @@ export async function importFromShowdown(text: string): Promise<TeamSlot[]> {
 }
 
 export function exportToShowdown(team: TeamSlot[]): string {
+  const wasmModule = wrapper.getModule();
   if (wasmModule) {
     try {
       const data = team.map((slot) => ({

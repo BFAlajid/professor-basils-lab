@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { TeamSlot, BattleReplay, BattleMode, GenerationalMechanic, DifficultyLevel } from "@/types";
 import { useBattle } from "@/hooks/useBattle";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
+import { useBattleAchievements } from "@/hooks/useBattleAchievements";
 import { useTournament } from "@/hooks/useTournament";
 import { useOnlineBattle } from "@/hooks/useOnlineBattle";
 import { useBattleFacility } from "@/hooks/useBattleFacility";
@@ -41,15 +42,12 @@ export default function BattleTab({ team }: BattleTabProps) {
     saveReplay,
   } = useBattle();
 
-  const { recordBattleWin, recordBattleLoss, incrementStat, setBattleTowerStreak, addMoney, updateElo, stats } = useAchievementsContext();
+  const { addMoney, stats } = useAchievementsContext();
   const replayRecorder = useReplayRecorder();
   const tournament = useTournament();
   const online = useOnlineBattle();
   const facility = useBattleFacility();
   const factory = useBattleFactory();
-  const hasRecorded = useRef(false);
-  const prevLogLen = useRef(0);
-  const facilityRecorded = useRef(false);
   const [viewingReplay, setViewingReplay] = useState<BattleReplay | null>(null);
   const [replaySaved, setReplaySaved] = useState(false);
   const [activeBattleMode, setActiveBattleMode] = useState<"ai" | "pvp" | "tournament" | "online" | "facility" | "factory" | null>(null);
@@ -58,84 +56,22 @@ export default function BattleTab({ team }: BattleTabProps) {
   const isFacilityMode = activeBattleMode === "facility";
   const activeBattleState = isFacilityMode ? facility.battle.state : state;
 
-  // Record battle result exactly once when battle ends (non-facility)
+  // Track achievements, ELO, and combat stats
+  useBattleAchievements({
+    state,
+    activeBattleState,
+    activeBattleMode,
+    isFacilityMode,
+    tournament,
+    facility,
+  });
+
+  // Reset replaySaved when returning to setup
   useEffect(() => {
-    if (isFacilityMode) return;
-    if (state.phase === "ended" && !hasRecorded.current) {
-      hasRecorded.current = true;
-      if (state.winner === "player1") {
-        recordBattleWin();
-        updateElo(true);
-        if (activeBattleMode === "tournament") {
-          tournament.reportWin();
-        }
-      } else {
-        recordBattleLoss();
-        updateElo(false);
-        if (activeBattleMode === "tournament") {
-          tournament.reportLoss();
-        }
-      }
-    }
     if (state.phase === "setup") {
-      hasRecorded.current = false;
       setReplaySaved(false);
     }
-  }, [state.phase, state.winner, recordBattleWin, recordBattleLoss, updateElo, activeBattleMode, tournament, isFacilityMode]);
-
-  // Record facility battle result when facility battle ends
-  useEffect(() => {
-    if (!isFacilityMode) return;
-    const fBattle = facility.battle.state;
-    if (fBattle.phase === "ended" && !facilityRecorded.current) {
-      facilityRecorded.current = true;
-      const winner = fBattle.winner;
-      if (winner === "player1") {
-        recordBattleWin();
-      } else {
-        recordBattleLoss();
-      }
-      facility.handleBattleEnd(winner ?? "player2");
-
-      // Track E4 / Battle Tower / Gym achievements
-      if (winner === "player1") {
-        if (facility.facilityState.mode === "elite_four") {
-          const newWins = facility.facilityState.wins + 1;
-          if (newWins >= facility.facilityState.totalOpponents) {
-            incrementStat("eliteFourCleared", 1);
-            incrementStat("hallOfFameEntries", 1);
-          }
-        } else if (facility.facilityState.mode === "battle_tower") {
-          const newStreak = facility.facilityState.streak + 1;
-          setBattleTowerStreak(newStreak);
-        } else if (facility.facilityState.mode === "gym_challenge") {
-          incrementStat("gymBadgesEarned", 1);
-          const newWins = facility.facilityState.wins + 1;
-          if (newWins >= facility.facilityState.totalOpponents) {
-            incrementStat("hallOfFameEntries", 1);
-          }
-        }
-      }
-    }
-    if (fBattle.phase === "setup") {
-      facilityRecorded.current = false;
-    }
-  }, [facility.battle.state.phase, facility.battle.state.winner, isFacilityMode, facility, recordBattleWin, recordBattleLoss, incrementStat]);
-
-  // Track critical hits and super effective hits from active battle log
-  useEffect(() => {
-    if (activeBattleState.log.length > prevLogLen.current) {
-      const newEntries = activeBattleState.log.slice(prevLogLen.current);
-      const crits = newEntries.filter((e) => e.kind === "critical").length;
-      const supers = newEntries.filter((e) => e.message === "It's super effective!").length;
-      if (crits > 0) incrementStat("criticalHits", crits);
-      if (supers > 0) incrementStat("superEffectiveHits", supers);
-      prevLogLen.current = activeBattleState.log.length;
-    }
-    if (activeBattleState.phase === "setup") {
-      prevLogLen.current = 0;
-    }
-  }, [activeBattleState.log, activeBattleState.phase, incrementStat]);
+  }, [state.phase]);
 
   const handleSaveReplay = useCallback(() => {
     const replay = saveReplay(state);
@@ -320,21 +256,21 @@ export default function BattleTab({ team }: BattleTabProps) {
         onDeselect={factory.deselectRental}
         onConfirm={async () => {
           factory.confirmTeam();
-          await factory.generateOpponent();
-          // Start battle with factory team vs opponent
+          // Use returned value to avoid stale closure over factoryState
+          const opponentTeam = await factory.generateOpponent();
           const fState = factory.factoryState;
           const pTeam = fState.selectedIndices.map(i => fState.rentalPool[i]);
-          if (fState.opponentTeam.length > 0) {
-            startBattle(pTeam, fState.opponentTeam, "ai");
+          if (opponentTeam.length > 0) {
+            startBattle(pTeam, opponentTeam, "ai");
           }
         }}
         onSwap={factory.swapPokemon}
         onSkipSwap={async () => {
           factory.skipSwap();
-          await factory.generateOpponent();
-          const fState = factory.factoryState;
-          if (fState.opponentTeam.length > 0) {
-            startBattle(fState.playerTeam, fState.opponentTeam, "ai");
+          // Use returned value to avoid stale closure over factoryState
+          const opponentTeam = await factory.generateOpponent();
+          if (opponentTeam.length > 0) {
+            startBattle(factory.factoryState.playerTeam, opponentTeam, "ai");
           }
         }}
         onReset={() => {

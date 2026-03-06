@@ -206,8 +206,13 @@ export function statsReducer(state: PlayerStats, action: StatsAction): PlayerSta
       const newElo = Math.max(100, Math.round(state.eloRating + kFactor * (score - expected)));
       return { ...state, eloRating: newElo };
     }
-    case "SET_STATS":
-      return action.stats;
+    case "SET_STATS": {
+      // Defense in depth: reject if shape is clearly wrong
+      if (action.stats == null || typeof action.stats !== "object") return state;
+      const s = action.stats;
+      if (typeof s.eloRating !== "number" || typeof s.money !== "number") return state;
+      return s;
+    }
     default:
       return state;
   }
