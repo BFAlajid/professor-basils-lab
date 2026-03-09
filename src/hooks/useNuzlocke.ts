@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { NuzlockeState, NuzlockeGravePokemon, Pokemon } from "@/types";
 
 const NUZLOCKE_KEY = "pokemon-nuzlocke-state";
@@ -22,8 +23,8 @@ export function useNuzlocke() {
       if (saved) {
         setState(JSON.parse(saved));
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("loadNuzlocke", e);
     }
   }, []);
 
@@ -31,8 +32,8 @@ export function useNuzlocke() {
   useEffect(() => {
     try {
       localStorage.setItem(NUZLOCKE_KEY, JSON.stringify(state));
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("saveNuzlocke", e);
     }
   }, [state]);
 

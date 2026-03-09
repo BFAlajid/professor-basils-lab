@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useCallback } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { BattleState, BattleReplay, ReplaySnapshot } from "@/types";
 
 const STORAGE_KEY = "pokemon-battle-replays";
@@ -51,8 +52,8 @@ export function useReplayRecorder() {
       const existing: BattleReplay[] = raw ? JSON.parse(raw) : [];
       const updated = [replay, ...existing].slice(0, MAX_REPLAYS);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch {
-      // storage full — still return the replay
+    } catch (e) {
+      silentWarn("saveReplay", e);
     }
 
     return replay;
@@ -62,7 +63,8 @@ export function useReplayRecorder() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       return raw ? JSON.parse(raw) : [];
-    } catch {
+    } catch (e) {
+      silentWarn("loadReplays", e);
       return [];
     }
   }, []);
@@ -73,8 +75,8 @@ export function useReplayRecorder() {
       const existing: BattleReplay[] = raw ? JSON.parse(raw) : [];
       const updated = existing.filter((r) => r.id !== id);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("deleteReplay", e);
     }
   }, []);
 

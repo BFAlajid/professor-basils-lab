@@ -1,4 +1,5 @@
 import type { TypeName, TeamSlot, Pokemon } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { TYPE_LIST } from "@/data/typeChart";
 import { typeToIndex } from "./typeChartWasm";
 import {
@@ -138,7 +139,8 @@ export function analyzeTeam(team: TeamSlot[]): TeamWeaknessReport {
       threatScore,
       suggestedTypes,
     };
-  } catch {
+  } catch (e) {
+    silentWarn("wasmAnalyzeTeam", e);
     return analyzeTeam_JS(team);
   }
 }
@@ -176,7 +178,8 @@ export function analyzeDefensiveCoverage(team: Pokemon[]): CoverageResult[] {
     }
 
     return coverage;
-  } catch {
+  } catch (e) {
+    silentWarn("wasmAnalyzeDefensiveCoverage", e);
     return analyzeDefensiveCoverage_JS(team);
   }
 }

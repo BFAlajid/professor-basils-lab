@@ -1,3 +1,5 @@
+import { silentWarn } from "@/utils/silentWarn";
+
 export type AudioTrack =
   | "teamBuilder"
   | "battle"
@@ -68,7 +70,7 @@ function stopCurrent() {
     currentAudio.load();
   }
   if (currentMediaSource) {
-    try { currentMediaSource.disconnect(); } catch { /* already disconnected */ }
+    try { currentMediaSource.disconnect(); } catch (e) { silentWarn("disconnectMediaSource", e); }
     currentMediaSource = null;
   }
   currentAudio = null;

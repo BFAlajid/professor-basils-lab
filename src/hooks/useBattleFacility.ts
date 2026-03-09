@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer, useCallback, useEffect, useRef, useState } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import {
   EliteFourMember,
   TeamSlot,
@@ -39,8 +40,8 @@ export function useBattleFacility() {
           dispatch({ type: "LOAD_BADGES", badges });
         }
       }
-    } catch {
-      // localStorage unavailable
+    } catch (e) {
+      silentWarn("loadGymBadges", e);
     }
   }, []);
 
@@ -173,8 +174,8 @@ export function useBattleFacility() {
               "pokemon-battle-tower-streak",
               String(newBest)
             );
-          } catch {
-            // localStorage unavailable
+          } catch (e) {
+            silentWarn("saveBattleTowerStreak", e);
           }
         }
 
@@ -187,8 +188,8 @@ export function useBattleFacility() {
               currentBadges.push(badgeName);
             }
             localStorage.setItem("pokemon-gym-badges", JSON.stringify(currentBadges));
-          } catch {
-            // localStorage unavailable
+          } catch (e) {
+            silentWarn("saveGymBadges", e);
           }
         }
       } else {

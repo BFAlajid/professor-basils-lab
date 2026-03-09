@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer, useEffect, useRef, useCallback, useState } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { DayCareState, DayCareAction, BreedingPair, PCBoxPokemon, BreedingEgg } from "@/types";
 import { fetchEggGroups, checkCompatibility, getOffspringSpeciesId, createEgg } from "@/utils/breedingWasm";
 import { NATURES } from "@/data/natures";
@@ -63,8 +64,8 @@ export function useDayCare(box: PCBoxPokemon[]) {
         const data = JSON.parse(raw);
         dispatch({ type: "LOAD", pair: data.pair ?? null, eggs: data.eggs ?? [] });
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("loadDayCare", e);
     }
   }, []);
 
@@ -73,8 +74,8 @@ export function useDayCare(box: PCBoxPokemon[]) {
     if (!initialized.current) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ pair: state.currentPair, eggs: state.eggs }));
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("saveDayCare", e);
     }
   }, [state.currentPair, state.eggs]);
 
@@ -139,8 +140,8 @@ export function useDayCare(box: PCBoxPokemon[]) {
     try {
       const data = await fetchPokemonData(speciesId);
       speciesName = data.name;
-    } catch {
-      // use parent name
+    } catch (e) {
+      silentWarn("fetchOffspringSpecies", e);
     }
 
     const egg = createEgg(p1, p2, speciesId, speciesName);
@@ -155,7 +156,8 @@ export function useDayCare(box: PCBoxPokemon[]) {
     let pokemon;
     try {
       pokemon = await fetchPokemonData(egg.speciesId);
-    } catch {
+    } catch (e) {
+      silentWarn("hatchEggFetchPokemon", e);
       return;
     }
 

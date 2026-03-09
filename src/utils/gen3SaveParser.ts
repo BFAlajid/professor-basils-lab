@@ -1,3 +1,5 @@
+import { silentWarn } from "@/utils/silentWarn";
+
 /**
  * Gen 3 Pokemon Save File Parser
  *
@@ -228,7 +230,8 @@ export function parseGen3Save(buffer: ArrayBuffer): Gen3SaveData | null {
       pcBoxPokemon,
       activeSlot,
     };
-  } catch {
+  } catch (e) {
+    silentWarn("parseGen3Save", e);
     return null;
   }
 }

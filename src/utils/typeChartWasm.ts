@@ -1,4 +1,5 @@
 import { TypeName } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { TYPE_LIST, getEffectiveness as getEffectiveness_JS, getDefensiveMultiplier as getDefensiveMultiplier_JS } from "@/data/typeChart";
 import { createWasmWrapper } from "./createWasmWrapper";
 
@@ -30,8 +31,8 @@ export function getEffectiveness(attackType: TypeName, defendType: TypeName): nu
   if (wasmModule) {
     try {
       return wasmModule.get_effectiveness(typeToIndex(attackType), typeToIndex(defendType));
-    } catch {
-      // fall through
+    } catch (e) {
+      silentWarn("wasmGetEffectiveness", e);
     }
   }
   return getEffectiveness_JS(attackType, defendType);
@@ -45,8 +46,8 @@ export function getDefensiveMultiplier(attackType: TypeName, defenderTypes: Type
       const def1 = typeToIndex(defenderTypes[0]);
       const def2 = defenderTypes.length > 1 ? typeToIndex(defenderTypes[1]) : 255;
       return wasmModule.get_defensive_multiplier(atkIdx, def1, def2);
-    } catch {
-      // fall through
+    } catch (e) {
+      silentWarn("wasmGetDefensiveMultiplier", e);
     }
   }
   return getDefensiveMultiplier_JS(attackType, defenderTypes);

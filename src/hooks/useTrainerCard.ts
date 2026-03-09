@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import type { PlayerStats } from "@/hooks/useAchievements";
 
 // ── Types ───────────────────────────────────────────────────────────────
@@ -45,7 +46,8 @@ function loadString(key: string, fallback: string): string {
   if (typeof window === "undefined") return fallback;
   try {
     return localStorage.getItem(key) ?? fallback;
-  } catch {
+  } catch (e) {
+    silentWarn("loadTrainerCardString", e);
     return fallback;
   }
 }
@@ -57,7 +59,8 @@ function loadBadges(): string[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
-  } catch {
+  } catch (e) {
+    silentWarn("loadBadges", e);
     return [];
   }
 }
@@ -77,7 +80,8 @@ function calculatePlayTime(): string {
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     return `${hours}:${String(minutes).padStart(2, "0")}`;
-  } catch {
+  } catch (e) {
+    silentWarn("calculatePlayTime", e);
     return "0:00";
   }
 }
@@ -108,8 +112,8 @@ export function useTrainerCard(stats: PlayerStats) {
       savedId = generateTrainerId();
       try {
         localStorage.setItem(ID_KEY, savedId);
-      } catch {
-        // ignore
+      } catch (e) {
+        silentWarn("saveTrainerId", e);
       }
     }
     setTrainerId(savedId);
@@ -136,8 +140,8 @@ export function useTrainerCard(stats: PlayerStats) {
     setName(trimmed || "Trainer");
     try {
       localStorage.setItem(NAME_KEY, trimmed || "Trainer");
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("saveTrainerName", e);
     }
   }, []);
 
@@ -155,8 +159,8 @@ export function useTrainerCard(stats: PlayerStats) {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-      } catch {
-        // canvas export failed
+      } catch (e) {
+        silentWarn("exportTrainerCardImage", e);
       }
     },
     [trainerId]

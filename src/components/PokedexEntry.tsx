@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import Link from "next/link";
 import Image from "@/components/PokeImage";
 
 interface PokedexEntryProps {
@@ -49,7 +50,11 @@ export default memo(function PokedexEntry({ id, isCaught, isSeen, name, spriteUr
         {formatDexNumber(id)}
       </span>
       <span className="text-[8px] text-center text-[#f0f0e8] font-pixel capitalize truncate w-full">
-        {isSeen ? name : "???"}
+        {isSeen && name ? (
+          <Link href={`/pokemon/${name}`} className="hover:text-[#63c5da] transition-colors">
+            {name}
+          </Link>
+        ) : "???"}
       </span>
     </div>
   );

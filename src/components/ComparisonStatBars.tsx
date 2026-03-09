@@ -4,11 +4,11 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { TeamSlot, BaseStats } from "@/types";
 import { CalculatedStats } from "@/utils/statsWasm";
+import { STAT_KEYS, STAT_LABELS_SHORT } from "@/data/constants";
 
-// ── Exported constants (shared with PokemonComparison) ───────────────
-
-export const STAT_KEYS = ["hp", "attack", "defense", "spAtk", "spDef", "speed"] as const;
-export const STAT_LABELS = ["HP", "Atk", "Def", "SpA", "SpD", "Spe"];
+// Re-export for consumers that already import from here
+export { STAT_KEYS };
+export const STAT_LABELS = STAT_LABELS_SHORT;
 export const POLY_COLORS = ["#e8433f", "#38b764", "#60a5fa", "#f7a838"];
 export const CALC_MAX = 500;
 
@@ -174,7 +174,7 @@ export default memo(function ComparisonStatBars({
               fontSize={11}
               fontFamily="monospace"
             >
-              {STAT_LABELS[i]}
+              {STAT_LABELS_SHORT[i]}
             </text>
           ))}
         </svg>

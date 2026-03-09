@@ -1,6 +1,7 @@
 "use client";
 
-import { useReducer, useEffect, useCallback, useRef } from "react";
+import { useReducer, useEffect, useCallback, useRef, useMemo } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 
 // --- Types ---
 
@@ -143,8 +144,8 @@ export function usePokedex() {
           },
         });
       }
-    } catch {
-      // Corrupted data — start fresh
+    } catch (e) {
+      silentWarn("loadPokedex", e);
     }
   }, []);
 
@@ -155,8 +156,8 @@ export function usePokedex() {
 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // Storage full or unavailable
+    } catch (e) {
+      silentWarn("savePokedex", e);
     }
   }, [state]);
 
@@ -191,7 +192,7 @@ export function usePokedex() {
     dispatch({ type: "RESET" });
   }, []);
 
-  return {
+  return useMemo(() => ({
     entries: state.entries,
     totalSeen: state.totalSeen,
     totalCaught: state.totalCaught,
@@ -200,5 +201,5 @@ export function usePokedex() {
     getEntry,
     getCompletionPercent,
     reset,
-  };
+  }), [state, markSeen, markCaught, getEntry, getCompletionPercent, reset]);
 }

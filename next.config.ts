@@ -16,16 +16,19 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // COOP/COEP only on the root SPA page (needed for WASM SharedArrayBuffer in emulator tab)
+      // New routes (/pokemon/*, /share/*, /api/og) are free of these restrictions
       {
-        source: "/(.*)",
+        source: "/",
         headers: [
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
         ],
       },
       // Prevent browsers/CDN from serving stale HTML after deployments
+      // Exclude static assets, ISR pokemon pages (they use revalidate), and favicon
       {
-        source: "/((?!_next/static|favicon.ico).*)",
+        source: "/((?!_next/static|favicon.ico|pokemon).*)",
         headers: [
           { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
         ],

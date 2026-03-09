@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
 import { motion } from "framer-motion";
 import { TeamSlot } from "@/types";
 import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
@@ -39,6 +39,55 @@ function calcMinSpeedEvs(baseSpe: number, iv: number, natureMult: number, target
   }
   return null;
 }
+
+interface SpeedEntry {
+  name: string;
+  speed: number;
+  baseSpe: number;
+  isThreat: boolean;
+}
+
+const SpeedTierEntry = memo(function SpeedTierEntry({
+  entry,
+  maxSpeed,
+}: {
+  entry: SpeedEntry;
+  maxSpeed: number;
+}) {
+  const pct = maxSpeed > 0 ? (entry.speed / maxSpeed) * 100 : 0;
+  const isTeam = !entry.isThreat;
+
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className={`text-xs w-24 truncate text-right shrink-0 ${
+          isTeam ? "text-[#f0f0e8]" : "text-[#e8433f]"
+        }`}
+        title={entry.name}
+      >
+        {entry.name}
+      </span>
+      <div className="flex-1 h-4 bg-[#1a1c2c] rounded-sm overflow-hidden relative">
+        <motion.div
+          className="h-full rounded-sm"
+          style={{
+            backgroundColor: isTeam ? "#38b764" : "#e8433f33",
+          }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        />
+      </div>
+      <span
+        className={`text-xs w-8 text-right shrink-0 tabular-nums ${
+          isTeam ? "text-[#f0f0e8]" : "text-[#e8433f]"
+        }`}
+      >
+        {entry.speed}
+      </span>
+    </div>
+  );
+});
 
 type SpeedModifier = "base" | "+1" | "scarf" | "paralyzed" | "tailwind";
 
@@ -239,41 +288,13 @@ export default function SpeedTierChart({ team }: SpeedTierChartProps) {
 
       {/* Speed bars */}
       <div className="space-y-1.5">
-        {entries.map((entry, i) => {
-          const pct = maxSpeed > 0 ? (entry.speed / maxSpeed) * 100 : 0;
-          const isTeam = !entry.isThreat;
-
-          return (
-            <div key={`${entry.name}-${entry.isThreat}-${i}`} className="flex items-center gap-2">
-              <span
-                className={`text-xs w-24 truncate text-right shrink-0 ${
-                  isTeam ? "text-[#f0f0e8]" : "text-[#e8433f]"
-                }`}
-                title={entry.name}
-              >
-                {entry.name}
-              </span>
-              <div className="flex-1 h-4 bg-[#1a1c2c] rounded-sm overflow-hidden relative">
-                <motion.div
-                  className="h-full rounded-sm"
-                  style={{
-                    backgroundColor: isTeam ? "#38b764" : "#e8433f33",
-                  }}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${pct}%` }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                />
-              </div>
-              <span
-                className={`text-xs w-8 text-right shrink-0 tabular-nums ${
-                  isTeam ? "text-[#f0f0e8]" : "text-[#e8433f]"
-                }`}
-              >
-                {entry.speed}
-              </span>
-            </div>
-          );
-        })}
+        {entries.map((entry, i) => (
+          <SpeedTierEntry
+            key={`${entry.name}-${entry.isThreat}-${i}`}
+            entry={entry}
+            maxSpeed={maxSpeed}
+          />
+        ))}
       </div>
 
       {/* Legend */}

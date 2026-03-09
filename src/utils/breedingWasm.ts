@@ -1,4 +1,5 @@
 import type { PCBoxPokemon, IVSpread, Nature } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { NATURES } from "@/data/natures";
 import { randomSeed } from "./random";
 import {
@@ -62,7 +63,7 @@ export function checkCompatibility(
       }
       if (result === 2) return { compatible: true, message: "Ditto can breed with any compatible Pokemon!" };
       return { compatible: true, message: "These Pokemon share an egg group and can breed!" };
-    } catch { /* fall through */ }
+    } catch (e) { silentWarn("wasmCheckCompatibility", e); }
   }
   return checkCompatibility_JS(groups1, groups2, isDitto1, isDitto2);
 }
@@ -89,7 +90,7 @@ export function inheritIVs(
         inherited.push({ stat: statKeys[statIdx], fromParent: parent });
       }
       return inherited;
-    } catch { /* fall through */ }
+    } catch (e) { silentWarn("wasmInheritIVs", e); }
   }
   return inheritIVs_JS(p1, p2, hasDestinyKnot);
 }
@@ -111,7 +112,7 @@ export function inheritNature(
       if (everstoneHolder === 1) return { nature, from: 1 };
       if (everstoneHolder === 2) return { nature, from: 2 };
       return { nature, from: "random" };
-    } catch { /* fall through */ }
+    } catch (e) { silentWarn("wasmInheritNature", e); }
   }
   return inheritNature_JS(p1, p2, everstoneHolder);
 }

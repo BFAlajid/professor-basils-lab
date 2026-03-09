@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer, useCallback, useState } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { SHINY_RATE } from "@/data/constants";
 import {
   SafariPhase,
@@ -325,8 +326,8 @@ export function useSafariZone() {
             baseFleeRate: encounter.baseFleeRate,
           },
         });
-      } catch {
-        // Fetch failed — stay walking
+      } catch (e) {
+        silentWarn("safariEncounterFetch", e);
       }
     }
 

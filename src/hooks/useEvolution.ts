@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { PCBoxPokemon, Pokemon } from "@/types";
 import {
   fetchEvolutionChain,
@@ -23,7 +24,8 @@ export function useEvolution() {
         const available = getAvailableEvolutions(pokemon.pokemon.id, pokemon.level, evoChain);
         setOptions(available);
       }
-    } catch {
+    } catch (e) {
+      silentWarn("checkEvolution", e);
       setChain(null);
       setOptions([]);
     } finally {
@@ -43,7 +45,8 @@ export function useEvolution() {
           ability: evolvedData.abilities?.[0]?.ability.name ?? pokemon.ability,
         };
         return evolved;
-      } catch {
+      } catch (e) {
+        silentWarn("evolvePokemon", e);
         return null;
       } finally {
         setLoading(false);

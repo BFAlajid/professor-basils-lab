@@ -1,4 +1,5 @@
 import { TeamSlot, GenerationalMechanic } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 
 export interface ChallengeData {
   team: { pokemonId: number; moves: string[]; nature?: string; ability?: string; item?: string }[];
@@ -15,7 +16,8 @@ export function encodeChallengeCode(data: ChallengeData): string {
 export function decodeChallengeCode(code: string): ChallengeData | null {
   try {
     return JSON.parse(atob(code));
-  } catch {
+  } catch (e) {
+    silentWarn("decodeChallengeCode", e);
     return null;
   }
 }

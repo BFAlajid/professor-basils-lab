@@ -1,4 +1,5 @@
 import type { BattleState, BattleTurnAction, BattlePokemon, BattleTeam, DifficultyLevel, TypeName } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { getAbilityHooks } from "@/data/abilities";
 import { randomSeed } from "./random";
 import { typeToIndex } from "./typeChartWasm";
@@ -180,7 +181,8 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
       case 4: return { type: "DYNAMAX", moveIndex: actionValue };
       default: return { type: "MOVE", moveIndex: 0 };
     }
-  } catch {
+  } catch (e) {
+    silentWarn("wasmSelectAIAction", e);
     return selectAIAction_JS(state);
   }
 }
@@ -227,8 +229,8 @@ export function determineTurnOrder(
   if (wasmModule) {
     try {
       return wasmModule.determine_turn_order(p1Priority, p2Priority, p1Speed, p2Speed, randomSeed()) > 0;
-    } catch {
-      // fall through
+    } catch (e) {
+      silentWarn("wasmDetermineTurnOrder", e);
     }
   }
   if (p1Priority > p2Priority) return true;

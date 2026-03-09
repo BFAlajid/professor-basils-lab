@@ -11,6 +11,12 @@ export function formatName(name: string): string {
     .join(" ");
 }
 
+/** Get the text for a stat change. e.g. +2 → "rose drastically", -1 → "fell" */
+export function getStatChangeText(change: number): string {
+  if (change > 0) return change >= 2 ? "rose drastically" : "rose";
+  return change <= -2 ? "fell drastically" : "fell";
+}
+
 /** Get the display label for a stat key. e.g. "spAtk" → "Sp. Atk" */
 export function getStatLabel(stat: string): string {
   if (stat === "spAtk") return "Sp. Atk";

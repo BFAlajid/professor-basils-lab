@@ -4,107 +4,12 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useVoltorbFlip } from "@/hooks/useVoltorbFlip";
 import { GAME_CORNER_PRIZES, GameCornerPrize } from "@/data/gameCornerPrizes";
+import VoltorbBoard from "./VoltorbBoard";
+import VoltorbResult from "./VoltorbResult";
 
 interface VoltorbFlipProps {
   onAddToBox: (pokemonId: number, level: number, area: string) => void;
   onCoinsEarned?: (amount: number) => void;
-}
-
-// ── Tile display ─────────────────────────────────────────────────────────
-
-function TileCell({
-  value,
-  revealed,
-  onClick,
-  disabled,
-  row,
-  col,
-}: {
-  value: number;
-  revealed: boolean;
-  onClick: () => void;
-  disabled: boolean;
-  row: number;
-  col: number;
-}) {
-  const colors: Record<number, { bg: string; text: string; label: string }> = {
-    0: { bg: "#e8433f", text: "#f0f0e8", label: "V" },
-    1: { bg: "#3a4466", text: "#8b9bb4", label: "1" },
-    2: { bg: "#38b764", text: "#f0f0e8", label: "2" },
-    3: { bg: "#f7a838", text: "#1a1c2c", label: "3" },
-  };
-
-  const c = colors[value] ?? colors[1];
-
-  return (
-    <motion.button
-      onClick={onClick}
-      disabled={disabled || revealed}
-      aria-label={revealed ? (value === 0 ? `Voltorb at row ${row + 1} column ${col + 1}` : `Tile value ${value} at row ${row + 1} column ${col + 1}`) : `Flip tile row ${row + 1} column ${col + 1}`}
-      className="relative w-full aspect-square rounded-md border-2 font-pixel text-sm flex items-center justify-center transition-colors select-none"
-      style={{
-        backgroundColor: revealed ? c.bg : "#262b44",
-        borderColor: revealed ? c.bg : "#3a4466",
-        color: revealed ? c.text : "#3a4466",
-        cursor: disabled || revealed ? "default" : "pointer",
-      }}
-      whileHover={!disabled && !revealed ? { scale: 1.08 } : {}}
-      whileTap={!disabled && !revealed ? { scale: 0.92 } : {}}
-    >
-      <AnimatePresence mode="wait">
-        {revealed ? (
-          <motion.span
-            key="revealed"
-            initial={{ rotateY: 90, opacity: 0 }}
-            animate={{ rotateY: 0, opacity: 1 }}
-            transition={{ duration: 0.25 }}
-            className="font-pixel text-sm font-bold"
-          >
-            {value === 0 ? (
-              /* Voltorb: red circle icon */
-              <span className="flex items-center justify-center">
-                <span
-                  className="inline-block rounded-full"
-                  style={{
-                    width: 18,
-                    height: 18,
-                    background: "linear-gradient(to bottom, #e8433f 50%, #f0f0e8 50%)",
-                    border: "2px solid #1a1c2c",
-                  }}
-                />
-              </span>
-            ) : (
-              c.label
-            )}
-          </motion.span>
-        ) : (
-          <motion.span
-            key="hidden"
-            exit={{ rotateY: 90, opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="text-[10px] text-[#8b9bb4]"
-          >
-            ?
-          </motion.span>
-        )}
-      </AnimatePresence>
-    </motion.button>
-  );
-}
-
-// ── Hint badge ───────────────────────────────────────────────────────────
-
-function HintBadge({ total, voltorbs }: { total: number; voltorbs: number }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-md bg-[#1a1c2c] border border-[#3a4466] p-1 text-center w-full aspect-square">
-      <span className="text-[9px] font-pixel text-[#f0f0e8] leading-tight">
-        &Sigma;:{total}
-      </span>
-      <span className="text-[9px] font-pixel text-[#e8433f] leading-tight">
-        V:{voltorbs}
-      </span>
-    </div>
-  );
 }
 
 // ── Prize shop ───────────────────────────────────────────────────────────
@@ -251,117 +156,10 @@ export default function VoltorbFlip({ onAddToBox, onCoinsEarned }: VoltorbFlipPr
             className="space-y-3"
           >
             {/* ── Grid + hints ─────────────────────────────── */}
-            <div className="flex justify-center">
-              <div className="inline-block">
-                {/* Main grid with right-side row hints */}
-                <div className="flex gap-1">
-                  {/* 5x5 tile grid */}
-                  <div className="grid grid-cols-5 gap-1" style={{ width: 220 }}>
-                    {state.board.map((row, ri) =>
-                      row.map((val, ci) => (
-                        <TileCell
-                          key={`${ri}-${ci}`}
-                          value={val}
-                          revealed={state.revealed[ri][ci]}
-                          onClick={() => flipTile(ri, ci)}
-                          disabled={!isPlaying}
-                          row={ri}
-                          col={ci}
-                        />
-                      ))
-                    )}
-                  </div>
+            <VoltorbBoard state={state} isPlaying={isPlaying} onFlip={flipTile} />
 
-                  {/* Row hints (right side) */}
-                  <div className="flex flex-col gap-1" style={{ width: 40 }}>
-                    {state.rowHints.map((hint, i) => (
-                      <HintBadge key={`rh-${i}`} total={hint.total} voltorbs={hint.voltorbs} />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Column hints (bottom) */}
-                <div className="flex gap-1 mt-1">
-                  <div className="grid grid-cols-5 gap-1" style={{ width: 220 }}>
-                    {state.colHints.map((hint, i) => (
-                      <HintBadge key={`ch-${i}`} total={hint.total} voltorbs={hint.voltorbs} />
-                    ))}
-                  </div>
-                  {/* Empty corner space to align with row hints */}
-                  <div style={{ width: 40 }} />
-                </div>
-              </div>
-            </div>
-
-            {/* ── Game Over overlay ──────────────────────────── */}
-            <AnimatePresence>
-              {state.phase === "game_over" && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="bg-[#1a1c2c] border border-[#e8433f] rounded-lg p-4 space-y-3 text-center"
-                >
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", bounce: 0.5 }}
-                  >
-                    {/* Voltorb icon */}
-                    <div className="mx-auto w-12 h-12 rounded-full border-3 border-[#1a1c2c]"
-                      style={{
-                        background: "linear-gradient(to bottom, #e8433f 50%, #f0f0e8 50%)",
-                        border: "3px solid #1a1c2c",
-                        boxShadow: "0 0 12px rgba(232,67,63,0.5)",
-                      }}
-                    />
-                  </motion.div>
-                  <p className="text-sm font-pixel text-[#e8433f]">Voltorb!</p>
-                  <p className="text-[10px] text-[#8b9bb4] font-pixel">
-                    You lost your round coins.
-                  </p>
-                  <button
-                    onClick={newGame}
-                    className="px-5 py-2 bg-[#3a4466] hover:bg-[#4a5577] text-[#f0f0e8] text-[10px] font-pixel rounded-lg transition-colors"
-                  >
-                    New Game
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Level Clear overlay ─────────────────────────── */}
-            <AnimatePresence>
-              {state.phase === "level_clear" && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="bg-[#1a1c2c] border border-[#38b764] rounded-lg p-4 space-y-3 text-center"
-                >
-                  <motion.p
-                    initial={{ scale: 0.5 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", bounce: 0.6 }}
-                    className="text-sm font-pixel text-[#38b764]"
-                  >
-                    Level Clear!
-                  </motion.p>
-                  <p className="text-[10px] text-[#f7a838] font-pixel">
-                    +{state.currentCoins} coins earned!
-                  </p>
-                  <p className="text-[9px] text-[#8b9bb4] font-pixel">
-                    Total: {state.totalCoins.toLocaleString()} coins
-                  </p>
-                  <button
-                    onClick={advanceLevel}
-                    className="px-5 py-2 bg-[#38b764] hover:bg-[#45c972] text-[#f0f0e8] text-[10px] font-pixel rounded-lg transition-colors"
-                  >
-                    {state.level < 7 ? `Next Level (Lv.${Math.min(7, state.level + 1)})` : "Play Again (Lv.7)"}
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* ── Game Over / Level Clear overlays ────────────── */}
+            <VoltorbResult state={state} onNewGame={newGame} onAdvanceLevel={advanceLevel} />
 
             {/* ── Buy message toast ────────────────────────────── */}
             <AnimatePresence>

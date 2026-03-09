@@ -1,5 +1,6 @@
 "use client";
 import { useReducer, useEffect } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { SLOT_SYMBOLS, calculatePayout } from "@/data/slotSymbols";
 
 export interface SlotMachineState {
@@ -69,8 +70,8 @@ export function useSlotMachine() {
         const coins = parseInt(saved, 10);
         if (!isNaN(coins)) dispatch({ type: "LOAD", coins });
       }
-    } catch {
-      /* corrupted data */
+    } catch (e) {
+      silentWarn("loadSlotMachineCoins", e);
     }
   }, []);
 

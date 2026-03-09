@@ -6,7 +6,8 @@ import {
 } from "@/types";
 import { STATUS_MOVE_EFFECTS } from "@/data/statusMoves";
 import { getAbilityHooks } from "@/data/abilities";
-import { getStatLabel } from "./format";
+import { STAT_STAGE_MIN, STAT_STAGE_MAX, SLEEP_TURN_MIN, SLEEP_TURN_RANGE } from "@/data/constants";
+import { getStatLabel, getStatChangeText } from "./format";
 import {
   getActivePokemon,
   updatePokemon,
@@ -61,14 +62,12 @@ function handleSelfStatChanges(
   for (const [stat, changeVal] of Object.entries(effect.selfStatChanges!)) {
     const change = changeVal ?? 0;
     const oldStage = newStages[stat as keyof StatStages] ?? 0;
-    const newStage = Math.max(-6, Math.min(6, oldStage + change));
+    const newStage = Math.max(STAT_STAGE_MIN, Math.min(STAT_STAGE_MAX, oldStage + change));
     newStages = { ...newStages, [stat]: newStage };
 
     if (newStage !== oldStage) {
       const statLabel = getStatLabel(stat);
-      const changeText = change > 0
-        ? (change >= 2 ? "rose drastically" : "rose")
-        : (change <= -2 ? "fell drastically" : "fell");
+      const changeText = getStatChangeText(change);
       messages.push(`${attacker.slot.pokemon.name}'s ${statLabel} ${changeText}!`);
     }
   }
@@ -109,14 +108,12 @@ function handleTargetStatChanges(
   for (const [stat, changeVal] of Object.entries(effect.targetStatChanges!)) {
     const change = changeVal ?? 0;
     const oldStage = newStages[stat as keyof StatStages] ?? 0;
-    const newStage = Math.max(-6, Math.min(6, oldStage + change));
+    const newStage = Math.max(STAT_STAGE_MIN, Math.min(STAT_STAGE_MAX, oldStage + change));
     newStages = { ...newStages, [stat]: newStage };
 
     if (newStage !== oldStage) {
       const statLabel = getStatLabel(stat);
-      const changeText = change > 0
-        ? (change >= 2 ? "rose drastically" : "rose")
-        : (change <= -2 ? "fell drastically" : "fell");
+      const changeText = getStatChangeText(change);
       messages.push(`${defender.slot.pokemon.name}'s ${statLabel} ${changeText}!`);
       if (change < 0) hadDrop = true;
     }
@@ -150,7 +147,7 @@ function handleStatusInfliction(
     } else {
       let newDefender = { ...defender, status: targetStatus };
       if (targetStatus === "sleep") {
-        newDefender.sleepTurns = 1 + Math.floor(Math.random() * 3);
+        newDefender.sleepTurns = SLEEP_TURN_MIN + Math.floor(Math.random() * SLEEP_TURN_RANGE);
       }
       state = updatePokemon(state, defenderPlayer, defenderTeam.activePokemonIndex, newDefender);
       log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} was ${getStatusText(targetStatus)}!`, kind: "status" });
@@ -245,7 +242,7 @@ function handleHazardRemoval(
 
     const currentAttacker = getActivePokemon(state[attackerPlayer]);
     const oldSpd = currentAttacker.statStages.speed;
-    const newSpd = Math.min(6, oldSpd + 1);
+    const newSpd = Math.min(STAT_STAGE_MAX, oldSpd + 1);
     if (newSpd !== oldSpd) {
       state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, {
         ...currentAttacker,
@@ -274,7 +271,7 @@ function handleHazardRemoval(
 
     const defender = getActivePokemon(state[defenderPlayer]);
     const oldEva = defender.statStages.evasion;
-    const newEva = Math.max(-6, oldEva - 1);
+    const newEva = Math.max(STAT_STAGE_MIN, oldEva - 1);
     if (newEva !== oldEva) {
       state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, {
         ...defender,

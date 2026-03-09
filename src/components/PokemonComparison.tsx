@@ -5,7 +5,8 @@ import { motion } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { TeamSlot, BaseStats } from "@/types";
 import { calculateAllStats, CalculatedStats, DEFAULT_IVS, DEFAULT_EVS } from "@/utils/statsWasm";
-import ComparisonStatBars, { STAT_KEYS, STAT_LABELS, POLY_COLORS } from "./ComparisonStatBars";
+import ComparisonStatBars, { POLY_COLORS } from "./ComparisonStatBars";
+import { STAT_KEYS, STAT_LABELS_SHORT } from "@/data/constants";
 import ComparisonTypeChart from "./ComparisonTypeChart";
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -226,7 +227,7 @@ export default function PokemonComparison({ team }: PokemonComparisonProps) {
             <tbody>
               {STAT_KEYS.map((key, si) => (
                 <tr key={key} className="border-b border-[#3a4466]/50">
-                  <td className="px-2 py-1.5 font-pixel text-[#8b9bb4]">{STAT_LABELS[si]}</td>
+                  <td className="px-2 py-1.5 font-pixel text-[#8b9bb4]">{STAT_LABELS_SHORT[si]}</td>
                   {statsData.map(({ base, calc }, pi) => {
                     const baseVal = base[key];
                     const calcVal = calc[key];

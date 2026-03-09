@@ -1,4 +1,5 @@
 import { BattleState, BattleTurnAction, TeamSlot, Pokemon, BattlePokemon, BattleTeam, TypeName, DifficultyLevel } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { extractBaseStats } from "./damage";
 import { getActivePokemon, getCachedMoves, getEffectiveTypes } from "./battle";
 import { getDefensiveMultiplier } from "@/data/typeChart";
@@ -7,6 +8,15 @@ import { NATURES } from "@/data/natures";
 import { isMegaStone, MEGA_STONES } from "@/data/megaStones";
 import { randomChoice, shuffleArray } from "./random";
 import { fetchPokemonData } from "@/utils/pokeApiClient";
+
+const AI_DIFFICULTY = {
+  POOL_SLICE_UPPER: 0.75,
+  POOL_SLICE_LOWER: 0.5,
+  RANDOM_MOVE_CHANCE: 0.3,
+  IV_EASY: 15,
+  IV_MEDIUM: 25,
+  IV_HARD: 31,
+} as const;
 
 // Curated list of competitive Pokemon IDs (mix of OU/UU staples)
 const COMPETITIVE_POKEMON_IDS = [
@@ -41,8 +51,8 @@ export async function generateScaledTeam(floor: number): Promise<TeamSlot[]> {
   const pool = floor >= 15
     ? COMPETITIVE_POKEMON_IDS
     : floor >= 8
-      ? COMPETITIVE_POKEMON_IDS.slice(0, Math.floor(COMPETITIVE_POKEMON_IDS.length * 0.75))
-      : COMPETITIVE_POKEMON_IDS.slice(0, Math.floor(COMPETITIVE_POKEMON_IDS.length * 0.5));
+      ? COMPETITIVE_POKEMON_IDS.slice(0, Math.floor(COMPETITIVE_POKEMON_IDS.length * AI_DIFFICULTY.POOL_SLICE_UPPER))
+      : COMPETITIVE_POKEMON_IDS.slice(0, Math.floor(COMPETITIVE_POKEMON_IDS.length * AI_DIFFICULTY.POOL_SLICE_LOWER));
 
   const selectedIds = shuffleArray(pool).slice(0, teamSize);
 
@@ -50,7 +60,8 @@ export async function generateScaledTeam(floor: number): Promise<TeamSlot[]> {
     selectedIds.map(async (id) => {
       try {
         return await fetchPokemonData(id) as Pokemon;
-      } catch {
+      } catch (e) {
+        silentWarn("fetchAITeamPokemon", e);
         return null;
       }
     })
@@ -78,7 +89,7 @@ export async function generateScaledTeam(floor: number): Promise<TeamSlot[]> {
           : randomChoice(EV_SPREADS.slice(2, 4));
 
       // IVs scale with difficulty
-      const ivBase = difficulty === "easy" ? 15 : difficulty === "normal" ? 25 : 31;
+      const ivBase = difficulty === "easy" ? AI_DIFFICULTY.IV_EASY : difficulty === "normal" ? AI_DIFFICULTY.IV_MEDIUM : AI_DIFFICULTY.IV_HARD;
       const ivs = {
         hp: ivBase, attack: ivBase, defense: ivBase,
         spAtk: ivBase, spDef: ivBase, speed: ivBase,
@@ -130,7 +141,7 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
   }
 
   // Easy: 30% chance to pick a random move
-  if (difficulty === "easy" && Math.random() < 0.3) {
+  if (difficulty === "easy" && Math.random() < AI_DIFFICULTY.RANDOM_MOVE_CHANCE) {
     const randomIdx = Math.floor(Math.random() * moves.length);
     return { type: "MOVE", moveIndex: randomIdx };
   }

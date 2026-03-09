@@ -1,4 +1,5 @@
 import type { StatusCondition, BallType, CatchContext } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { getBallModifier } from "@/data/pokeBalls";
 import { randomSeed } from "./random";
 import {
@@ -74,8 +75,8 @@ export function calculateCatchProbability(
       }
 
       return { shakeChecks, isCaught };
-    } catch {
-      // fall through
+    } catch (e) {
+      silentWarn("wasmCalculateCatchProbability", e);
     }
   }
   return calculateCatchProbability_JS(captureRate, currentHp, maxHp, status, ball, context);
@@ -86,8 +87,8 @@ export function shouldWildFlee(captureRate: number, turn: number): boolean {
   if (wasmModule) {
     try {
       return wasmModule.should_wild_flee(captureRate, turn, randomSeed()) > 0;
-    } catch {
-      // fall through
+    } catch (e) {
+      silentWarn("wasmShouldWildFlee", e);
     }
   }
   return shouldWildFlee_JS(captureRate, turn);

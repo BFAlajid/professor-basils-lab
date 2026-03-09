@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer, useEffect, useCallback, useRef, useMemo } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import {
   MysteryGiftState,
   MysteryGiftAction,
@@ -61,8 +62,8 @@ export function useMysteryGift() {
           });
         }
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("loadMysteryGift", e);
     }
   }, []);
 
@@ -71,8 +72,8 @@ export function useMysteryGift() {
     if (!initialized.current) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("saveMysteryGift", e);
     }
   }, [state]);
 
@@ -82,7 +83,8 @@ export function useMysteryGift() {
   } | null>(() => {
     try {
       return getTodaysGift();
-    } catch {
+    } catch (e) {
+      silentWarn("getTodaysGift", e);
       return null;
     }
   }, []);

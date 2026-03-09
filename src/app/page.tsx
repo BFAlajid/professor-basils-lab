@@ -6,6 +6,7 @@ import { useTeam, encodeTeam, decodeTeam, type DecodedTeamData } from "@/hooks/u
 import { fetchPokemon } from "@/hooks/usePokemon";
 import { usePokedexContext } from "@/contexts/PokedexContext";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
+import { useFeatureFlagsContext } from "@/contexts/FeatureFlagsContext";
 import { NATURES } from "@/data/natures";
 import { TOAST_DURATION } from "@/data/constants";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
@@ -106,12 +107,21 @@ export default function Home() {
   const [shareMessage, setShareMessage] = useState("");
   const { markSeen } = usePokedexContext();
   const { incrementStat } = useAchievementsContext();
+  const { announcement } = useFeatureFlagsContext();
   const prevTeamSize = useRef(0);
   const shouldReduceMotion = useReducedMotion();
 
   // Load team from URL params on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const addParam = params.get("add");
+    if (addParam) {
+      fetchPokemon(addParam).then((pokemon) => {
+        if (pokemon) addPokemon(pokemon);
+      }).catch(() => {});
+      window.history.replaceState({}, "", "/");
+    }
+
     const encoded = params.get("team");
     if (encoded) {
       const decoded = decodeTeam(encoded);
@@ -234,6 +244,17 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#1a1c2c]">
+      {/* Announcement Banner */}
+      {announcement.banner && (
+        <div className={`px-4 py-2 text-center font-[family-name:var(--font-pixel-body)] text-sm ${
+          announcement.bannerType === "error" ? "bg-red-900/50 text-red-200" :
+          announcement.bannerType === "warning" ? "bg-yellow-900/50 text-yellow-200" :
+          "bg-blue-900/50 text-blue-200"
+        }`}>
+          {announcement.banner}
+        </div>
+      )}
+
       {/* Skip to content */}
       <a
         href="#main-content"

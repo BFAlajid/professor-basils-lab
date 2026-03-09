@@ -42,19 +42,6 @@ export interface BattleFacilityState {
   badges?: string[];
 }
 
-// --- Battle Factory ---
-
-export interface BattleFactoryState {
-  phase: "idle" | "pick" | "battling" | "swap" | "victory" | "defeat";
-  rentalPool: TeamSlot[];
-  selectedIndices: number[];
-  playerTeam: TeamSlot[];
-  opponentTeam: TeamSlot[];
-  wins: number;
-  bestRun: number;
-  totalRuns: number;
-}
-
 // --- Safari Zone ---
 
 export type SafariPhase =

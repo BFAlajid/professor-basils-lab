@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { STAT_KEYS, STAT_LABELS_SHORT } from "@/data/constants";
 
 interface StatRadarChartProps {
   baseStats: {
@@ -22,8 +23,6 @@ interface StatRadarChartProps {
   size?: number;
 }
 
-const STAT_KEYS = ["hp", "attack", "defense", "spAtk", "spDef", "speed"] as const;
-const STAT_LABELS = ["HP", "Atk", "Def", "SpA", "SpD", "Spe"];
 
 const BASE_MAX = 255;
 const CALC_MAX = 500;
@@ -179,7 +178,7 @@ export default function StatRadarChart({
           fontSize={9}
           fontFamily="font-pixel, monospace"
         >
-          {STAT_LABELS[i]}
+          {STAT_LABELS_SHORT[i]}
         </text>
       ))}
     </svg>

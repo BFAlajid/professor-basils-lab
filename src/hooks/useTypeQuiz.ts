@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer, useCallback, useEffect, useRef } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { TYPE_LIST } from "@/data/typeChart";
 import { getEffectiveness } from "@/utils/typeChartWasm";
 
@@ -192,8 +193,8 @@ export function useTypeQuiz() {
         const best = parseInt(stored, 10);
         if (!isNaN(best)) dispatch({ type: "LOAD_BEST", best });
       }
-    } catch {
-      // localStorage unavailable
+    } catch (e) {
+      silentWarn("loadTypeQuizBest", e);
     }
   }, []);
 
@@ -202,8 +203,8 @@ export function useTypeQuiz() {
     if (state.bestScore > 0) {
       try {
         localStorage.setItem(STORAGE_KEY, String(state.bestScore));
-      } catch {
-        // localStorage unavailable
+      } catch (e) {
+        silentWarn("saveTypeQuizBest", e);
       }
     }
   }, [state.bestScore]);

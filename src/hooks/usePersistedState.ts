@@ -19,7 +19,8 @@ export function usePersistedState<T>(
         return validated !== null ? validated : defaultValue;
       }
       return parsed;
-    } catch {
+    } catch (e) {
+      silentWarn(`usePersistedState: failed to read key "${key}"`, e);
       return defaultValue;
     }
   });

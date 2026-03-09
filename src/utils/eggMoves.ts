@@ -1,4 +1,5 @@
 import { fetchPokemonData, fetchSpeciesData, type PokemonSpeciesData } from "@/utils/pokeApiClient";
+import { silentWarn } from "@/utils/silentWarn";
 import { formatName } from "@/utils/format";
 
 export interface EggMoveChain {
@@ -111,7 +112,8 @@ export async function fetchEggMoves(pokemonId: number): Promise<EggMoveChain[]> 
     }
 
     return results;
-  } catch {
+  } catch (e) {
+    silentWarn("fetchEggMoves", e);
     return [];
   }
 }

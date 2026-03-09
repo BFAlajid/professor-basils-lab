@@ -1,8 +1,10 @@
 import { TeamSlot, EVSpread, IVSpread, Nature, TypeName } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { NATURES } from "@/data/natures";
 import { fetchPokemon } from "@/hooks/usePokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { capitalize } from "./format";
+import { STAT_KEYS } from "@/data/constants";
 
 // ── Stat key ↔ Showdown abbreviation mapping ──────────────────────────
 
@@ -25,8 +27,6 @@ const SHOWDOWN_TO_STAT: Record<string, SpreadKey> = {
   SpD: "spDef",
   Spe: "speed",
 };
-
-const STAT_KEYS: SpreadKey[] = ["hp", "attack", "defense", "spAtk", "spDef", "speed"];
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -241,8 +241,8 @@ async function parseBlock(
   let pokemon;
   try {
     pokemon = await fetchPokemon(apiName);
-  } catch {
-    // If fetch fails, skip this block
+  } catch (e) {
+    silentWarn("importShowdownFetchPokemon", e);
     return null;
   }
 

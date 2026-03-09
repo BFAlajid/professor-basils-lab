@@ -1,4 +1,5 @@
 import type { Pokemon, Move, TypeName, BattlePokemon } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { getDefensiveMultiplier } from "@/data/typeChart";
 import { typeToIndex } from "./typeChartWasm";
 import { getHeldItem } from "@/data/heldItems";
@@ -191,7 +192,8 @@ export function calculateDamage(
       stab: result[3] > 0,
       isCritical: result[4] > 0,
     };
-  } catch {
+  } catch (e) {
+    silentWarn("wasmCalculateDamage", e);
     return calculateDamage_JS(attacker, defender, move, options);
   }
 }

@@ -1,4 +1,5 @@
 import type { TeamSlot, EVSpread, IVSpread, Nature, TypeName } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { NATURES } from "@/data/natures";
 import { fetchPokemon } from "@/hooks/usePokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
@@ -6,8 +7,7 @@ import {
   exportToShowdown as exportToShowdown_JS,
   importFromShowdown as importFromShowdown_JS,
 } from "./showdownFormat";
-
-const STAT_KEYS: (keyof EVSpread)[] = ["hp", "attack", "defense", "spAtk", "spDef", "speed"];
+import { STAT_KEYS } from "@/data/constants";
 
 import { createWasmWrapper } from "./createWasmWrapper";
 
@@ -55,7 +55,8 @@ export async function importFromShowdown(text: string): Promise<TeamSlot[]> {
         let pokemon;
         try {
           pokemon = await fetchPokemon(p.species);
-        } catch {
+        } catch (e) {
+          silentWarn("wasmImportShowdownFetchPokemon", e);
           continue;
         }
 
@@ -89,7 +90,7 @@ export async function importFromShowdown(text: string): Promise<TeamSlot[]> {
       }
 
       return slots;
-    } catch { /* fall through */ }
+    } catch (e) { silentWarn("wasmImportShowdown", e); }
   }
   return importFromShowdown_JS(text);
 }
@@ -109,7 +110,7 @@ export function exportToShowdown(team: TeamSlot[]): string {
         moves: slot.selectedMoves ?? [],
       }));
       return wasmModule.export_showdown_paste(JSON.stringify(data));
-    } catch { /* fall through */ }
+    } catch (e) { silentWarn("wasmExportShowdown", e); }
   }
   return exportToShowdown_JS(team);
 }

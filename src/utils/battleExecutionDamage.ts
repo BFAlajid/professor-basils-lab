@@ -7,6 +7,7 @@ import {
   TypeName,
 } from "@/types";
 import { calculateDamage } from "./damage";
+import { CRIT_RATE, STAT_STAGE_MAX, STAT_STAGE_MIN, SLEEP_TURN_MIN, SLEEP_TURN_RANGE } from "@/data/constants";
 import { convertToMaxMove, getMaxMoveEffect } from "@/data/maxMoves";
 import { getAbilityHooks, getHighestStat } from "@/data/abilities";
 import { getDefensiveMultiplier } from "@/data/typeChart";
@@ -99,7 +100,7 @@ function applyDamageLoop(
   for (let hit = 0; hit < hitCount; hit++) {
     if (newDefender.isFainted) break;
 
-    const hitCritical = hitCount > 1 ? Math.random() < (1 / 16) : isCritical;
+    const hitCritical = hitCount > 1 ? Math.random() < CRIT_RATE : isCritical;
     const hitRandomFactor = DAMAGE_ROLL_MIN + Math.random() * DAMAGE_ROLL_RANGE;
     let hitDamage = Math.max(1, Math.floor(result.max * hitRandomFactor));
 
@@ -278,7 +279,7 @@ function applySecondaryEffects(
         const active = getActivePokemon(state[attackerPlayer]);
         const statKey = maxEffect.stat as keyof StatStages;
         const oldStage = active.statStages[statKey] ?? 0;
-        const newStage = Math.min(6, oldStage + 1);
+        const newStage = Math.min(STAT_STAGE_MAX, oldStage + 1);
         if (newStage !== oldStage) {
           const updatedStages = { ...active.statStages, [statKey]: newStage };
           state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, { ...active, statStages: updatedStages });
@@ -289,7 +290,7 @@ function applySecondaryEffects(
         if (!target.isFainted) {
           const statKey = maxEffect.stat as keyof StatStages;
           const oldStage = target.statStages[statKey] ?? 0;
-          const newStage = Math.max(-6, oldStage - 1);
+          const newStage = Math.max(STAT_STAGE_MIN, oldStage - 1);
           if (newStage !== oldStage) {
             const updatedStages = { ...target.statStages, [statKey]: newStage };
             state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...target, statStages: updatedStages });
@@ -321,7 +322,7 @@ function applySecondaryEffects(
         if (!statusBlocked) {
           newDefender = { ...newDefender, status: newStatus };
           if (newStatus === "sleep") {
-            newDefender.sleepTurns = 1 + Math.floor(Math.random() * 3);
+            newDefender.sleepTurns = SLEEP_TURN_MIN + Math.floor(Math.random() * SLEEP_TURN_RANGE);
           }
           log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} was ${getStatusText(newStatus)}!`, kind: "status" });
           state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, newDefender);
@@ -427,7 +428,7 @@ export function executeDamagingMove(
   }
 
   // Critical hit check
-  const isCritical = Math.random() < (1 / 16);
+  const isCritical = Math.random() < CRIT_RATE;
 
   const defSideKey = defenderPlayer === "player1" ? "player1Side" : "player2Side";
   const defSide = state.field[defSideKey];
@@ -546,7 +547,7 @@ export function executeDamagingMove(
           boostStat = koResult.stat as keyof StatStages;
         }
         const oldStage = currentAttacker.statStages[boostStat] ?? 0;
-        const newStage = Math.min(6, oldStage + koResult.stages);
+        const newStage = Math.min(STAT_STAGE_MAX, oldStage + koResult.stages);
         if (newStage !== oldStage) {
           const updatedStages = { ...currentAttacker.statStages, [boostStat]: newStage };
           state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, { ...currentAttacker, statStages: updatedStages });

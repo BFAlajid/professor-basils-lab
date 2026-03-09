@@ -10,6 +10,7 @@ import PokedexEntry from "./PokedexEntry";
 import PokedexHeader from "./PokedexHeader";
 import PokedexSearchFilters, { GENERATIONS, type FilterTab } from "./PokedexSearchFilters";
 import { applyFilters, DEFAULT_FILTER_CONFIG, type PokedexFilterConfig, type PokemonBaseData } from "@/utils/pokedexFilterEngine";
+import { fetchWithTimeout } from "@/utils/pokeApiClient";
 
 const TOTAL_POKEMON = 1025;
 
@@ -120,11 +121,11 @@ export default function PokedexTracker() {
         // Fetch in batches to avoid overwhelming the API
         for (let offset = 0; offset < TOTAL_POKEMON; offset += 100) {
           const limit = Math.min(100, TOTAL_POKEMON - offset);
-          const res = await fetch(`https://pokeapi.co/api/v2/pokemon?offset=${offset}&limit=${limit}`);
+          const res = await fetchWithTimeout(`https://pokeapi.co/api/v2/pokemon?offset=${offset}&limit=${limit}`);
           const data = await res.json();
           const details = await Promise.all(
             data.results.map(async (p: { url: string }) => {
-              const r = await fetch(p.url);
+              const r = await fetchWithTimeout(p.url);
               return r.json();
             })
           );

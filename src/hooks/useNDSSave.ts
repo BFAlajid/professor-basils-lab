@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { storeNDSSave } from "@/utils/ndsEmulatorStorage";
 import type { NDSEmulatorWindow } from "@/types/emulator";
 
@@ -36,7 +37,7 @@ export function useNDSSave(romNameRef: React.MutableRefObject<string | null>) {
       if (win.FS.analyzePath(savePath).exists) {
         return win.FS.readFile(savePath) as Uint8Array;
       }
-    } catch { /* no save */ }
+    } catch (e) { silentWarn("extractNDSSave", e); }
     return null;
   }, []);
 

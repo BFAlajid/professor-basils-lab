@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer, useEffect, useCallback, useRef } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -230,8 +231,8 @@ export function useVoltorbFlip() {
           dispatch({ type: "LOAD", totalCoins: parsed });
         }
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("loadVoltorbFlipCoins", e);
     }
   }, []);
 
@@ -240,8 +241,8 @@ export function useVoltorbFlip() {
     if (!initialized.current) return;
     try {
       localStorage.setItem(COINS_KEY, String(state.totalCoins));
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("saveVoltorbFlipCoins", e);
     }
   }, [state.totalCoins]);
 

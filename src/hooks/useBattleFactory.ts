@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer, useCallback, useEffect, useRef, useState } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { TeamSlot } from "@/types";
 import { generateScaledTeam } from "@/utils/aiWasm";
 
@@ -196,8 +197,8 @@ export function useBattleFactory() {
           dispatch({ type: "LOAD_BEST", bestRun: parsed });
         }
       }
-    } catch {
-      // localStorage unavailable
+    } catch (e) {
+      silentWarn("loadBattleFactoryBest", e);
     }
   }, []);
 
@@ -206,8 +207,8 @@ export function useBattleFactory() {
     if (factoryState.bestRun > 0) {
       try {
         localStorage.setItem(STORAGE_KEY, String(factoryState.bestRun));
-      } catch {
-        // localStorage unavailable
+      } catch (e) {
+        silentWarn("saveBattleFactoryBest", e);
       }
     }
   }, [factoryState.bestRun]);

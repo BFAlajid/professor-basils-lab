@@ -1,5 +1,6 @@
 "use client";
 import { useReducer, useEffect, useCallback } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { BERRIES } from "@/data/berries";
 
 export interface BerryPlot {
@@ -99,8 +100,8 @@ export function useBerryFarm() {
           dispatch({ type: "LOAD", state: parsed });
         }
       }
-    } catch {
-      /* corrupted data */
+    } catch (e) {
+      silentWarn("loadBerryFarm", e);
     }
   }, []);
 

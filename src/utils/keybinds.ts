@@ -1,5 +1,6 @@
 // Shared keybind configuration for all emulators (GBA, NDS, 3DS)
 // Persisted to localStorage so remaps survive page reloads
+import { silentWarn } from "@/utils/silentWarn";
 
 export type EmulatorButton =
   | "A" | "B" | "X" | "Y"
@@ -42,14 +43,14 @@ export function loadKeybinds(): Record<string, EmulatorButton> {
         return parsed;
       }
     }
-  } catch { /* fall through */ }
+  } catch (e) { silentWarn("loadKeybinds", e); }
   return { ...DEFAULT_KEYBINDS };
 }
 
 export function saveKeybinds(binds: Record<string, EmulatorButton>): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(binds));
-  } catch { /* private browsing */ }
+  } catch (e) { silentWarn("saveKeybinds", e); }
   window.dispatchEvent(new Event("keybinds-changed"));
 }
 

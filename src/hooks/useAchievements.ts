@@ -1,7 +1,8 @@
 "use client";
 
 import { useReducer, useEffect, useCallback, useRef, useMemo, useState } from "react";
-import { ACHIEVEMENT_DEFINITIONS } from "@/data/achievementDefinitions";
+import type { AchievementDefinition } from "@/data/achievementDefinitions";
+import { silentWarn } from "@/utils/silentWarn";
 import { type PlayerStats, DEFAULT_STATS, statsReducer } from "./useAchievementsReducer";
 import { validatePlayerStats } from "@/utils/validatePlayerStats";
 
@@ -45,7 +46,8 @@ function loadFromStorage(): PersistedData | null {
       stats: validatePlayerStats(parsed.stats),
       unlockedIds: validateUnlockedIds(parsed.unlockedIds),
     };
-  } catch {
+  } catch (e) {
+    silentWarn("loadAchievements", e);
     return null;
   }
 }
@@ -65,22 +67,22 @@ function saveToStorage(data: PersistedData): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // ignore
+  } catch (e) {
+    silentWarn("saveAchievements", e);
   }
 }
 
 // --- Hook ---
 
 export function useAchievements() {
-  const definitions = ACHIEVEMENT_DEFINITIONS;
+  const [definitions, setDefinitions] = useState<AchievementDefinition[]>([]);
   const [stats, dispatchStats] = useReducer(statsReducer, DEFAULT_STATS);
   const [unlockedMap, setUnlockedMap] = useState<Record<string, string>>({});
   const [recentUnlock, setRecentUnlock] = useState<Achievement | null>(null);
   const initialized = useRef(false);
   const recentTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load persisted data on mount
+  // Load persisted data and achievement definitions on mount
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
@@ -90,6 +92,10 @@ export function useAchievements() {
       dispatchStats({ type: "SET_STATS", stats: saved.stats });
       setUnlockedMap(saved.unlockedIds ?? {});
     }
+
+    import("@/data/achievementDefinitions").then((mod) => {
+      setDefinitions(mod.ACHIEVEMENT_DEFINITIONS);
+    });
   }, []);
 
   // Build full achievement list with unlock state
@@ -226,7 +232,7 @@ export function useAchievements() {
     };
   }, []);
 
-  return {
+  return useMemo(() => ({
     achievements,
     stats,
     incrementStat,
@@ -245,5 +251,10 @@ export function useAchievements() {
     getUnlockedCount,
     getTotalCount,
     recentUnlock,
-  };
+  }), [
+    achievements, stats, incrementStat, addUniqueBall, addUniqueType,
+    addKantoSpecies, recordBattleWin, recordBattleLoss, updateShinyChain,
+    resetShinyChain, setBattleTowerStreak, addMoney, spendMoney, updateElo,
+    checkAchievements, getUnlockedCount, getTotalCount, recentUnlock,
+  ]);
 }

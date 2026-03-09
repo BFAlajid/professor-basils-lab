@@ -1,4 +1,5 @@
 import { Pokemon } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 
 let currentAudio: HTMLAudioElement | null = null;
 
@@ -32,8 +33,8 @@ export function playCry(pokemon: Pokemon, volume = 0.3): void {
     audio.addEventListener("ended", () => {
       if (currentAudio === audio) currentAudio = null;
     });
-  } catch {
-    // Audio creation failed — not critical
+  } catch (e) {
+    silentWarn("playCry", e);
   }
 }
 

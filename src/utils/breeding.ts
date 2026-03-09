@@ -1,4 +1,5 @@
 import { IVSpread, PCBoxPokemon, BreedingEgg, Nature } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { NATURES } from "@/data/natures";
 import { generateRandomIVs } from "./wildBattle";
 import { randomInt, shuffleArray } from "./random";
@@ -20,7 +21,8 @@ export async function fetchEggGroups(speciesId: number): Promise<string[]> {
     const groups = data.egg_groups.map((g) => g.name);
     eggGroupCache.set(speciesId, groups);
     return groups;
-  } catch {
+  } catch (e) {
+    silentWarn("getEggGroups", e);
     return [];
   }
 }
@@ -92,8 +94,8 @@ export async function getOffspringSpeciesId(
       evolutionChainCache.set(speciesId, baseId);
       return baseId;
     }
-  } catch {
-    // fall through
+  } catch (e) {
+    silentWarn("getBaseSpeciesId", e);
   }
 
   return speciesId;

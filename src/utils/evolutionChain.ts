@@ -1,4 +1,5 @@
 import { fetchSpeciesData } from "@/utils/pokeApiClient";
+import { silentWarn } from "@/utils/silentWarn";
 import { formatName } from "@/utils/format";
 
 export interface EvolutionOption {
@@ -94,7 +95,8 @@ export async function fetchEvolutionChain(pokemonId: number): Promise<EvolutionN
     const chainData = await chainRes.json();
 
     return parseChainLink(chainData.chain);
-  } catch {
+  } catch (e) {
+    silentWarn("fetchEvolutionChain", e);
     return null;
   }
 }

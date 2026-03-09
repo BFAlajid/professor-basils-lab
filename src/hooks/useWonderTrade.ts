@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer, useEffect, useCallback, useRef } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { SHINY_RATE } from "@/data/constants";
 import {
   WonderTradeState,
@@ -70,8 +71,8 @@ export function useWonderTrade() {
           dispatch({ type: "LOAD", history: parsed });
         }
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("loadWonderTradeHistory", e);
     }
   }, []);
 
@@ -80,8 +81,8 @@ export function useWonderTrade() {
     if (!initialized.current) return;
     try {
       localStorage.setItem(WONDER_TRADE_KEY, JSON.stringify(state.history));
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("saveWonderTradeHistory", e);
     }
   }, [state.history]);
 
@@ -173,8 +174,8 @@ export function useWonderTrade() {
         dispatch({ type: "TRADE_COMPLETE", received: receivedPokemon, record });
 
         return receivedPokemon;
-      } catch {
-        // On error, reset back to idle
+      } catch (e) {
+        silentWarn("wonderTradeExecute", e);
         dispatch({ type: "RESET" });
         return null;
       }

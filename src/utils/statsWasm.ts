@@ -1,4 +1,5 @@
 import { calculateHP as calculateHP_JS, calculateStat as calculateStat_JS, calculateAllStats as calculateAllStats_JS } from "./stats";
+import { silentWarn } from "@/utils/silentWarn";
 import type { CalculatedStats } from "./stats";
 import type { BaseStats, EVSpread, IVSpread, Nature, StatKey } from "@/types";
 
@@ -37,8 +38,8 @@ export function calculateHP(base: number, iv: number, ev: number, level: number 
   if (wasmModule) {
     try {
       return wasmModule.calculate_hp(base, iv, ev, level);
-    } catch {
-      // fall through
+    } catch (e) {
+      silentWarn("wasmCalculateHP", e);
     }
   }
   return calculateHP_JS(base, iv, ev, level);
@@ -57,8 +58,8 @@ export function calculateStat(
   if (wasmModule) {
     try {
       return wasmModule.calculate_stat(base, iv, ev, modifier, level);
-    } catch {
-      // fall through
+    } catch (e) {
+      silentWarn("wasmCalculateStat", e);
     }
   }
   return calculateStat_JS(base, iv, ev, nature, statKey, level);
@@ -94,8 +95,8 @@ export function calculateAllStats(
         spDef: result[4],
         speed: result[5],
       };
-    } catch {
-      // fall through
+    } catch (e) {
+      silentWarn("wasmCalculateAllStats", e);
     }
   }
   return calculateAllStats_JS(baseStats, ivs, evs, nature);
