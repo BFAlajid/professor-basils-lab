@@ -1,4 +1,6 @@
 import { fetchSpeciesData } from "@/utils/pokeApiClient";
+import { silentWarn } from "@/utils/silentWarn";
+import { formatName } from "@/utils/format";
 
 export interface EvolutionOption {
   targetSpeciesId: number;
@@ -62,13 +64,6 @@ function buildTriggerLabel(detail: PokeAPIEvolutionDetail): string {
   return parts.join(", ");
 }
 
-function formatName(name: string): string {
-  return name
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
 function parseChainLink(link: PokeAPIChainLink): EvolutionNode {
   const speciesId = extractSpeciesId(link.species.url);
   const options: EvolutionOption[] = link.evolution_details.map((d) => ({
@@ -100,7 +95,8 @@ export async function fetchEvolutionChain(pokemonId: number): Promise<EvolutionN
     const chainData = await chainRes.json();
 
     return parseChainLink(chainData.chain);
-  } catch {
+  } catch (e) {
+    silentWarn("fetchEvolutionChain", e);
     return null;
   }
 }

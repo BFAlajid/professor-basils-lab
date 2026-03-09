@@ -245,6 +245,7 @@ function ParentSlot({
   return (
     <button
       onClick={onSelect}
+      aria-label={`Select ${label.toLowerCase()}`}
       className="rounded-lg border border-dashed border-[#3a4466] bg-[#1a1c2c] p-3 text-center hover:border-[#8b9bb4] transition-colors"
     >
       {pokemon ? (

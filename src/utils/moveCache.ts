@@ -1,4 +1,5 @@
 import { cacheBattleMove, getCachedMoves } from "./battle";
+import { silentWarn } from "@/utils/silentWarn";
 import { fetchMoveData } from "./pokeApiClient";
 
 const pendingFetches = new Map<string, Promise<void>>();
@@ -41,8 +42,8 @@ async function fetchMoveImpl(moveName: string): Promise<void> {
           }
         : undefined,
     });
-  } catch {
-    // skip
+  } catch (e) {
+    silentWarn("fetchMoveImpl", e);
   }
 }
 

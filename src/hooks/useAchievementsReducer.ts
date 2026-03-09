@@ -1,3 +1,13 @@
+import {
+  ELO_K_FACTOR_LOW,
+  ELO_K_FACTOR_MID,
+  ELO_K_FACTOR_HIGH,
+  ELO_K_THRESHOLD_LOW,
+  ELO_K_THRESHOLD_HIGH,
+  ELO_SCALE_FACTOR,
+  ELO_MINIMUM,
+} from "@/data/constants";
+
 export interface PlayerStats {
   totalCaught: number;
   totalBattlesWon: number;
@@ -200,14 +210,19 @@ export function statsReducer(state: PlayerStats, action: StatsAction): PlayerSta
     }
     case "UPDATE_ELO": {
       const oppRating = action.opponentRating ?? state.eloRating;
-      const expected = 1 / (1 + Math.pow(10, (oppRating - state.eloRating) / 400));
-      const kFactor = state.eloRating < 1200 ? 40 : state.eloRating < 1600 ? 32 : 24;
+      const expected = 1 / (1 + Math.pow(10, (oppRating - state.eloRating) / ELO_SCALE_FACTOR));
+      const kFactor = state.eloRating < ELO_K_THRESHOLD_LOW ? ELO_K_FACTOR_LOW : state.eloRating < ELO_K_THRESHOLD_HIGH ? ELO_K_FACTOR_MID : ELO_K_FACTOR_HIGH;
       const score = action.won ? 1 : 0;
-      const newElo = Math.max(100, Math.round(state.eloRating + kFactor * (score - expected)));
+      const newElo = Math.max(ELO_MINIMUM, Math.round(state.eloRating + kFactor * (score - expected)));
       return { ...state, eloRating: newElo };
     }
-    case "SET_STATS":
-      return action.stats;
+    case "SET_STATS": {
+      // Defense in depth: reject if shape is clearly wrong
+      if (action.stats == null || typeof action.stats !== "object") return state;
+      const s = action.stats;
+      if (typeof s.eloRating !== "number" || typeof s.money !== "number") return state;
+      return s;
+    }
     default:
       return state;
   }

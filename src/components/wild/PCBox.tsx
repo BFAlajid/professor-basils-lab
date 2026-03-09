@@ -35,7 +35,7 @@ export default function PCBox({ box, teamSize, onMoveToTeam, onRemove, onSetNick
           <p className="text-xs text-[#3a4466] mt-1">Catch wild Pokemon to fill your box!</p>
         </div>
       ) : (
-        <div className="grid grid-cols-8 sm:grid-cols-10 gap-2 max-h-[350px] overflow-y-auto bg-[#1a1c2c] border border-[#3a4466] rounded-xl p-3">
+        <div role="grid" aria-label="PC Box storage" className="grid grid-cols-8 sm:grid-cols-10 gap-2 max-h-[350px] overflow-y-auto bg-[#1a1c2c] border border-[#3a4466] rounded-xl p-3">
           {box.map((pokemon, i) => (
             <PCBoxSlot
               key={i}

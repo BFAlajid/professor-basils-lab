@@ -1,4 +1,5 @@
 import { BattleReplay } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 
 export function encodeReplay(replay: BattleReplay): string {
   const slim = {
@@ -27,7 +28,8 @@ export function decodeReplay(code: string): BattleReplay | null {
       totalTurns: data.turns,
       snapshots: data.snapshots,
     };
-  } catch {
+  } catch (e) {
+    silentWarn("decodeReplay", e);
     return null;
   }
 }

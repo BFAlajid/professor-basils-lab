@@ -9,6 +9,7 @@ import {
 import { getHeldItem } from "@/data/heldItems";
 import { getAbilityHooks } from "@/data/abilities";
 import { getDefensiveMultiplier } from "@/data/typeChart";
+import { STAT_STAGE_MIN, STAT_STAGE_MAX } from "@/data/constants";
 import { getActivePokemon, getEffectiveTypes, updatePokemon } from "./battleHelpers";
 
 // --- Entry Hazards ---
@@ -68,7 +69,7 @@ export function applyHazardsOnSwitchIn(
   // Sticky Web: grounded only, -1 Speed
   if (side.stickyWeb && isGrounded) {
     const oldStage = updated.statStages.speed;
-    const newStage = Math.max(-6, oldStage - 1);
+    const newStage = Math.max(STAT_STAGE_MIN, oldStage - 1);
     if (newStage !== oldStage) {
       updated = { ...updated, statStages: { ...updated.statStages, speed: newStage } };
       log.push({ turn: state.turn, message: `${updated.slot.pokemon.name} was caught in a Sticky Web! Its Speed fell!`, kind: "hazard" });
@@ -186,7 +187,7 @@ export function applyEndOfTurnEffects(state: BattleState, log: BattleLogEntry[])
       if (endResult?.type === "speed_boost" && endResult.stat && endResult.stages) {
         const statKey = endResult.stat as keyof StatStages;
         const oldStage = updated.statStages[statKey] ?? 0;
-        const newStage = Math.min(6, oldStage + endResult.stages);
+        const newStage = Math.min(STAT_STAGE_MAX, oldStage + endResult.stages);
         if (newStage !== oldStage) {
           updated = { ...updated, statStages: { ...updated.statStages, [statKey]: newStage } };
           if (endResult.message) {

@@ -12,7 +12,10 @@ import { fetchPokemonData } from "@/utils/pokeApiClient";
 export function useBattle() {
   const [state, dispatch] = useReducer(battleReducer, initialBattleState);
   const [isLoadingOpponent, setIsLoadingOpponent] = useState(false);
+  const [megaLoadFailures, setMegaLoadFailures] = useState<Set<string>>(new Set());
   const recorder = useReplayRecorder();
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const prevTurnRef = useRef(0);
 
   // Start recording when battle begins (turn 1, first action_select)
@@ -65,7 +68,10 @@ export function useBattle() {
                   spriteUrl: data.sprites?.other?.["official-artwork"]?.front_default ?? data.sprites?.front_default ?? null,
                 });
               })
-              .catch(() => {})
+              .catch((error) => {
+                console.warn("Failed to load mega forme for", slot.pokemon.name, error);
+                setMegaLoadFailures(prev => new Set(prev).add(slot.pokemon.name));
+              })
           );
         }
       }
@@ -123,9 +129,10 @@ export function useBattle() {
 
   const submitPlayerAction = useCallback(
     (action: BattleTurnAction) => {
-      if (state.mode === "ai") {
+      const current = stateRef.current;
+      if (current.mode === "ai") {
         // AI selects its action
-        const aiAction = selectAIAction(state);
+        const aiAction = selectAIAction(current);
         dispatch({
           type: "EXECUTE_TURN",
           player1Action: action,
@@ -133,7 +140,7 @@ export function useBattle() {
         });
       }
     },
-    [state]
+    []
   );
 
   const forceSwitch = useCallback(
@@ -144,11 +151,12 @@ export function useBattle() {
   );
 
   const autoAISwitch = useCallback(() => {
-    if (state.waitingForSwitch === "player2" && state.mode === "ai") {
-      const bestIdx = getBestSwitchIn(state, "player2");
+    const current = stateRef.current;
+    if (current.waitingForSwitch === "player2" && current.mode === "ai") {
+      const bestIdx = getBestSwitchIn(current, "player2");
       dispatch({ type: "FORCE_SWITCH", player: "player2", pokemonIndex: bestIdx });
     }
-  }, [state]);
+  }, []);
 
   const resetBattle = useCallback(() => {
     dispatch({ type: "RESET_BATTLE" });
@@ -177,6 +185,7 @@ export function useBattle() {
     startBattle,
     generateOpponent,
     isLoadingOpponent,
+    megaLoadFailures,
     submitPlayerAction,
     submitActions,
     forceSwitch,

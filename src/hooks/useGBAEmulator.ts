@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { loadSave, storeROM, loadROM as loadROMFromDB, listROMs } from "@/utils/emulatorStorage";
 import { registerEmulator, updateCallbacks } from "@/utils/emulatorManager";
 import type { GBAEmulatorWindow } from "@/types/emulator";
@@ -75,7 +76,8 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
     try {
       const roms = await listROMs();
       setState((s) => ({ ...s, isReady: true, savedROMs: roms }));
-    } catch {
+    } catch (e) {
+      silentWarn("gbaListROMs", e);
       setState((s) => ({ ...s, isReady: true, savedROMs: [] }));
     }
   }, []);
@@ -351,7 +353,8 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
     let dataUrl: string | null = null;
     try {
       dataUrl = canvas.toDataURL("image/png");
-    } catch {
+    } catch (e) {
+      silentWarn("gbaCanvasToDataURL", e);
       dataUrl = null;
     }
 

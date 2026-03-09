@@ -122,6 +122,7 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
                   key={i}
                   onClick={() => !isFull && setSelectedPokemon(i)}
                   disabled={isFull}
+                  aria-label={`Select ${slot.pokemon.name.replace(/-/g, " ")} for EV training, ${evTotal} of ${MAX_TOTAL_EVS} EVs`}
                   className="rounded-lg border border-[#3a4466] bg-[#262b44] p-2 text-center hover:border-[#f7a838] transition-colors disabled:opacity-40"
                 >
                   <p className="font-pixel text-[10px] text-[#f0f0e8] capitalize truncate">
@@ -151,6 +152,7 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
             </p>
             <button
               onClick={() => setSelectedPokemon(null)}
+              aria-label="Back to Pokemon selection"
               className="font-pixel text-[8px] text-[#8b9bb4] hover:text-[#f0f0e8]"
             >
               Back
@@ -183,6 +185,7 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
                   key={key}
                   onClick={() => !isCapped && setTrainingStat(key)}
                   disabled={isCapped}
+                  aria-label={`Train ${label} by battling ${pokemon}, plus ${gain} EVs per battle`}
                   className="rounded-lg border border-[#3a4466] bg-[#262b44] p-2 text-left hover:border-[#f7a838] transition-colors disabled:opacity-40"
                 >
                   <p className="font-pixel text-[9px]" style={{ color }}>{label}</p>
@@ -216,6 +219,7 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
             </p>
             <button
               onClick={handleFinish}
+              aria-label="Finish training session"
               className="font-pixel text-[8px] text-[#f7a838] hover:text-[#f0f0e8]"
             >
               Finish
@@ -271,6 +275,7 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
               <motion.button
                 onClick={handleTrain}
                 whileTap={{ scale: 0.95 }}
+                aria-label={`Battle ${STAT_INFO.find((s) => s.key === trainingStat)?.pokemon} to gain ${calculateGain(trainingStat)} ${STAT_INFO.find((s) => s.key === trainingStat)?.label} EVs`}
                 className="px-6 py-2 font-pixel text-[10px] rounded-lg bg-[#e8433f] text-[#f0f0e8] hover:bg-[#c73535] transition-colors"
               >
                 Battle {STAT_INFO.find((s) => s.key === trainingStat)?.pokemon}! (+{calculateGain(trainingStat)} EVs)

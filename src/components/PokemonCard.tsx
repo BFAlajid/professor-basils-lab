@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { motion } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { TeamSlot } from "@/types";
@@ -17,7 +18,7 @@ interface PokemonCardProps {
   isExpanded?: boolean;
 }
 
-export default function PokemonCard({
+export default memo(function PokemonCard({
   slot,
   onRemove,
   onClick,
@@ -151,4 +152,4 @@ export default function PokemonCard({
       </div>
     </motion.div>
   );
-}
+});

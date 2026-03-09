@@ -6,12 +6,15 @@ import { useTeam, encodeTeam, decodeTeam, type DecodedTeamData } from "@/hooks/u
 import { fetchPokemon } from "@/hooks/usePokemon";
 import { usePokedexContext } from "@/contexts/PokedexContext";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
+import { useFeatureFlagsContext } from "@/contexts/FeatureFlagsContext";
 import { NATURES } from "@/data/natures";
+import { TOAST_DURATION } from "@/data/constants";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
 import { importFromShowdown } from "@/utils/showdownFormatWasm";
 import type { TeamSlot } from "@/types";
 import dynamic from "next/dynamic";
 import SkeletonLoader from "@/components/SkeletonLoader";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // Lightweight — keep eager
 import TeamRoster from "@/components/TeamRoster";
@@ -104,12 +107,21 @@ export default function Home() {
   const [shareMessage, setShareMessage] = useState("");
   const { markSeen } = usePokedexContext();
   const { incrementStat } = useAchievementsContext();
+  const { announcement } = useFeatureFlagsContext();
   const prevTeamSize = useRef(0);
   const shouldReduceMotion = useReducedMotion();
 
   // Load team from URL params on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const addParam = params.get("add");
+    if (addParam) {
+      fetchPokemon(addParam).then((pokemon) => {
+        if (pokemon) addPokemon(pokemon);
+      }).catch(() => {});
+      window.history.replaceState({}, "", "/");
+    }
+
     const encoded = params.get("team");
     if (encoded) {
       const decoded = decodeTeam(encoded);
@@ -154,7 +166,7 @@ export default function Home() {
             .filter((s): s is TeamSlot => s !== null)
             .map((s, i) => ({ ...s, position: i }));
           if (validSlots.length > 0) setTeam(validSlots);
-        });
+        }).catch(() => { /* URL team decode failed — ignore */ });
       }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -197,7 +209,7 @@ export default function Home() {
     const url = `${window.location.origin}${window.location.pathname}?team=${encoded}`;
     navigator.clipboard.writeText(url).then(() => {
       setShareMessage("Link copied!");
-      setTimeout(() => setShareMessage(""), 2000);
+      setTimeout(() => setShareMessage(""), TOAST_DURATION);
     });
   }, [team]);
 
@@ -232,6 +244,17 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#1a1c2c]">
+      {/* Announcement Banner */}
+      {announcement.banner && (
+        <div className={`px-4 py-2 text-center font-[family-name:var(--font-pixel-body)] text-sm ${
+          announcement.bannerType === "error" ? "bg-red-900/50 text-red-200" :
+          announcement.bannerType === "warning" ? "bg-yellow-900/50 text-yellow-200" :
+          "bg-blue-900/50 text-blue-200"
+        }`}>
+          {announcement.banner}
+        </div>
+      )}
+
       {/* Skip to content */}
       <a
         href="#main-content"
@@ -319,7 +342,9 @@ export default function Home() {
       >
         {/* Emulator stays mounted to preserve WASM state across tab switches */}
         <div style={{ display: activeTab === "emulator" ? "block" : "none" }}>
-          <UnifiedEmulatorTab />
+          <ErrorBoundary fallbackLabel="Emulator failed to load">
+            <UnifiedEmulatorTab />
+          </ErrorBoundary>
         </div>
 
         <AnimatePresence mode="wait">
@@ -332,85 +357,101 @@ export default function Home() {
               transition={{ duration: motionDuration }}
             >
               {activeTab === "team" && (
-                <div className="space-y-6">
-                  <TeamRoster
-                    team={team}
-                    onAdd={addPokemon}
-                    onRemove={removePokemon}
-                    isFull={isFull}
-                    onSetNature={setNature}
-                    onSetEvs={setEvs}
-                    onSetIvs={setIvs}
-                    onSetAbility={setAbility}
-                    onSetHeldItem={setHeldItem}
-                    onSetMoves={setMoves}
-                    onSetTeraType={setTeraType}
-                    onSetForme={setForme}
-                    onSetTeam={setTeam}
-                  />
-                  <TierWarnings team={team} />
-                  <TeamTemplates onLoadTeam={handleLoadTemplate} />
-                </div>
+                <ErrorBoundary fallbackLabel="Team builder crashed">
+                  <div className="space-y-6">
+                    <TeamRoster
+                      team={team}
+                      onAdd={addPokemon}
+                      onRemove={removePokemon}
+                      isFull={isFull}
+                      onSetNature={setNature}
+                      onSetEvs={setEvs}
+                      onSetIvs={setIvs}
+                      onSetAbility={setAbility}
+                      onSetHeldItem={setHeldItem}
+                      onSetMoves={setMoves}
+                      onSetTeraType={setTeraType}
+                      onSetForme={setForme}
+                      onSetTeam={setTeam}
+                    />
+                    <TierWarnings team={team} />
+                    <TeamTemplates onLoadTeam={handleLoadTemplate} />
+                  </div>
+                </ErrorBoundary>
               )}
               {activeTab === "analysis" && (
-                <div className="space-y-6">
-                  <TypeCoverage team={teamPokemon} />
-                  <TeamWeaknessPanel team={team} />
-                </div>
+                <ErrorBoundary fallbackLabel="Coverage analysis crashed">
+                  <div className="space-y-6">
+                    <TypeCoverage team={teamPokemon} />
+                    <TeamWeaknessPanel team={team} />
+                  </div>
+                </ErrorBoundary>
               )}
               {activeTab === "stats" && (
-                <div className="space-y-6">
-                  <StatRadar team={team} />
-                  <SpeedTierChart team={team} />
-                  <PokemonComparison team={team} />
-                  <TeamSummary team={teamPokemon} />
-                  {team.length > 0 && (
-                    <>
-                      <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <h3 className="text-sm font-bold text-[#f0f0e8] font-pixel">Move Pool</h3>
-                          <div className="flex gap-1">
-                            {team.map((s, i) => (
-                              <button
-                                type="button"
-                                key={i}
-                                onClick={() => setSelectedTeamPokemonIdx(i)}
-                                className={`px-2 py-0.5 text-[10px] font-pixel rounded transition-colors ${
-                                  selectedTeamPokemonIdx === i
-                                    ? "bg-[#e8433f] text-[#f0f0e8]"
-                                    : "bg-[#3a4466] text-[#8b9bb4] hover:text-[#f0f0e8]"
-                                }`}
-                                aria-label={`View moves for ${s.pokemon.name}`}
-                              >
-                                {s.pokemon.name.charAt(0).toUpperCase() + s.pokemon.name.slice(1, 6)}
-                              </button>
-                            ))}
+                <ErrorBoundary fallbackLabel="Stats view crashed">
+                  <div className="space-y-6">
+                    <StatRadar team={team} />
+                    <SpeedTierChart team={team} />
+                    <PokemonComparison team={team} />
+                    <TeamSummary team={teamPokemon} />
+                    {team.length > 0 && (
+                      <>
+                        <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <h3 className="text-sm font-bold text-[#f0f0e8] font-pixel">Move Pool</h3>
+                            <div className="flex gap-1">
+                              {team.map((s, i) => (
+                                <button
+                                  type="button"
+                                  key={i}
+                                  onClick={() => setSelectedTeamPokemonIdx(i)}
+                                  className={`px-2 py-0.5 text-[10px] font-pixel rounded transition-colors ${
+                                    selectedTeamPokemonIdx === i
+                                      ? "bg-[#e8433f] text-[#f0f0e8]"
+                                      : "bg-[#3a4466] text-[#8b9bb4] hover:text-[#f0f0e8]"
+                                  }`}
+                                  aria-label={`View moves for ${s.pokemon.name}`}
+                                >
+                                  {s.pokemon.name.charAt(0).toUpperCase() + s.pokemon.name.slice(1, 6)}
+                                </button>
+                              ))}
+                            </div>
                           </div>
+                          <MovePoolBrowser pokemon={team[selectedTeamPokemonIdx]?.pokemon} />
                         </div>
-                        <MovePoolBrowser pokemon={team[selectedTeamPokemonIdx]?.pokemon} />
-                      </div>
-                      <EvolutionTreeViewer pokemonId={team[selectedTeamPokemonIdx]?.pokemon.id} />
-                    </>
-                  )}
-                </div>
+                        <EvolutionTreeViewer pokemonId={team[selectedTeamPokemonIdx]?.pokemon.id} />
+                      </>
+                    )}
+                  </div>
+                </ErrorBoundary>
               )}
               {activeTab === "damage" && (
-                <div className="space-y-6">
-                  <DamageCalculator team={teamPokemon} />
-                  <DamageMatrix team={team} />
-                </div>
+                <ErrorBoundary fallbackLabel="Damage calculator crashed">
+                  <div className="space-y-6">
+                    <DamageCalculator team={teamPokemon} />
+                    <DamageMatrix team={team} />
+                  </div>
+                </ErrorBoundary>
               )}
               {activeTab === "battle" && (
-                <BattleTab team={team} />
+                <ErrorBoundary fallbackLabel="Battle system crashed">
+                  <BattleTab team={team} />
+                </ErrorBoundary>
               )}
               {activeTab === "wild" && (
-                <WildTab team={team} onAddToTeam={addPokemon} onSetEvs={setEvs} onSetMoves={setMoves} />
+                <ErrorBoundary fallbackLabel="Wild area crashed">
+                  <WildTab team={team} onAddToTeam={addPokemon} onSetEvs={setEvs} onSetMoves={setMoves} />
+                </ErrorBoundary>
               )}
               {activeTab === "pokedex" && (
-                <PokedexTracker />
+                <ErrorBoundary fallbackLabel="Pokedex crashed">
+                  <PokedexTracker />
+                </ErrorBoundary>
               )}
               {activeTab === "achievements" && (
-                <AchievementPanel team={team} />
+                <ErrorBoundary fallbackLabel="Achievements crashed">
+                  <AchievementPanel team={team} />
+                </ErrorBoundary>
               )}
             </motion.div>
           )}

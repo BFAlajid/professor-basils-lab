@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer, useCallback, useEffect, useRef, useState } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { TeamSlot } from "@/types";
 import { generateScaledTeam } from "@/utils/aiWasm";
 
@@ -196,8 +197,8 @@ export function useBattleFactory() {
           dispatch({ type: "LOAD_BEST", bestRun: parsed });
         }
       }
-    } catch {
-      // localStorage unavailable
+    } catch (e) {
+      silentWarn("loadBattleFactoryBest", e);
     }
   }, []);
 
@@ -206,8 +207,8 @@ export function useBattleFactory() {
     if (factoryState.bestRun > 0) {
       try {
         localStorage.setItem(STORAGE_KEY, String(factoryState.bestRun));
-      } catch {
-        // localStorage unavailable
+      } catch (e) {
+        silentWarn("saveBattleFactoryBest", e);
       }
     }
   }, [factoryState.bestRun]);
@@ -257,7 +258,7 @@ export function useBattleFactory() {
 
   // ── Generate opponent — 3 Pokemon scaled to current win count ──────
 
-  const generateOpponent = useCallback(async () => {
+  const generateOpponent = useCallback(async (): Promise<TeamSlot[]> => {
     setIsLoading(true);
     try {
       // Scale difficulty: floor rises with wins
@@ -269,6 +270,7 @@ export function useBattleFactory() {
         position: i,
       }));
       dispatch({ type: "SET_OPPONENT", team: threeOpponents });
+      return threeOpponents;
     } finally {
       setIsLoading(false);
     }

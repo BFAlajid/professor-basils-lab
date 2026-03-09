@@ -1,8 +1,10 @@
 "use client";
 
 import { useReducer, useEffect, useCallback, useRef, useMemo, useState } from "react";
-import { ACHIEVEMENT_DEFINITIONS } from "@/data/achievementDefinitions";
+import type { AchievementDefinition } from "@/data/achievementDefinitions";
+import { silentWarn } from "@/utils/silentWarn";
 import { type PlayerStats, DEFAULT_STATS, statsReducer } from "./useAchievementsReducer";
+import { validatePlayerStats } from "@/utils/validatePlayerStats";
 
 export type { PlayerStats };
 
@@ -38,41 +40,62 @@ function loadFromStorage(): PersistedData | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as PersistedData;
-  } catch {
+    const parsed = JSON.parse(raw);
+    if (parsed == null || typeof parsed !== "object") return null;
+    return {
+      stats: validatePlayerStats(parsed.stats),
+      unlockedIds: validateUnlockedIds(parsed.unlockedIds),
+    };
+  } catch (e) {
+    silentWarn("loadAchievements", e);
     return null;
   }
+}
+
+function validateUnlockedIds(raw: unknown): Record<string, string> {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const result: Record<string, string> = {};
+  for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof key === "string" && typeof val === "string") {
+      result[key] = val;
+    }
+  }
+  return result;
 }
 
 function saveToStorage(data: PersistedData): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // ignore
+  } catch (e) {
+    silentWarn("saveAchievements", e);
   }
 }
 
 // --- Hook ---
 
 export function useAchievements() {
-  const definitions = ACHIEVEMENT_DEFINITIONS;
+  const [definitions, setDefinitions] = useState<AchievementDefinition[]>([]);
   const [stats, dispatchStats] = useReducer(statsReducer, DEFAULT_STATS);
   const [unlockedMap, setUnlockedMap] = useState<Record<string, string>>({});
   const [recentUnlock, setRecentUnlock] = useState<Achievement | null>(null);
   const initialized = useRef(false);
   const recentTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load persisted data on mount
+  // Load persisted data and achievement definitions on mount
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
 
     const saved = loadFromStorage();
     if (saved) {
-      dispatchStats({ type: "SET_STATS", stats: { ...DEFAULT_STATS, ...saved.stats } });
+      dispatchStats({ type: "SET_STATS", stats: saved.stats });
       setUnlockedMap(saved.unlockedIds ?? {});
     }
+
+    import("@/data/achievementDefinitions").then((mod) => {
+      setDefinitions(mod.ACHIEVEMENT_DEFINITIONS);
+    });
   }, []);
 
   // Build full achievement list with unlock state
@@ -209,7 +232,7 @@ export function useAchievements() {
     };
   }, []);
 
-  return {
+  return useMemo(() => ({
     achievements,
     stats,
     incrementStat,
@@ -228,5 +251,10 @@ export function useAchievements() {
     getUnlockedCount,
     getTotalCount,
     recentUnlock,
-  };
+  }), [
+    achievements, stats, incrementStat, addUniqueBall, addUniqueType,
+    addKantoSpecies, recordBattleWin, recordBattleLoss, updateShinyChain,
+    resetShinyChain, setBattleTowerStreak, addMoney, spendMoney, updateElo,
+    checkAchievements, getUnlockedCount, getTotalCount, recentUnlock,
+  ]);
 }

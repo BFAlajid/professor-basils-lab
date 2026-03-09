@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { SafariZoneState, SafariCaughtEntry } from "@/types";
 import { SAFARI_REGIONS } from "@/data/safariZoneEncounters";
+import SafariEncounterView from "./SafariEncounterView";
+import SafariSummaryView from "./SafariSummaryView";
 
 interface SafariZoneProps {
   state: SafariZoneState;
@@ -63,8 +65,6 @@ export default memo(function SafariZone({
     onClose();
   }, [onReset, onClose]);
 
-  const ballsUsed = 30 - state.ballsRemaining;
-  const stepsTaken = 500 - state.stepsRemaining;
   const pokemon = state.currentPokemon;
 
   return (
@@ -215,113 +215,15 @@ export default memo(function SafariZone({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="space-y-3"
           >
-            {/* Pokemon display */}
-            <div className="flex flex-col items-center py-2 space-y-1">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", bounce: 0.5 }}
-              >
-                {pokemon.pokemon.sprites.front_default && (
-                  <Image
-                    src={pokemon.pokemon.sprites.front_default}
-                    alt={pokemon.pokemon.name}
-                    width={96}
-                    height={96}
-                    unoptimized
-                    className="pixelated drop-shadow-lg"
-                  />
-                )}
-              </motion.div>
-              <div className="text-center">
-                <p className="text-sm font-pixel text-[#f0f0e8] capitalize">
-                  {pokemon.pokemon.name}
-                  {pokemon.isShiny && (
-                    <span className="ml-1 text-[#f7a838]">&#10024;</span>
-                  )}
-                </p>
-                <p className="text-[10px] text-[#8b9bb4]">
-                  Lv.{pokemon.level}
-                </p>
-              </div>
-
-              {/* Modifier badges */}
-              <div className="flex gap-1.5 flex-wrap justify-center">
-                {pokemon.catchModifier > 1 && (
-                  <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#38b764]/20 text-[#38b764] font-pixel">
-                    Catch &uarr;
-                  </span>
-                )}
-                {pokemon.catchModifier < 1 && (
-                  <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#e8433f]/20 text-[#e8433f] font-pixel">
-                    Catch &darr;
-                  </span>
-                )}
-                {pokemon.fleeModifier > 1 && (
-                  <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#e8433f]/20 text-[#e8433f] font-pixel">
-                    Flee &uarr;
-                  </span>
-                )}
-                {pokemon.fleeModifier < 1 && (
-                  <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#38b764]/20 text-[#38b764] font-pixel">
-                    Flee &darr;
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Last action result */}
-            {state.lastResult && (
-              <p className="text-[10px] text-center text-[#f7a838] font-pixel">
-                {state.lastResult}
-              </p>
-            )}
-
-            {/* HUD mini bar */}
-            <div className="flex items-center justify-between text-[9px] text-[#8b9bb4] px-1">
-              <span>Balls: {state.ballsRemaining}/30</span>
-              <span>Steps: {state.stepsRemaining}/500</span>
-            </div>
-
-            {/* Action grid */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={onThrowBall}
-                disabled={state.ballsRemaining <= 0}
-                className="px-3 py-2.5 bg-[#38b764] hover:bg-[#45c972] text-[#f0f0e8] text-[10px] font-pixel rounded-lg transition-colors disabled:opacity-40 space-y-0.5"
-              >
-                <div>Safari Ball</div>
-                <div className="text-[8px] opacity-70">
-                  {state.ballsRemaining} left
-                </div>
-              </button>
-              <button
-                onClick={onThrowRock}
-                className="px-3 py-2.5 bg-[#d97b2a] hover:bg-[#e68a35] text-[#f0f0e8] text-[10px] font-pixel rounded-lg transition-colors space-y-0.5"
-              >
-                <div>Throw Rock</div>
-                <div className="text-[8px] opacity-70">
-                  Easier catch, may flee!
-                </div>
-              </button>
-              <button
-                onClick={onThrowBait}
-                className="px-3 py-2.5 bg-[#4a90d9] hover:bg-[#5a9ee5] text-[#f0f0e8] text-[10px] font-pixel rounded-lg transition-colors space-y-0.5"
-              >
-                <div>Throw Bait</div>
-                <div className="text-[8px] opacity-70">
-                  Less likely to flee
-                </div>
-              </button>
-              <button
-                onClick={onRun}
-                className="px-3 py-2.5 bg-[#3a4466] hover:bg-[#4a5577] text-[#f0f0e8] text-[10px] font-pixel rounded-lg transition-colors"
-              >
-                <div>Run Away</div>
-              </button>
-            </div>
+            <SafariEncounterView
+              state={state}
+              pokemon={pokemon}
+              onThrowBall={onThrowBall}
+              onThrowRock={onThrowRock}
+              onThrowBait={onThrowBait}
+              onRun={onRun}
+            />
           </motion.div>
         )}
 
@@ -431,71 +333,13 @@ export default memo(function SafariZone({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="space-y-4"
           >
-            <h3 className="text-center text-sm font-pixel text-[#f7a838]">
-              Safari Zone Complete!
-            </h3>
-
-            {/* Stats */}
-            <div className="flex justify-center gap-4 text-[10px] text-[#8b9bb4]">
-              <span>Balls used: {ballsUsed}/30</span>
-              <span>Steps: {stepsTaken}/500</span>
-              <span>Caught: {state.caughtPokemon.length}</span>
-            </div>
-
-            {/* Caught grid */}
-            {state.caughtPokemon.length > 0 ? (
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 max-h-48 overflow-y-auto">
-                {state.caughtPokemon.map((entry, i) => (
-                  <div
-                    key={i}
-                    className="flex flex-col items-center bg-[#1a1c2c] rounded-lg p-1.5 border border-[#3a4466]"
-                  >
-                    {entry.pokemon.sprites.front_default && (
-                      <Image
-                        src={entry.pokemon.sprites.front_default}
-                        alt={entry.pokemon.name}
-                        width={36}
-                        height={36}
-                        unoptimized
-                        className="pixelated"
-                      />
-                    )}
-                    <span className="text-[7px] text-[#f0f0e8] capitalize truncate w-full text-center">
-                      {entry.pokemon.name}
-                      {entry.isShiny && " \u2728"}
-                    </span>
-                    <span className="text-[6px] text-[#8b9bb4]">
-                      Lv.{entry.level}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-[#8b9bb4] text-center py-3">
-                No Pokemon were caught this trip.
-              </p>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              {state.caughtPokemon.length > 0 && (
-                <button
-                  onClick={handleAddAllToBox}
-                  disabled={addedToBox}
-                  className="flex-1 px-4 py-2 bg-[#38b764] hover:bg-[#45c972] text-[#f0f0e8] text-[10px] font-pixel rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {addedToBox ? "Added to PC Box!" : "Add All to PC Box"}
-                </button>
-              )}
-              <button
-                onClick={handleLeave}
-                className="flex-1 px-4 py-2 bg-[#3a4466] hover:bg-[#4a5577] text-[#f0f0e8] text-[10px] font-pixel rounded-lg transition-colors"
-              >
-                Leave
-              </button>
-            </div>
+            <SafariSummaryView
+              state={state}
+              addedToBox={addedToBox}
+              onAddAllToBox={handleAddAllToBox}
+              onLeave={handleLeave}
+            />
           </motion.div>
         )}
       </AnimatePresence>

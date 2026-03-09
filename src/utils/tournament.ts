@@ -1,4 +1,5 @@
 import { TeamSlot, TournamentTrainer, DifficultyLevel, TypeName } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { createWildTeamSlot } from "./wildBattle";
 import { shuffleArray } from "./random";
 import { fetchPokemonData } from "@/utils/pokeApiClient";
@@ -68,8 +69,8 @@ async function buildTrainerTeam(
       const slot = createWildTeamSlot(pokemon, 50);
       slot.position = slots.length;
       slots.push(slot);
-    } catch {
-      // skip failed fetches
+    } catch (e) {
+      silentWarn("fetchTournamentPokemon", e);
     }
   }
 

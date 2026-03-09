@@ -55,9 +55,11 @@ export default function BattleSetup({
       {/* Mode Selection */}
       <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
         <h3 className="mb-3 text-lg font-bold font-pixel">Battle Mode</h3>
-        <div className="flex gap-3">
+        <div className="flex gap-3" role="radiogroup" aria-label="Battle mode selection">
           <button
             onClick={() => setMode("ai")}
+            role="radio"
+            aria-checked={mode === "ai"}
             className={`flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
               mode === "ai"
                 ? "bg-[#e8433f] text-[#f0f0e8]"
@@ -71,6 +73,8 @@ export default function BattleSetup({
           </button>
           <button
             onClick={() => setMode("pvp")}
+            role="radio"
+            aria-checked={mode === "pvp"}
             className={`flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
               mode === "pvp"
                 ? "bg-[#e8433f] text-[#f0f0e8]"
@@ -84,6 +88,8 @@ export default function BattleSetup({
           </button>
           <button
             onClick={() => onModeChange?.("tournament")}
+            role="radio"
+            aria-checked={false}
             className="flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-colors bg-[#3a4466] text-[#8b9bb4] hover:bg-[#4a5577]"
           >
             <span className="block text-base font-pixel">Tournament</span>
@@ -93,6 +99,8 @@ export default function BattleSetup({
           </button>
           <button
             onClick={() => onModeChange?.("online")}
+            role="radio"
+            aria-checked={false}
             className="flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-colors bg-[#3a4466] text-[#8b9bb4] hover:bg-[#4a5577]"
           >
             <span className="block text-base font-pixel">Online</span>
@@ -102,6 +110,8 @@ export default function BattleSetup({
           </button>
           <button
             onClick={() => onModeChange?.("facility")}
+            role="radio"
+            aria-checked={false}
             className="flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-colors bg-[#3a4466] text-[#8b9bb4] hover:bg-[#4a5577]"
           >
             <span className="block text-base font-pixel">Facility</span>
@@ -111,6 +121,8 @@ export default function BattleSetup({
           </button>
           <button
             onClick={() => onModeChange?.("factory")}
+            role="radio"
+            aria-checked={false}
             className="flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-colors bg-[#3a4466] text-[#8b9bb4] hover:bg-[#4a5577]"
           >
             <span className="block text-base font-pixel">Factory</span>

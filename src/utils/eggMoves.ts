@@ -1,4 +1,6 @@
 import { fetchPokemonData, fetchSpeciesData, type PokemonSpeciesData } from "@/utils/pokeApiClient";
+import { silentWarn } from "@/utils/silentWarn";
+import { formatName } from "@/utils/format";
 
 export interface EggMoveChain {
   moveName: string;
@@ -26,18 +28,11 @@ function extractId(url: string): number {
   return parseInt(parts[parts.length - 1], 10);
 }
 
-function formatName(name: string): string {
-  return name
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
 export async function fetchEggMoves(pokemonId: number): Promise<EggMoveChain[]> {
   try {
     const pokemonData = await fetchPokemonData(pokemonId);
 
-    const moves: PokeAPIMoveEntry[] = (pokemonData as any).moves;
+    const moves = pokemonData.moves as PokeAPIMoveEntry[];
     const eggMoves = moves.filter((m) =>
       m.version_group_details.some((d) => d.move_learn_method.name === "egg")
     );
@@ -70,9 +65,8 @@ export async function fetchEggMoves(pokemonId: number): Promise<EggMoveChain[]> 
       parentSample.map((name) =>
         fetchPokemonData(name)
           .then((data) => {
-            if (data) checkedParents.set(name, (data as any).moves);
+            if (data) checkedParents.set(name, data.moves as PokeAPIMoveEntry[]);
           })
-          .catch(() => {})
       )
     );
     void parentFetches;
@@ -118,7 +112,8 @@ export async function fetchEggMoves(pokemonId: number): Promise<EggMoveChain[]> 
     }
 
     return results;
-  } catch {
+  } catch (e) {
+    silentWarn("fetchEggMoves", e);
     return [];
   }
 }

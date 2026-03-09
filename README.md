@@ -1,6 +1,6 @@
 # Professor Basil's Lab
 
-A full-stack-in-the-browser Pokemon platform. Team builder, battle simulator, wild encounters, GBA/NDS emulators, binary save parser, and more -- all running client-side with zero backend.
+A full-stack Pokemon platform with team building, competitive battle simulation, wild encounters, breeding, PC storage, minigames, GBA/NDS/3DS emulators, global leaderboards, and 10 Rust/WASM crates — deployable as an offline-capable PWA on Vercel.
 
 **Live:** [professor-basils-lab.vercel.app](https://professor-basils-lab.vercel.app)
 
@@ -8,99 +8,202 @@ A full-stack-in-the-browser Pokemon platform. Team builder, battle simulator, wi
 
 ## Features
 
-**Team Builder** -- Search and customize all 1,025 Pokemon. Natures, EVs, IVs, abilities, held items, moves, Tera types. Share via URL or Showdown import/export.
+### Team Builder
 
-**Battle Simulator** -- Turn-based engine with damage formula, status conditions, stat stages, weather, terrain, 50+ held items, and AI opponent. Supports Mega Evolution, Terastallization, and Dynamax. Battle replays with playback controls and timeline scrubbing.
+Build teams of 6 from all 1,025 Pokemon. Full customization: natures, EVs, IVs, abilities, held items, moves, formes, Tera types. Import/export Showdown paste format. Smogon competitive preset loader. Tier validation against OU/UU/Uber rulesets. Share teams via URL encoding, QR codes, or shareable links. Trainer card PNG export.
 
-**Wild Encounters** -- Walk through Kanto, Johto, Hoenn, and Sinnoh. Gen V+ catch formula, 14 ball types, shiny odds (1/4096), fishing, repels, day/night cycle, weather. Caught Pokemon go into a PC box system.
+### Battle Simulator
 
-**GBA Emulator** -- Embedded mGBA (compiled to WASM) running real GBA ROMs in the browser. Save states, ROM persistence via IndexedDB, save export/import, and on-screen touch controls for mobile.
+Turn-based engine with the full damage formula, stat stages, type effectiveness, weather (sun, rain, hail, sandstorm), status conditions (paralysis, burn, freeze, sleep, poison, confusion), 100+ abilities, 50+ held items, critical hits, STAB, recoil, drain, multi-hit, and Protect mechanics. Supports Mega Evolution, Terastallization, and generational rulesets (Gen 3 through Gen 8+).
 
-**NDS Emulator** -- RetroArch with melonDS WASM core for Nintendo DS games. Dual-screen rendering, touch input on bottom screen, keyboard and gamepad support.
+**Battle modes:**
+- AI opponents with 5 difficulty tiers (Beginner through Legendary)
+- Local 2-player PvP
+- Online PvP via PeerJS with room codes
+- 8 Kanto gym leaders with canon teams
+- Elite Four gauntlet
+- Battle Tower (streak-based)
+- Battle Factory (rental Pokemon with swapping)
+- Multi-round tournament brackets
+- Hall of Fame for victorious teams
 
-**Binary Save Parser** -- Reads Gen 3 save files (Ruby/Sapphire/Emerald/FireRed/LeafGreen). XOR decryption, substructure permutation, IV bit extraction. Implemented in both TypeScript and Rust/WASM with automatic fallback.
+**Battle tools:**
+- Full replay system with step-through viewer and export/import
+- ELO ranked ladder with K-factor scaling (40/32/24)
+- Challenge code sharing
+- Battle history dashboard with win/loss stats
+- Global leaderboards (Vercel KV)
 
-**Coverage Analysis** -- Defensive/offensive team analysis, type weakness charts, suggested types, and threat scoring.
+### Type Analysis & Damage
 
-**Damage Calculator** -- Full damage formula with STAB, type effectiveness, abilities, held items, weather, and terrain modifiers.
+Defensive/offensive type coverage matrix across your team. Weakness panel with threat identification. Side-by-side Pokemon stat comparison with radar charts. Speed tier chart. Damage calculator with min/max ranges. Damage matrix showing all team members vs common threats. Move pool browser with level-up, TM, and tutor sources. Evolution tree viewer.
 
-**Pokedex** -- Track 1,025 Pokemon across all sources (wild catches, battle wins, GBA imports). Habitat filters, fossil revival, and type quiz minigame.
+### Wild Area
 
-**PokeMart** -- In-game shop for balls, potions, and battle items using earned currency.
+Tile-based regional maps for Kanto, Johto, Hoenn, and Sinnoh with random encounters. Gen 5+ catch formula with 14 ball types, Rust-calculated catch probability, and Canvas catch animations. Shiny rate at 1/4096. Day/night cycle and weather-based encounters.
 
-**Move Tutor & EV Training** -- Teach moves and train EVs for caught Pokemon.
+**Wild features:**
+- 30-slot PC Box with nicknames
+- Day Care with breeding, IV/nature inheritance, and egg moves
+- Evolution system (level-up, item, stone, trade)
+- EV training areas and Move Tutor
+- Safari Zone with limited encounters and escape chance
+- Fossil Lab, Berry Farm, PokeMart
+- Minigames: Voltorb Flip, Type Quiz, Slot Machine
+- Wonder Trade and Link Cable trading (PeerJS P2P)
+- Mystery Gift Pokemon
+- Nuzlocke mode with permadeath tracking and graveyard
 
-**Trainer Card** -- Track stats and achievements. PNG export for sharing.
+### Emulators
+
+**GBA** (mgba-wasm) — Load .gba/.gbc/.gb ROMs. Gen 3 save file import with binary decryption and Pokemon extraction. Touch controls, remappable keybinds, IndexedDB save persistence.
+
+**NDS** (melonDS RetroArch) — Load .nds ROMs. Dual-screen rendering, stylus emulation, keyboard and gamepad support.
+
+**3DS** (Citrine) — Custom ARM11 interpreter with HLE kernel and .3dsx homebrew loader. 25 source files, 86 tests. In progress.
+
+### Pokedex & Achievements
+
+Full Pokedex with seen/caught tracking across all sources (wild catches, battle wins, GBA save imports). Habitat-based filtering, advanced search. 40+ achievements unlocked through gameplay. Stat dashboard: battles won, Pokemon caught, shinies found, ELO rating, gym badges earned.
+
+### Platform (Vercel)
+
+PokeAPI Edge proxy with global CDN caching (24h TTL). ISR Pokemon detail pages at `/pokemon/[name]` with dynamic OG images for social sharing. Blob storage for shareable trainer cards, replays, and challenge codes. KV (Redis) global leaderboards with input sanitization and rate limiting. Edge Config feature flags and announcement banners. Daily cron cache warming for Gen 1-3.
+
+### Sharing
+
+Share trainer cards as PNG images, battle replays, and challenge codes via permanent links. Each share gets a landing page with OG metadata for rich previews on Discord, Twitter, and other platforms. 30-day expiry with rate limiting.
 
 ---
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|------------|
-| Framework | Next.js 16 (App Router, Turbopack) |
-| UI | React 19, Tailwind CSS v4, Framer Motion |
-| Language | TypeScript 5, Rust (9 WASM crates) |
+|-------|-----------|
+| Framework | Next.js 16 (App Router), React 19, TypeScript 5 |
+| Styling | Tailwind CSS v4, Framer Motion |
+| Compute | 10 Rust/WASM crates (~10K lines Rust) |
 | Data | PokeAPI v2, TanStack React Query v5 |
-| Charts | Recharts 3 |
-| Emulation | mGBA WASM, RetroArch melonDS WASM |
-| Storage | localStorage, IndexedDB |
-| Testing | Vitest (63 tests), Rust unit tests |
-| Hosting | Vercel |
+| Caching | Vercel Edge CDN, in-memory Map cache |
+| Storage | localStorage, IndexedDB, Vercel Blob, Vercel KV |
+| Config | Vercel Edge Config (feature flags, announcements) |
+| P2P | PeerJS (online battles & trading) |
+| Audio | Web Audio API oscillators (no audio files) |
+| Sprites | Programmatic Canvas pixel art (no external image assets) |
+| Backend | NestJS, Prisma, PostgreSQL (multiplayer platform) |
+| Auth | JWT RS256, argon2id, HttpOnly refresh cookies |
+| Deploy | Vercel (frontend + edge), Railway (backend + database) |
+| Testing | Vitest (522 tests), Rust (281 tests), Playwright (E2E) |
+
+---
+
+## Rust/WASM Crates
+
+| Crate | Purpose |
+|-------|---------|
+| `pkmn-type-chart` | 18x18 type effectiveness matrix |
+| `pkmn-stats` | HP and stat calculation formulas |
+| `pkmn-damage` | Damage formula with STAB, weather, critical hits |
+| `pkmn-catch-rate` | Gen 3+ catch probability formula |
+| `pkmn-analysis` | Team type coverage analysis |
+| `pkmn-breeding` | Egg IV/nature/gender inheritance |
+| `pkmn-battle` | AI move selection and team generation |
+| `pkmn-showdown` | Showdown paste format parser |
+| `gen3-parser` | Gen 3 binary save file decryption and extraction |
+| `citrine` | 3DS ARM11 interpreter with HLE kernel |
+
+Every WASM module has a TypeScript wrapper (`src/utils/*Wasm.ts`) that lazy-loads the binary and falls back to a pure JS implementation if WASM fails.
 
 ---
 
 ## Architecture
 
-All game logic lives in `src/utils/` as pure functions. Components dispatch actions and render state. No backend, no database, no authentication.
-
 ```
 src/
-  app/page.tsx          Single-page app with tab navigation
-  components/           UI components (no business logic)
-  hooks/                useReducer state machines + React Query
-  utils/                Pure functions: damage, catch rate, AI, parsers
-  data/                 Lookup tables (type chart, natures, items, maps)
-  contexts/             React Context for shared state
-
-rust/                   9 Rust/WASM crates
-  pkmn-type-chart/      Type effectiveness engine
-  pkmn-stats/           Stat calculator
-  pkmn-damage/          Damage formula
-  pkmn-catch-rate/      Catch probability + flee logic
-  pkmn-analysis/        Team analysis + defensive coverage
-  pkmn-battle/          AI scoring, turn order, mechanic decisions
-  pkmn-breeding/        Egg compatibility + IV inheritance
-  pkmn-showdown/        Showdown paste parser/serializer
-  gen3-parser/          Gen 3 binary save file parser
-
-public/wasm/            Compiled WASM binaries
-public/mgba/            mGBA emulator core
-public/nds/             melonDS RetroArch core
+  app/                  Next.js App Router pages & API routes
+    api/                10 API routes (proxy, share, leaderboard, OG, cron, config)
+    pokemon/[name]/     ISR Pokemon detail pages with OG images
+    share/[id]/         Share landing pages
+  components/           131 React components
+    battle/             Battle arena, facilities, replay viewer (29)
+    wild/               Encounters, PC box, minigames, trading (38)
+    explore/            Tile-based map renderer (7)
+    gba/                GBA emulator UI (3)
+    nds/                NDS emulator UI (2)
+    ctr/                3DS emulator UI (2)
+    emulator/           Unified emulator tab
+  hooks/                45 custom hooks
+  utils/                80+ utility modules (~8K lines)
+  data/                 35 data files (abilities, natures, gym leaders, maps)
+  lib/                  Vercel platform helpers (blob, kv, edge-config)
+  types/                TypeScript type definitions
+  contexts/             React contexts (achievements, pokedex, feature flags)
+rust/                   10 Rust/WASM crates (~10K lines)
+  citrine/              3DS emulator core (25 source files)
+server/                 NestJS multiplayer backend
+  src/
+    auth/               JWT RS256 authentication
+    users/              User management
+    teams/              Team persistence
+    prisma/             Database schema & migrations
+public/
+  wasm/                 10 compiled WASM binaries
 ```
-
-Every WASM module has a TypeScript wrapper (`src/utils/*Wasm.ts`) that lazy-loads the binary, falls back to a pure JS implementation if WASM fails, and exports the same API either way.
 
 ---
 
 ## Development
 
 ```bash
+# Install dependencies
 npm install
+
+# Run development server
 npm run dev
-```
 
-### Build WASM crates (requires Rust + wasm-pack)
+# Build for production
+npm run build
 
-```bash
+# Run tests (522 TypeScript + 281 Rust)
+npm run test:run
+cd rust && cargo test --all
+
+# Build WASM crates (requires Rust + wasm-pack)
 npm run build:wasm
+
+# E2E tests
+npm run test:e2e
 ```
 
-### Run tests
+### Multiplayer Backend (Optional)
 
 ```bash
-npm test
+cd server
+npm install
+cp .env.example .env
+# Generate RSA keys (see server/.env.example)
+npx prisma migrate dev
+npm run start:dev
 ```
+
+Or run both together:
+
+```bash
+npm run dev:all
+```
+
+### Environment Variables
+
+For Vercel deployment:
+
+| Variable | Purpose |
+|----------|---------|
+| `NEXT_PUBLIC_APP_URL` | App base URL |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob storage |
+| `KV_REST_API_URL` | Vercel KV endpoint |
+| `KV_REST_API_TOKEN` | Vercel KV auth |
+| `EDGE_CONFIG` | Vercel Edge Config connection |
+| `CRON_SECRET` | Cron route authorization |
 
 ---
 
@@ -108,16 +211,22 @@ npm test
 
 | Metric | Value |
 |--------|-------|
-| Source files | 90+ |
+| Source files | 251 |
+| TypeScript | ~40K lines |
+| Rust | ~10K lines |
+| Components | 131 |
+| Hooks | 45 |
+| WASM crates | 10 |
+| API routes | 10 |
+| Tests | 522 TS + 281 Rust |
 | Pokemon supported | 1,025 (all 9 generations) |
-| WASM crates | 9 |
-| Test count | 63 JS + Rust unit tests |
-| Battle engine | ~800 lines, pure state machine |
 | Regions | 4 (Kanto, Johto, Hoenn, Sinnoh) |
-| Ball types | 14 with context-sensitive modifiers |
-| Held items | 50+ with battle effects |
-| Achievements | 23 across 5 categories |
-| Backend | None |
+| Battle facilities | 5 (Gym, E4, Tower, Factory, Tournament) |
+| Ball types | 14 |
+| Held items | 50+ |
+| Abilities | 100+ |
+| Achievements | 40+ |
+| Minigames | 3 (Voltorb Flip, Type Quiz, Slot Machine) |
 
 ---
 

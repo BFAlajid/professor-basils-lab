@@ -1,4 +1,5 @@
 import type { Pokemon, Move, TypeName, BattlePokemon } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { getDefensiveMultiplier } from "@/data/typeChart";
 import { typeToIndex } from "./typeChartWasm";
 import { getHeldItem } from "@/data/heldItems";
@@ -10,8 +11,9 @@ import {
   type DamageResult,
 } from "./damage";
 import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
+import { createWasmWrapper } from "./createWasmWrapper";
 
-let wasmModule: {
+type DamageWasmModule = {
   calculate_damage: (
     effective_atk: number,
     effective_def: number,
@@ -32,42 +34,17 @@ let wasmModule: {
     def_item_spdef_mult: number,
     is_physical: boolean,
   ) => Float64Array;
-} | null = null;
+};
 
-let wasmInitPromise: Promise<boolean> | null = null;
-let wasmFailed = false;
+const wrapper = createWasmWrapper<DamageWasmModule>("pkmn-damage", async () => {
+  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
+  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-damage/pkg/pkmn_damage.js");
+  await mod.default("/wasm/pkmn_damage_bg.wasm");
+  return { calculate_damage: mod.calculate_damage };
+});
 
-async function initWasm(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-
-  try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-damage/pkg/pkmn_damage.js");
-    await mod.default("/wasm/pkmn_damage_bg.wasm");
-    wasmModule = {
-      calculate_damage: mod.calculate_damage,
-    };
-    return true;
-  } catch (e) {
-    console.warn("[pkmn-damage] WASM init failed, using JS fallback:", e);
-    wasmFailed = true;
-    return false;
-  }
-}
-
-export async function ensureWasmReady(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-  if (!wasmInitPromise) {
-    wasmInitPromise = initWasm();
-  }
-  return wasmInitPromise;
-}
-
-export function isWasmActive(): boolean {
-  return wasmModule !== null;
-}
+export const ensureWasmReady = wrapper.ensureReady;
+export const isWasmActive = wrapper.isActive;
 
 export function calculateDamage(
   attacker: Pokemon,
@@ -75,6 +52,7 @@ export function calculateDamage(
   move: Move,
   options?: DamageCalcOptions
 ): DamageResult {
+  const wasmModule = wrapper.getModule();
   if (!wasmModule) {
     return calculateDamage_JS(attacker, defender, move, options);
   }
@@ -214,7 +192,8 @@ export function calculateDamage(
       stab: result[3] > 0,
       isCritical: result[4] > 0,
     };
-  } catch {
+  } catch (e) {
+    silentWarn("wasmCalculateDamage", e);
     return calculateDamage_JS(attacker, defender, move, options);
   }
 }

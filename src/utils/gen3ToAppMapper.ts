@@ -3,6 +3,7 @@
  */
 
 import type { Nature, BallType, PCBoxPokemon } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import type { Gen3Pokemon } from "./gen3PokemonDecryptor";
 import { fetchPokemon } from "@/hooks/usePokemon";
 
@@ -108,8 +109,8 @@ export async function mapGen3PokemonBatch(
     try {
       const mapped = await mapGen3ToAppPokemon(gen3Pokemon[i]);
       results.push(mapped);
-    } catch {
-      // Skip Pokemon that fail to fetch from PokeAPI (e.g., out of range)
+    } catch (e) {
+      silentWarn("mapGen3Pokemon", e);
     }
     onProgress?.(i + 1, gen3Pokemon.length);
   }

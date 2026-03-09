@@ -1,58 +1,35 @@
 import type { TypeName, TeamSlot, Pokemon } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { TYPE_LIST } from "@/data/typeChart";
 import { typeToIndex } from "./typeChartWasm";
 import {
   analyzeTeam as analyzeTeam_JS,
+  analyzeDefensiveCoverage as analyzeDefensiveCoverage_JS,
   type TeamWeaknessReport,
   type DefensiveEntry,
   type SuggestedType,
-} from "./teamAnalysis";
-import {
-  analyzeDefensiveCoverage as analyzeDefensiveCoverage_JS,
   type CoverageResult,
 } from "./teamAnalysis";
 import { capitalize } from "./format";
+import { createWasmWrapper } from "./createWasmWrapper";
 
-let wasmModule: {
+type AnalysisWasmModule = {
   analyze_team: (team_types: Uint8Array, team_size: number) => Float64Array;
   analyze_defensive_coverage: (team_types: Uint8Array, team_size: number) => Float64Array;
-} | null = null;
+};
 
-let wasmInitPromise: Promise<boolean> | null = null;
-let wasmFailed = false;
+const wrapper = createWasmWrapper<AnalysisWasmModule>("pkmn-analysis", async () => {
+  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
+  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-analysis/pkg/pkmn_analysis.js");
+  await mod.default("/wasm/pkmn_analysis_bg.wasm");
+  return {
+    analyze_team: mod.analyze_team,
+    analyze_defensive_coverage: mod.analyze_defensive_coverage,
+  };
+});
 
-async function initWasm(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-
-  try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-analysis/pkg/pkmn_analysis.js");
-    await mod.default("/wasm/pkmn_analysis_bg.wasm");
-    wasmModule = {
-      analyze_team: mod.analyze_team,
-      analyze_defensive_coverage: mod.analyze_defensive_coverage,
-    };
-    return true;
-  } catch (e) {
-    console.warn("[pkmn-analysis] WASM init failed, using JS fallback:", e);
-    wasmFailed = true;
-    return false;
-  }
-}
-
-export async function ensureWasmReady(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-  if (!wasmInitPromise) {
-    wasmInitPromise = initWasm();
-  }
-  return wasmInitPromise;
-}
-
-export function isWasmActive(): boolean {
-  return wasmModule !== null;
-}
+export const ensureWasmReady = wrapper.ensureReady;
+export const isWasmActive = wrapper.isActive;
 
 // 255 = mono-type sentinel
 function flattenTeamTypes(team: TeamSlot[]): Uint8Array {
@@ -76,6 +53,7 @@ function flattenPokemonTypes(team: Pokemon[]): Uint8Array {
 }
 
 export function analyzeTeam(team: TeamSlot[]): TeamWeaknessReport {
+  const wasmModule = wrapper.getModule();
   if (!wasmModule || team.length === 0) {
     return analyzeTeam_JS(team);
   }
@@ -161,12 +139,14 @@ export function analyzeTeam(team: TeamSlot[]): TeamWeaknessReport {
       threatScore,
       suggestedTypes,
     };
-  } catch {
+  } catch (e) {
+    silentWarn("wasmAnalyzeTeam", e);
     return analyzeTeam_JS(team);
   }
 }
 
 export function analyzeDefensiveCoverage(team: Pokemon[]): CoverageResult[] {
+  const wasmModule = wrapper.getModule();
   if (!wasmModule || team.length === 0) {
     return analyzeDefensiveCoverage_JS(team);
   }
@@ -198,7 +178,8 @@ export function analyzeDefensiveCoverage(team: Pokemon[]): CoverageResult[] {
     }
 
     return coverage;
-  } catch {
+  } catch (e) {
+    silentWarn("wasmAnalyzeDefensiveCoverage", e);
     return analyzeDefensiveCoverage_JS(team);
   }
 }

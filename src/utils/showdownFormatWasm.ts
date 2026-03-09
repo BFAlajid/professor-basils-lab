@@ -1,4 +1,5 @@
 import type { TeamSlot, EVSpread, IVSpread, Nature, TypeName } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { NATURES } from "@/data/natures";
 import { fetchPokemon } from "@/hooks/usePokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
@@ -6,47 +7,27 @@ import {
   exportToShowdown as exportToShowdown_JS,
   importFromShowdown as importFromShowdown_JS,
 } from "./showdownFormat";
+import { STAT_KEYS } from "@/data/constants";
 
-const STAT_KEYS: (keyof EVSpread)[] = ["hp", "attack", "defense", "spAtk", "spDef", "speed"];
+import { createWasmWrapper } from "./createWasmWrapper";
 
-let wasmModule: {
+type ShowdownWasmModule = {
   parse_showdown_paste: (input: string) => string;
   export_showdown_paste: (json: string) => string;
-} | null = null;
+};
 
-let wasmInitPromise: Promise<boolean> | null = null;
-let wasmFailed = false;
+const wrapper = createWasmWrapper<ShowdownWasmModule>("pkmn-showdown", async () => {
+  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
+  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-showdown/pkg/pkmn_showdown.js");
+  await mod.default("/wasm/pkmn_showdown_bg.wasm");
+  return {
+    parse_showdown_paste: mod.parse_showdown_paste,
+    export_showdown_paste: mod.export_showdown_paste,
+  };
+});
 
-async function initWasm(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-
-  try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-showdown/pkg/pkmn_showdown.js");
-    await mod.default("/wasm/pkmn_showdown_bg.wasm");
-    wasmModule = {
-      parse_showdown_paste: mod.parse_showdown_paste,
-      export_showdown_paste: mod.export_showdown_paste,
-    };
-    return true;
-  } catch (e) {
-    console.warn("[pkmn-showdown] WASM init failed, using JS fallback:", e);
-    wasmFailed = true;
-    return false;
-  }
-}
-
-export async function ensureWasmReady(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-  if (!wasmInitPromise) wasmInitPromise = initWasm();
-  return wasmInitPromise;
-}
-
-export function isWasmActive(): boolean {
-  return wasmModule !== null;
-}
+export const ensureWasmReady = wrapper.ensureReady;
+export const isWasmActive = wrapper.isActive;
 
 interface ParsedBlock {
   species: string;
@@ -60,6 +41,7 @@ interface ParsedBlock {
 }
 
 export async function importFromShowdown(text: string): Promise<TeamSlot[]> {
+  const wasmModule = wrapper.getModule();
   if (wasmModule) {
     try {
       const jsonStr = wasmModule.parse_showdown_paste(text);
@@ -73,7 +55,8 @@ export async function importFromShowdown(text: string): Promise<TeamSlot[]> {
         let pokemon;
         try {
           pokemon = await fetchPokemon(p.species);
-        } catch {
+        } catch (e) {
+          silentWarn("wasmImportShowdownFetchPokemon", e);
           continue;
         }
 
@@ -107,12 +90,13 @@ export async function importFromShowdown(text: string): Promise<TeamSlot[]> {
       }
 
       return slots;
-    } catch { /* fall through */ }
+    } catch (e) { silentWarn("wasmImportShowdown", e); }
   }
   return importFromShowdown_JS(text);
 }
 
 export function exportToShowdown(team: TeamSlot[]): string {
+  const wasmModule = wrapper.getModule();
   if (wasmModule) {
     try {
       const data = team.map((slot) => ({
@@ -126,7 +110,7 @@ export function exportToShowdown(team: TeamSlot[]): string {
         moves: slot.selectedMoves ?? [],
       }));
       return wasmModule.export_showdown_paste(JSON.stringify(data));
-    } catch { /* fall through */ }
+    } catch (e) { silentWarn("wasmExportShowdown", e); }
   }
   return exportToShowdown_JS(team);
 }

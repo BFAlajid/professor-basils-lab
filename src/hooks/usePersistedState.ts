@@ -1,14 +1,26 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 
-export function usePersistedState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+export function usePersistedState<T>(
+  key: string,
+  defaultValue: T,
+  validate?: (raw: unknown) => T | null,
+): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [state, setState] = useState<T>(() => {
     if (typeof window === "undefined") return defaultValue;
     try {
       const saved = localStorage.getItem(key);
-      return saved ? JSON.parse(saved) : defaultValue;
-    } catch {
+      if (!saved) return defaultValue;
+      const parsed = JSON.parse(saved);
+      if (validate) {
+        const validated = validate(parsed);
+        return validated !== null ? validated : defaultValue;
+      }
+      return parsed;
+    } catch (e) {
+      silentWarn(`usePersistedState: failed to read key "${key}"`, e);
       return defaultValue;
     }
   });
@@ -16,7 +28,9 @@ export function usePersistedState<T>(key: string, defaultValue: T): [T, React.Di
   useEffect(() => {
     try {
       localStorage.setItem(key, JSON.stringify(state));
-    } catch {}
+    } catch (error) {
+      silentWarn(`usePersistedState: failed to write key "${key}"`, error);
+    }
   }, [key, state]);
 
   return [state, setState];

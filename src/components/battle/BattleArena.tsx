@@ -10,6 +10,7 @@ import MoveAnimationLayer from "./MoveAnimationLayer";
 import MovePanel from "./MovePanel";
 import SwitchPanel from "./SwitchPanel";
 import BattleLog from "./BattleLog";
+import LocalErrorBoundary from "../LocalErrorBoundary";
 
 interface BattleArenaProps {
   state: BattleState;
@@ -278,10 +279,12 @@ export default memo(function BattleArena({
         </div>
 
         {/* Move animation overlay */}
-        <MoveAnimationLayer
-          animation={activeAnimation}
-          onComplete={handleAnimationComplete}
-        />
+        <LocalErrorBoundary>
+          <MoveAnimationLayer
+            animation={activeAnimation}
+            onComplete={handleAnimationComplete}
+          />
+        </LocalErrorBoundary>
 
         {/* Team Pokemon indicators */}
         <div className="flex justify-between mt-4">

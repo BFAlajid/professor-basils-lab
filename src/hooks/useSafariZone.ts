@@ -1,6 +1,8 @@
 "use client";
 
 import { useReducer, useCallback, useState } from "react";
+import { silentWarn } from "@/utils/silentWarn";
+import { SHINY_RATE } from "@/data/constants";
 import {
   SafariPhase,
   SafariAction,
@@ -310,7 +312,7 @@ export function useSafariZone() {
           Math.floor(
             Math.random() * (encounter.maxLevel - encounter.minLevel + 1)
           );
-        const isShiny = Math.random() < 1 / 4096;
+        const isShiny = Math.random() < SHINY_RATE;
 
         dispatch({
           type: "ENCOUNTER",
@@ -324,8 +326,8 @@ export function useSafariZone() {
             baseFleeRate: encounter.baseFleeRate,
           },
         });
-      } catch {
-        // Fetch failed — stay walking
+      } catch (e) {
+        silentWarn("safariEncounterFetch", e);
       }
     }
 

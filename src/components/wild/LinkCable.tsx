@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { TOAST_DURATION } from "@/data/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { OnlineState, LinkMode } from "@/types";
 
@@ -74,7 +75,7 @@ export default function LinkCable({ online, onBattle, onTrade, onBack }: LinkCab
     if (state.roomCode) {
       navigator.clipboard.writeText(state.roomCode);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), TOAST_DURATION);
     }
   }, [state.roomCode]);
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useReducer, useEffect, useCallback, useRef } from "react";
+import { useReducer, useEffect, useCallback, useRef, useState } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import { PCBoxPokemon, PCBoxAction, BallType, TeamSlot } from "@/types";
 import { DEFAULT_BALL_INVENTORY } from "@/data/pokeBalls";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
-import { useState } from "react";
 
 const PC_BOX_KEY = "pokemon-team-builder-pc-box";
 const BALL_INVENTORY_KEY = "pokemon-team-builder-ball-inventory";
@@ -44,8 +44,8 @@ export function usePCBox() {
           dispatch({ type: "LOAD_BOX", pokemon: parsed });
         }
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("loadPCBox", e);
     }
 
     try {
@@ -54,8 +54,8 @@ export function usePCBox() {
         const parsed = JSON.parse(savedBalls);
         setBallInventory({ ...DEFAULT_BALL_INVENTORY, ...parsed });
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("loadBallInventory", e);
     }
   }, []);
 
@@ -64,8 +64,8 @@ export function usePCBox() {
     if (!initialized.current) return;
     try {
       localStorage.setItem(PC_BOX_KEY, JSON.stringify(box));
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("savePCBox", e);
     }
   }, [box]);
 
@@ -74,8 +74,8 @@ export function usePCBox() {
     if (!initialized.current) return;
     try {
       localStorage.setItem(BALL_INVENTORY_KEY, JSON.stringify(ballInventory));
-    } catch {
-      // ignore
+    } catch (e) {
+      silentWarn("saveBallInventory", e);
     }
   }, [ballInventory]);
 

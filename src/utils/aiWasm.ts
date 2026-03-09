@@ -1,58 +1,37 @@
 import type { BattleState, BattleTurnAction, BattlePokemon, BattleTeam, DifficultyLevel, TypeName } from "@/types";
+import { silentWarn } from "@/utils/silentWarn";
 import { getAbilityHooks } from "@/data/abilities";
 import { randomSeed } from "./random";
 import { typeToIndex } from "./typeChartWasm";
 import { selectAIAction as selectAIAction_JS, getBestSwitchIn as getBestSwitchIn_JS } from "./ai";
 import { getActivePokemon, getCachedMoves, getEffectiveTypes } from "./battle";
+import { createWasmWrapper } from "./createWasmWrapper";
 
-let wasmModule: {
+type AIWasmModule = {
   score_move: (power: number, move_type: number, atk_type1: number, atk_type2: number, def_type1: number, def_type2: number, accuracy: number, is_status: boolean) => number;
   score_matchup: (sw_t1: number, sw_t2: number, opp_t1: number, opp_t2: number, hp_ratio: number) => number;
   select_ai_action: (move_scores: Float64Array, num_moves: number, switch_scores: Float64Array, num_switches: number, difficulty: number, seed: number, is_fainted: boolean, can_mega: boolean, can_tera: boolean, should_tera: boolean, can_dmax: boolean, should_dmax: boolean) => Float64Array;
   determine_turn_order: (p1_pri: number, p2_pri: number, p1_spd: number, p2_spd: number, seed: number) => number;
   should_terastallize: (ai_t1: number, ai_t2: number, opp_t1: number, opp_t2: number, tera_type: number, hp_ratio: number, difficulty: number, seed: number) => number;
   should_dynamax: (hp_ratio: number, alive_count: number, difficulty: number, seed: number) => number;
-} | null = null;
+};
 
-let wasmInitPromise: Promise<boolean> | null = null;
-let wasmFailed = false;
+const wrapper = createWasmWrapper<AIWasmModule>("pkmn-battle", async () => {
+  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
+  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-battle/pkg/pkmn_battle.js");
+  await mod.default("/wasm/pkmn_battle_bg.wasm");
+  return {
+    score_move: mod.score_move,
+    score_matchup: mod.score_matchup,
+    select_ai_action: mod.select_ai_action,
+    determine_turn_order: mod.determine_turn_order,
+    should_terastallize: mod.should_terastallize,
+    should_dynamax: mod.should_dynamax,
+  };
+});
 
-async function initWasm(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-
-  try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-battle/pkg/pkmn_battle.js");
-    await mod.default("/wasm/pkmn_battle_bg.wasm");
-    wasmModule = {
-      score_move: mod.score_move,
-      score_matchup: mod.score_matchup,
-      select_ai_action: mod.select_ai_action,
-      determine_turn_order: mod.determine_turn_order,
-      should_terastallize: mod.should_terastallize,
-      should_dynamax: mod.should_dynamax,
-    };
-    return true;
-  } catch (e) {
-    console.warn("[pkmn-battle] WASM init failed, using JS fallback:", e);
-    wasmFailed = true;
-    return false;
-  }
-}
-
-export async function ensureWasmReady(): Promise<boolean> {
-  if (wasmModule) return true;
-  if (wasmFailed) return false;
-  if (!wasmInitPromise) {
-    wasmInitPromise = initWasm();
-  }
-  return wasmInitPromise;
-}
-
-export function isWasmActive(): boolean {
-  return wasmModule !== null;
-}
+export const ensureWasmReady = wrapper.ensureReady;
+export const isWasmActive = wrapper.isActive;
 
 function getTypePair(bp: BattlePokemon): [number, number] {
   const types = bp.slot.pokemon.types;
@@ -69,6 +48,7 @@ function difficultyToNum(d: DifficultyLevel | undefined): number {
 }
 
 export function selectAIAction(state: BattleState): BattleTurnAction {
+  const wasmModule = wrapper.getModule();
   if (!wasmModule) {
     return selectAIAction_JS(state);
   }
@@ -201,12 +181,14 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
       case 4: return { type: "DYNAMAX", moveIndex: actionValue };
       default: return { type: "MOVE", moveIndex: 0 };
     }
-  } catch {
+  } catch (e) {
+    silentWarn("wasmSelectAIAction", e);
     return selectAIAction_JS(state);
   }
 }
 
 function getBestSwitchIn_WASM(state: BattleState, player: "player1" | "player2"): number {
+  const wasmModule = wrapper.getModule();
   if (!wasmModule) return getBestSwitchIn_JS(state, player);
 
   const team = state[player];
@@ -243,11 +225,12 @@ export function determineTurnOrder(
   p1Speed: number,
   p2Speed: number
 ): boolean {
+  const wasmModule = wrapper.getModule();
   if (wasmModule) {
     try {
       return wasmModule.determine_turn_order(p1Priority, p2Priority, p1Speed, p2Speed, randomSeed()) > 0;
-    } catch {
-      // fall through
+    } catch (e) {
+      silentWarn("wasmDetermineTurnOrder", e);
     }
   }
   if (p1Priority > p2Priority) return true;

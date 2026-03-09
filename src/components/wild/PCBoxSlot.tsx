@@ -22,6 +22,8 @@ export default memo(function PCBoxSlot({ pokemon, index, isSelected, onToggle }:
   return (
     <button
       onClick={handleClick}
+      role="gridcell"
+      aria-label={`${displayName}, level ${pokemon.level}`}
       className={`flex flex-col items-center bg-[#1a1c2c] border hover:border-[#8b9bb4] rounded-lg p-2 transition-all cursor-pointer group ${
         isSelected ? "border-[#e8433f]" : pokemon.isShiny ? "border-[#f7a838]" : "border-[#3a4466]"
       }`}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { TOAST_DURATION } from "@/data/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot, Pokemon, Nature, EVSpread, IVSpread, TypeName } from "@/types";
 import PokemonCard from "./PokemonCard";
@@ -81,7 +82,7 @@ export default function TeamRoster({
   const handleCopyExport = useCallback(() => {
     navigator.clipboard.writeText(showdownText).then(() => {
       setShowdownMessage("Copied!");
-      setTimeout(() => setShowdownMessage(""), 2000);
+      setTimeout(() => setShowdownMessage(""), TOAST_DURATION);
     });
   }, [showdownText]);
 

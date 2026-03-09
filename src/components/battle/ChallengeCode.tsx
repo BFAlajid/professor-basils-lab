@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { TOAST_DURATION } from "@/data/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot, GenerationalMechanic } from "@/types";
 import {
@@ -38,7 +39,7 @@ export default function ChallengeCode({ team, onAccept }: ChallengeCodeProps) {
     try {
       await navigator.clipboard.writeText(generatedCode);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), TOAST_DURATION);
     } catch {
       /* clipboard unavailable */
     }

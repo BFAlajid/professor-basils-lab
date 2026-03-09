@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { getSmogonSets, SmogonSet } from "@/data/smogonSets";
+import { useState, useMemo, useEffect } from "react";
+import type { SmogonSet } from "@/data/smogonSets";
 
 interface SmogonSetLoaderProps {
   pokemonId: number;
@@ -34,8 +34,20 @@ function capitalize(s: string): string {
 export default function SmogonSetLoader({ pokemonId, onApplySet }: SmogonSetLoaderProps) {
   const [open, setOpen] = useState(false);
   const [activeFormat, setActiveFormat] = useState<string | null>(null);
+  const [allSets, setAllSets] = useState<SmogonSet[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const allSets = useMemo(() => getSmogonSets(pokemonId), [pokemonId]);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    import("@/data/smogonSets").then((mod) => {
+      if (!cancelled) {
+        setAllSets(mod.getSmogonSets(pokemonId));
+        setLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [pokemonId]);
 
   const availableFormats = useMemo(() => {
     const fmts = new Set(allSets.map((s) => s.format));
@@ -52,7 +64,7 @@ export default function SmogonSetLoader({ pokemonId, onApplySet }: SmogonSetLoad
     [allSets, selectedFormat],
   );
 
-  if (allSets.length === 0 && !open) {
+  if ((loading || allSets.length === 0) && !open) {
     return null;
   }
 

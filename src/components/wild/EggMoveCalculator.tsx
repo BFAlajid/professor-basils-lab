@@ -5,13 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { usePokemonList } from "@/hooks/usePokemonList";
 import { fetchEggMoves, EggMoveChain } from "@/utils/eggMoves";
-
-function formatName(name: string): string {
-  return name
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
+import { formatName } from "@/utils/format";
 
 function getSpriteUrl(idOrName: string | number): string {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${idOrName}.png`;

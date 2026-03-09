@@ -8,19 +8,13 @@ import { useEvolution } from "@/hooks/useEvolution";
 import { EvolutionOption } from "@/utils/evolutionChain";
 import { EVOLUTION_ITEMS } from "@/data/evolutionItems";
 import ItemSprite from "@/components/ItemSprite";
+import { formatName } from "@/utils/format";
 
 interface EvolutionScreenProps {
   pcPokemon: PCBoxPokemon;
   onEvolve: (evolved: PCBoxPokemon) => void;
   onClose: () => void;
   ownedItems?: Record<string, number>;
-}
-
-function formatName(name: string): string {
-  return name
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 }
 
 function getSpriteUrl(id: number): string {

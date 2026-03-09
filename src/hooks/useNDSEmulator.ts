@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
+import { silentWarn } from "@/utils/silentWarn";
 import {
   storeNDSSave,
   loadNDSSave,
@@ -178,7 +179,8 @@ export function useNDSEmulator() {
       } else {
         setState((s) => ({ ...s, isReady: true, savedROMs: roms }));
       }
-    } catch {
+    } catch (e) {
+      silentWarn("ndsListROMs", e);
       setState((s) => ({ ...s, isReady: true, savedROMs: [] }));
     }
   }, []);
@@ -241,11 +243,11 @@ export function useNDSEmulator() {
                       try {
                         const data: Uint8Array = FS.readFile(path);
                         storeNDSSave(romName, data);
-                      } catch { /* best effort */ }
+                      } catch (e) { silentWarn("ndsSaveOnWrite", e); }
                     }
                   }
                 };
-              } catch { /* tracking delegate not available */ }
+              } catch (e) { silentWarn("ndsTrackingDelegate", e); }
 
               moduleLoaded = true;
               moduleRunning = true;
@@ -262,8 +264,8 @@ export function useNDSEmulator() {
             reject(new Error(`Emulator aborted: ${what}`));
           },
 
-          print: (...args: unknown[]) => console.log("[NDS]", ...args),
-          printErr: (...args: unknown[]) => console.warn("[NDS]", ...args),
+          print: (...args: unknown[]) => { if (process.env.NODE_ENV === "development") console.log("[NDS]", ...args); },
+          printErr: (...args: unknown[]) => { if (process.env.NODE_ENV === "development") console.warn("[NDS]", ...args); },
         };
 
         const script = document.createElement("script");
@@ -429,7 +431,8 @@ export function useNDSEmulator() {
     let dataUrl: string | null = null;
     try {
       dataUrl = canvas.toDataURL("image/png");
-    } catch {
+    } catch (e) {
+      silentWarn("ndsCanvasToDataURL", e);
       dataUrl = null;
     }
 

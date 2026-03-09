@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/warm-cache",
+      "schedule": "0 4 * * *"
+    }
+  ]
+}

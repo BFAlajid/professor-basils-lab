@@ -23,6 +23,23 @@ export const metadata: Metadata = {
   title: "Pokemon Team Builder",
   description:
     "Build your Pokemon team with type coverage analysis and battle simulation",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://pokemon-team-builder.vercel.app"
+  ),
+  openGraph: {
+    title: "Pokemon Team Builder",
+    description:
+      "Build your Pokemon team with type coverage analysis and battle simulation",
+    type: "website",
+    images: ["/api/og"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pokemon Team Builder",
+    description:
+      "Build your Pokemon team with type coverage analysis and battle simulation",
+    images: ["/api/og"],
+  },
 };
 
 export default function RootLayout({

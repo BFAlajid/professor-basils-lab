@@ -4,6 +4,7 @@ import { useReducer, useEffect, useCallback, useRef } from "react";
 import { Pokemon, TeamSlot, TeamAction, Nature, EVSpread, IVSpread, TypeName } from "@/types";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
 import { fetchPokemonData } from "@/utils/pokeApiClient";
+import { silentWarn } from "@/utils/silentWarn";
 
 const MAX_TEAM_SIZE = 6;
 const STORAGE_KEY = "pokemon-team-builder-team";
@@ -115,7 +116,8 @@ function loadTeamData(): SavedSlot[] | number[] {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return [];
     return JSON.parse(saved);
-  } catch {
+  } catch (e) {
+    silentWarn("loadTeamData", e);
     return [];
   }
 }
@@ -141,7 +143,8 @@ export function useTeam() {
         ids.map(async (id) => {
           try {
             return await fetchPokemonData(id) as Pokemon;
-          } catch {
+          } catch (e) {
+            silentWarn("fetchTeamPokemonById", e);
             return null;
           }
         })
@@ -152,6 +155,8 @@ export function useTeam() {
         if (slots.length > 0) {
           dispatch({ type: "SET_TEAM", slots });
         }
+      }).catch((e) => {
+        silentWarn("loadTeamPokemon", e);
       });
     } else {
       const savedSlots = saved as SavedSlot[];
@@ -171,7 +176,8 @@ export function useTeam() {
               teraConfig: s.teraConfig ?? undefined,
               formeOverride: s.formeOverride ?? undefined,
             } as TeamSlot;
-          } catch {
+          } catch (e) {
+            silentWarn("restoreTeamSlot", e);
             return null;
           }
         })
@@ -182,6 +188,8 @@ export function useTeam() {
         if (validSlots.length > 0) {
           dispatch({ type: "SET_TEAM", slots: validSlots });
         }
+      }).catch((e) => {
+        silentWarn("loadTeamPokemon", e);
       });
     }
   }, []);
@@ -296,7 +304,8 @@ export type DecodedTeamData = ShareableSlot[];
 export function decodeTeam(encoded: string): number[] | DecodedTeamData {
   try {
     return JSON.parse(atob(encoded));
-  } catch {
+  } catch (e) {
+    silentWarn("decodeTeam", e);
     return [];
   }
 }

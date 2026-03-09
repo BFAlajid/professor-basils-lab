@@ -1,3 +1,4 @@
+import { silentWarn } from "@/utils/silentWarn";
 import {
   Pokemon,
   TeamSlot,
@@ -8,14 +9,21 @@ import {
   IVSpread,
   Move,
   TypeName,
+  BattleMoveData,
 } from "@/types";
 import { extractBaseStats, calculateDamage } from "./damage";
 import { calculateAllStats, DEFAULT_EVS } from "./stats";
-import { BattleMoveData } from "@/types";
 import { initBattlePokemon, initStatStages, getStatStageMultiplier, cacheBattleMove, getCachedMoves } from "./battle";
 import { getDefensiveMultiplier } from "@/data/typeChart";
 import { NATURES } from "@/data/natures";
 import { randomInt, randomChoice, shuffleArray } from "./random";
+import { fetchWithTimeout } from "./pokeApiClient";
+
+const WILD_CONFIG = {
+  MIN_HP_SCALE: 0.2,
+  MAX_LEVEL_DIVISOR: 50,
+  MOVE_BATCH_SIZE: 10,
+} as const;
 
 export function generateRandomIVs(): IVSpread {
   return {
@@ -58,7 +66,7 @@ export function createWildBattlePokemon(pokemon: Pokemon, level: number): Battle
 
   // Scale HP based on level (wild Pokemon at lower levels should have less HP)
   // Use a simple level-based scaling factor
-  const levelScale = Math.max(0.2, level / 50);
+  const levelScale = Math.max(WILD_CONFIG.MIN_HP_SCALE, level / WILD_CONFIG.MAX_LEVEL_DIVISOR);
   const scaledHp = Math.max(10, Math.floor(bp.maxHp * levelScale));
   bp.currentHp = scaledHp;
   bp.maxHp = scaledHp;
@@ -73,12 +81,12 @@ export async function preloadWildMoves(pokemon: Pokemon): Promise<void> {
 
   const toFetch = moves.filter((m) => !cached.has(m));
   // Only fetch first 10 uncached moves to avoid too many requests
-  const batch = toFetch.slice(0, 10);
+  const batch = toFetch.slice(0, WILD_CONFIG.MOVE_BATCH_SIZE);
 
   await Promise.all(
     batch.map(async (moveName) => {
       try {
-        const res = await fetch(
+        const res = await fetchWithTimeout(
           `https://pokeapi.co/api/v2/move/${moveName.toLowerCase()}`
         );
         if (!res.ok) return;
@@ -102,8 +110,8 @@ export async function preloadWildMoves(pokemon: Pokemon): Promise<void> {
               }
             : undefined,
         });
-      } catch {
-        // skip
+      } catch (e) {
+        silentWarn("fetchWildMoves", e);
       }
     })
   );
@@ -111,13 +119,14 @@ export async function preloadWildMoves(pokemon: Pokemon): Promise<void> {
 
 export async function fetchCaptureRate(pokemonId: number): Promise<number> {
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://pokeapi.co/api/v2/pokemon-species/${pokemonId}`
     );
     if (!res.ok) return 45; // default capture rate
     const data = await res.json();
     return data.capture_rate ?? 45;
-  } catch {
+  } catch (e) {
+    silentWarn("fetchCaptureRate", e);
     return 45;
   }
 }

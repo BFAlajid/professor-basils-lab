@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { TOAST_DURATION } from "@/data/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot } from "@/types";
 import { exportToShowdown } from "@/utils/showdownFormatWasm";
@@ -59,7 +60,7 @@ export default function QRExport({ team, isOpen, onClose }: QRExportProps) {
     try {
       await navigator.clipboard.writeText(showdownText);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), TOAST_DURATION);
     } catch {
       /* clipboard may be blocked in some contexts */
     }

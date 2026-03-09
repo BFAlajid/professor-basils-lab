@@ -1,5 +1,6 @@
 import { TeamSlot } from "@/types";
 import { TierList } from "@/data/tierLists";
+import { formatName } from "@/utils/format";
 
 export interface TierViolation {
   position: number;
@@ -75,13 +76,6 @@ export function validateTeam(team: TeamSlot[], tier: TierList): TierViolation[] 
   }
 
   return violations;
-}
-
-function formatName(raw: string): string {
-  return raw
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 }
 
 function formatItemName(raw: string): string {

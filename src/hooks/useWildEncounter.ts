@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer, useCallback, useRef } from "react";
+import { SHINY_RATE } from "@/data/constants";
 import {
   WildEncounterState,
   WildEncounterAction,
@@ -66,7 +67,7 @@ function wildEncounterReducer(
         encounterTurn: 1,
         shakeCount: 0,
         isCaught: false,
-        isShiny: Math.random() < 1 / 4096, // 1/4096 shiny chance
+        isShiny: Math.random() < SHINY_RATE,
         selectedBall: null,
       };
 

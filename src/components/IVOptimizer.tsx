@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Pokemon, IVSpread } from "@/types";
 import { calculateAllStats, DEFAULT_EVS } from "@/utils/stats";
 import { extractBaseStats } from "@/utils/damage";
+import { formatName } from "@/utils/format";
 
 interface IVOptimizerProps {
   pokemon: Pokemon;
@@ -41,13 +42,6 @@ const STAT_LABELS: { key: keyof IVSpread; label: string }[] = [
   { key: "spDef", label: "SpD" },
   { key: "speed", label: "Spe" },
 ];
-
-function formatName(raw: string): string {
-  return raw
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
 
 export default function IVOptimizer({ pokemon, currentIvs, onApply }: IVOptimizerProps) {
   const [selectedRole, setSelectedRole] = useState<Role>("mixed");

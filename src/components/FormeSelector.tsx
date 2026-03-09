@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Pokemon } from "@/types";
 import { getKnownVariants, formatFormeName } from "@/data/formes";
 import { fetchSpeciesData } from "@/utils/pokeApiClient";
+import { silentWarn } from "@/utils/silentWarn";
 
 interface FormeSelectorProps {
   pokemon: Pokemon;
@@ -29,12 +30,12 @@ export default function FormeSelector({ pokemon, value, onChange }: FormeSelecto
       .then(data => {
         if (data?.varieties) {
           const variants = data.varieties
-            .filter((v: any) => !v.is_default)
-            .map((v: any) => v.pokemon.name);
+            .filter((v) => !v.is_default)
+            .map((v) => v.pokemon.name);
           setFormes(variants);
         }
       })
-      .catch(() => {})
+      .catch((e) => silentWarn("FormeSelector", e))
       .finally(() => setLoading(false));
   }, [pokemon.id, pokemon.name]);
 
