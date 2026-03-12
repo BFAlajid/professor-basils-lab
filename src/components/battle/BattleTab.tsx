@@ -23,6 +23,7 @@ import { GYM_BADGE_NAMES } from "@/data/gymLeaders";
 import ChallengeCode from "./ChallengeCode";
 import BattleHistoryDashboard from "./BattleHistoryDashboard";
 import ELOLeaderboard from "./ELOLeaderboard";
+import { useFeatureFlagsContext } from "@/contexts/FeatureFlagsContext";
 
 interface BattleTabProps {
   team: TeamSlot[];
@@ -43,6 +44,7 @@ export default function BattleTab({ team }: BattleTabProps) {
   } = useBattle();
 
   const { addMoney, stats } = useAchievementsContext();
+  const { features } = useFeatureFlagsContext();
   const replayRecorder = useReplayRecorder();
   const tournament = useTournament();
   const online = useOnlineBattle();
@@ -306,7 +308,7 @@ export default function BattleTab({ team }: BattleTabProps) {
     }
 
     // Online mode active
-    if (activeBattleMode === "online" || online.state.phase !== "idle") {
+    if (features.enableMultiplayer && (activeBattleMode === "online" || online.state.phase !== "idle")) {
       return (
         <div className="space-y-6">
           <OnlineLobby
@@ -336,30 +338,32 @@ export default function BattleTab({ team }: BattleTabProps) {
           isLoadingOpponent={isLoadingOpponent}
           onModeChange={(mode) => setActiveBattleMode(mode as typeof activeBattleMode)}
         />
-        <ChallengeCode
-          team={team}
-          onAccept={(data) => {
-            // Load opponent from challenge code and start battle
-            Promise.all(
-              data.team.map(async (entry) => {
-                const { fetchPokemon } = await import("@/hooks/usePokemon");
-                const pokemon = await fetchPokemon(entry.pokemonId);
-                return {
-                  pokemon,
-                  position: 0,
-                  nature: null,
-                  evs: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
-                  ivs: { hp: 31, attack: 31, defense: 31, spAtk: 31, spDef: 31, speed: 31 },
-                  ability: entry.ability ?? pokemon.abilities?.[0]?.ability.name ?? null,
-                  heldItem: entry.item ?? null,
-                  selectedMoves: entry.moves,
-                } as TeamSlot;
-              })
-            ).then((opponentTeam) => {
-              handleStartBattle(team, opponentTeam, "ai");
-            });
-          }}
-        />
+        {features.enableSharing && (
+          <ChallengeCode
+            team={team}
+            onAccept={(data) => {
+              // Load opponent from challenge code and start battle
+              Promise.all(
+                data.team.map(async (entry) => {
+                  const { fetchPokemon } = await import("@/hooks/usePokemon");
+                  const pokemon = await fetchPokemon(entry.pokemonId);
+                  return {
+                    pokemon,
+                    position: 0,
+                    nature: null,
+                    evs: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
+                    ivs: { hp: 31, attack: 31, defense: 31, spAtk: 31, spDef: 31, speed: 31 },
+                    ability: entry.ability ?? pokemon.abilities?.[0]?.ability.name ?? null,
+                    heldItem: entry.item ?? null,
+                    selectedMoves: entry.moves,
+                  } as TeamSlot;
+                })
+              ).then((opponentTeam) => {
+                handleStartBattle(team, opponentTeam, "ai");
+              });
+            }}
+          />
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <BattleHistoryDashboard
             stats={{
@@ -369,11 +373,14 @@ export default function BattleTab({ team }: BattleTabProps) {
             }}
             replays={replayRecorder.loadReplays()}
           />
-          <ELOLeaderboard
-            eloRating={stats.eloRating}
-            totalWins={stats.totalBattlesWon}
-            totalLosses={stats.totalBattlesPlayed - stats.totalBattlesWon}
-          />
+          {features.enableLeaderboards && (
+            <ELOLeaderboard
+              eloRating={stats.eloRating}
+              totalWins={stats.totalBattlesWon}
+              totalLosses={stats.totalBattlesPlayed - stats.totalBattlesWon}
+              teamPokemonNames={team.map((s) => s.pokemon.name)}
+            />
+          )}
         </div>
         <ReplayList onViewReplay={handleViewReplay} />
       </div>

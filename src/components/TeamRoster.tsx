@@ -9,6 +9,7 @@ import PokemonSearch from "./PokemonSearch";
 import PokemonDetailPanel from "./PokemonDetailPanel";
 import { exportToShowdown, importFromShowdown } from "@/utils/showdownFormatWasm";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
+import { useFeatureFlagsContext } from "@/contexts/FeatureFlagsContext";
 import { TEAM_PRESETS } from "@/data/teamPresets";
 import QRExport from "./QRExport";
 
@@ -53,6 +54,7 @@ export default function TeamRoster({
   const [showQR, setShowQR] = useState(false);
   const emptySlots = Math.max(0, 6 - team.length);
   const { incrementStat } = useAchievementsContext();
+  const { features } = useFeatureFlagsContext();
 
   const handleLoadPreset = useCallback(async (paste: string) => {
     if (!onSetTeam) return;
@@ -122,12 +124,14 @@ export default function TeamRoster({
             >
               Export Showdown
             </button>
-            <button
-              onClick={() => setShowQR(true)}
-              className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
-            >
-              QR Code
-            </button>
+            {features.enableSharing && (
+              <button
+                onClick={() => setShowQR(true)}
+                className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
+              >
+                QR Code
+              </button>
+            )}
           </>
         )}
         <button
@@ -308,11 +312,13 @@ export default function TeamRoster({
         onSelect={onAdd}
       />
 
-      <QRExport
-        team={team}
-        isOpen={showQR}
-        onClose={() => setShowQR(false)}
-      />
+      {features.enableSharing && (
+        <QRExport
+          team={team}
+          isOpen={showQR}
+          onClose={() => setShowQR(false)}
+        />
+      )}
     </>
   );
 }

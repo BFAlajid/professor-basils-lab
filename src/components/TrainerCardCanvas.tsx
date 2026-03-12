@@ -3,6 +3,9 @@
 import { useCallback, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import type { TeamSlot } from "@/types";
+import type { ShareResponse } from "@/types/share";
+import { TOAST_DURATION } from "@/data/constants";
+import { silentWarn } from "@/utils/silentWarn";
 
 // ── Canvas Export ────────────────────────────────────────────────────────
 
@@ -205,6 +208,8 @@ interface TrainerCardCanvasProps {
 export default function TrainerCardCanvas({ team, cardData, exportAsImage }: TrainerCardCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   const handleExport = useCallback(() => {
     const canvas = canvasRef.current;
@@ -222,10 +227,65 @@ export default function TrainerCardCanvas({ team, cardData, exportAsImage }: Tra
     });
   }, [team, cardData, exportAsImage, isExporting]);
 
+  const handleShare = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || isSharing) return;
+
+    setIsSharing(true);
+    setShareFeedback(null);
+
+    const teamSprites = team
+      .slice(0, 6)
+      .map((s) => s.pokemon.sprites.front_default);
+
+    drawCardToCanvas(canvas, cardData, teamSprites, async () => {
+      try {
+        const dataUrl = canvas.toDataURL("image/png");
+        // Strip the data:image/png;base64, prefix
+        const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
+
+        const pokemonNames = team.slice(0, 6).map((s) => s.pokemon.name);
+
+        const res = await fetch("/api/share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "trainer-card",
+            data: base64,
+            metadata: {
+              title: `${cardData.name}'s Team`,
+              createdAt: new Date().toISOString(),
+              trainerName: cardData.name,
+              pokemonNames,
+            },
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Upload failed" }));
+          throw new Error(err.error ?? `HTTP ${res.status}`);
+        }
+
+        const { url } = (await res.json()) as ShareResponse;
+        const fullUrl = `${window.location.origin}${url}`;
+
+        await navigator.clipboard.writeText(fullUrl);
+        setShareFeedback("Link copied!");
+        setTimeout(() => setShareFeedback(null), TOAST_DURATION);
+      } catch (e) {
+        silentWarn("shareTrainerCard", e);
+        setShareFeedback("Share failed");
+        setTimeout(() => setShareFeedback(null), TOAST_DURATION);
+      } finally {
+        setIsSharing(false);
+      }
+    });
+  }, [team, cardData, isSharing]);
+
   return (
     <>
-      {/* Export button */}
-      <div className="flex justify-center">
+      {/* Export + Share buttons */}
+      <div className="flex justify-center gap-2">
         <motion.button
           onClick={handleExport}
           disabled={isExporting}
@@ -234,6 +294,15 @@ export default function TrainerCardCanvas({ team, cardData, exportAsImage }: Tra
           whileTap={{ scale: 0.95 }}
         >
           {isExporting ? "Exporting..." : "Export PNG"}
+        </motion.button>
+        <motion.button
+          onClick={handleShare}
+          disabled={isSharing || team.length === 0}
+          className="px-4 py-2 bg-[#262b44] border border-[#3a4466] rounded-lg text-xs font-pixel text-[#f0f0e8] hover:bg-[#3a4466] hover:border-[#f7a838] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          {isSharing ? "Sharing..." : shareFeedback ?? "Share Online"}
         </motion.button>
       </div>
 

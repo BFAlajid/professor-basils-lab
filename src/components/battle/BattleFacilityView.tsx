@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { BattleFacilityState, TeamSlot } from "@/types";
@@ -9,6 +9,10 @@ import HallOfFame from "./HallOfFame";
 import { saveToHallOfFame } from "@/data/hallOfFame";
 import FacilityLobby from "./FacilityLobby";
 import FacilityBattlePreview from "./FacilityBattlePreview";
+import { useLeaderboard } from "@/hooks/useLeaderboard";
+import { getTrainerId, getTrainerName } from "@/utils/trainerIdentity";
+import { silentWarn } from "@/utils/silentWarn";
+import type { LeaderboardEntry } from "@/types/leaderboard";
 
 interface BattleFacilityViewProps {
   facilityState: BattleFacilityState;
@@ -41,6 +45,55 @@ export default function BattleFacilityView({
   const isTower = mode === "battle_tower";
   const isGym = mode === "gym_challenge";
   const [showHallOfFame, setShowHallOfFame] = useState(false);
+
+  // Leaderboard hooks
+  const towerLeaderboard = useLeaderboard("battle-tower");
+  const hofLeaderboard = useLeaderboard("hall-of-fame");
+  const submittedTowerStreak = useRef<number>(0);
+  const submittedHof = useRef(false);
+
+  // Auto-submit battle tower streak when a new personal best is achieved (defeat/victory phase)
+  useEffect(() => {
+    if (!isTower) return;
+    if (phase !== "defeat" && phase !== "victory") return;
+    if (bestStreak <= 0 || bestStreak <= submittedTowerStreak.current) return;
+    submittedTowerStreak.current = bestStreak;
+
+    const entry: LeaderboardEntry = {
+      trainerName: getTrainerName(),
+      trainerId: getTrainerId(),
+      score: bestStreak,
+      teamPokemon: playerTeam.map((s) => s.pokemon.name).slice(0, 6),
+      timestamp: new Date().toISOString(),
+    };
+    towerLeaderboard.submitScore(entry).catch((e) => silentWarn("towerLeaderboardSubmit", e));
+  }, [isTower, phase, bestStreak, playerTeam, towerLeaderboard.submitScore]);
+
+  // Auto-submit hall of fame entry on victory
+  useEffect(() => {
+    if (phase !== "victory") {
+      submittedHof.current = false;
+      return;
+    }
+    if (submittedHof.current) return;
+    submittedHof.current = true;
+
+    // Score = total base stat sum of the team
+    const totalBaseStats = playerTeam.reduce((sum, slot) => {
+      const stats = slot.pokemon.stats;
+      if (!stats) return sum;
+      return sum + stats.reduce((s: number, st: { base_stat: number }) => s + st.base_stat, 0);
+    }, 0);
+
+    const entry: LeaderboardEntry = {
+      trainerName: getTrainerName(),
+      trainerId: getTrainerId(),
+      score: totalBaseStats,
+      teamPokemon: playerTeam.map((s) => s.pokemon.name).slice(0, 6),
+      timestamp: new Date().toISOString(),
+    };
+    hofLeaderboard.submitScore(entry).catch((e) => silentWarn("hofLeaderboardSubmit", e));
+  }, [phase, playerTeam, hofLeaderboard.submitScore]);
 
   // Hall of Fame overlay
   if (showHallOfFame) {
@@ -265,6 +318,16 @@ export default function BattleFacilityView({
         </p>
         {isGym && badges && <GymBadgeCase earnedBadges={badges} />}
         <p className="text-[10px] text-[#f7a838]">Saved to Hall of Fame!</p>
+
+        {/* Global Tower Rankings (battle tower mode) */}
+        {isTower && (
+          <TowerRankingsInline
+            entries={towerLeaderboard.entries}
+            isLoading={towerLeaderboard.isLoading}
+            playerRank={towerLeaderboard.playerRank}
+          />
+        )}
+
         <button
           onClick={onReset}
           className="rounded-lg bg-[#f7a838] px-8 py-3 text-sm font-pixel text-[#1a1c2c] hover:bg-[#d89230] transition-colors"
@@ -296,6 +359,16 @@ export default function BattleFacilityView({
             ? `Fell at battle ${wins + 1} of ${facilityState.totalOpponents}.`
             : `Streak ended at ${streak}. Best: ${bestStreak}`}
         </p>
+
+        {/* Global Tower Rankings (battle tower mode) */}
+        {isTower && (
+          <TowerRankingsInline
+            entries={towerLeaderboard.entries}
+            isLoading={towerLeaderboard.isLoading}
+            playerRank={towerLeaderboard.playerRank}
+          />
+        )}
+
         <button
           onClick={onReset}
           className="rounded-lg bg-[#3a4466] px-8 py-3 text-sm font-pixel text-[#f0f0e8] hover:bg-[#4a5577] transition-colors"
@@ -308,4 +381,72 @@ export default function BattleFacilityView({
 
   // Fallback (battling phase is handled by BattleArena in BattleTab)
   return null;
+}
+
+// ── Inline Tower Rankings (top 10) ──────────────────────────────────
+
+function TowerRankingsInline({
+  entries,
+  isLoading,
+  playerRank,
+}: {
+  entries: LeaderboardEntry[];
+  isLoading: boolean;
+  playerRank: number | null;
+}) {
+  const trainerId = getTrainerId();
+
+  return (
+    <div className="mt-2 pt-3 border-t border-[#3a4466] text-left">
+      <p className="text-[9px] font-pixel text-[#8b9bb4] uppercase tracking-wider mb-2">
+        Global Tower Rankings
+      </p>
+
+      {isLoading && (
+        <p className="text-[10px] text-[#8b9bb4] font-pixel animate-pulse text-center py-2">
+          Loading...
+        </p>
+      )}
+
+      {!isLoading && entries.length === 0 && (
+        <p className="text-[10px] text-[#8b9bb4] font-pixel text-center py-2">
+          No rankings yet.
+        </p>
+      )}
+
+      {!isLoading && entries.length > 0 && (
+        <div className="space-y-1">
+          {entries.slice(0, 10).map((entry, i) => {
+            const rank = i + 1;
+            const isPlayer = entry.trainerId === trainerId;
+            return (
+              <div
+                key={`${entry.trainerId}-${i}`}
+                className={`flex items-center gap-2 rounded px-2 py-1 text-[10px] font-pixel ${
+                  isPlayer
+                    ? "bg-[#38b764]/15 border border-[#38b764]/40"
+                    : "bg-[#1a1c2c]"
+                }`}
+              >
+                <span className="w-5 text-right text-[#8b9bb4]">
+                  {rank <= 3 ? ["1st", "2nd", "3rd"][rank - 1] : `${rank}.`}
+                </span>
+                <span className={`flex-1 truncate ${isPlayer ? "text-[#38b764]" : "text-[#f0f0e8]"}`}>
+                  {entry.trainerName}
+                  {isPlayer && " (you)"}
+                </span>
+                <span className="text-[#60a5fa] font-bold">{entry.score}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {playerRank !== null && (
+        <p className="mt-1 text-[9px] text-[#f7a838] font-pixel text-center">
+          Your rank: #{playerRank}
+        </p>
+      )}
+    </div>
+  );
 }

@@ -11,6 +11,10 @@ import PokedexHeader from "./PokedexHeader";
 import PokedexSearchFilters, { GENERATIONS, type FilterTab } from "./PokedexSearchFilters";
 import { applyFilters, DEFAULT_FILTER_CONFIG, type PokedexFilterConfig, type PokemonBaseData } from "@/utils/pokedexFilterEngine";
 import { fetchWithTimeout } from "@/utils/pokeApiClient";
+import { useLeaderboard } from "@/hooks/useLeaderboard";
+import { getTrainerId, getTrainerName } from "@/utils/trainerIdentity";
+import { silentWarn } from "@/utils/silentWarn";
+import type { LeaderboardEntry } from "@/types/leaderboard";
 
 const TOTAL_POKEMON = 1025;
 
@@ -101,6 +105,24 @@ export default function PokedexTracker() {
   const baseDataLoaded = useRef(false);
 
   const completionPercent = getCompletionPercent();
+
+  // Leaderboard: auto-submit pokedex completion when totalCaught changes
+  const { submitScore: submitPokedex } = useLeaderboard("pokedex-completion");
+  const lastSubmittedCaught = useRef<number>(0);
+
+  useEffect(() => {
+    if (totalCaught <= 0 || totalCaught === lastSubmittedCaught.current) return;
+    lastSubmittedCaught.current = totalCaught;
+
+    const entry: LeaderboardEntry = {
+      trainerName: getTrainerName(),
+      trainerId: getTrainerId(),
+      score: totalCaught,
+      teamPokemon: [],
+      timestamp: new Date().toISOString(),
+    };
+    submitPokedex(entry).catch((e) => silentWarn("pokedexLeaderboardSubmit", e));
+  }, [totalCaught, submitPokedex]);
 
   // Check if advanced filters are active (anything beyond basic search/filter/gen)
   const hasAdvancedFilters = filterConfig.typeFilter !== null ||
