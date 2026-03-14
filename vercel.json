@@ -4,5 +4,6 @@
       "path": "/api/cron/warm-cache",
       "schedule": "0 4 * * *"
     }
-  ]
+  ],
+  "ignoreCommand": "if [ \"$VERCEL_ENV\" != \"production\" ]; then exit 0; fi"
 }
