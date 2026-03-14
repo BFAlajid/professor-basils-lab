@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { TOAST_DURATION } from "@/data/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot, GenerationalMechanic } from "@/types";
+import type { ShareResponse } from "@/types/share";
 import {
   ChallengeData,
   encodeChallengeCode,
   decodeChallengeCode,
 } from "@/utils/challengeCode";
+import { silentWarn } from "@/utils/silentWarn";
 
 interface ChallengeCodeProps {
   team: TeamSlot[];
@@ -21,6 +23,8 @@ export default function ChallengeCode({ team, onAccept }: ChallengeCodeProps) {
   const [copied, setCopied] = useState(false);
   const [decoded, setDecoded] = useState<ChallengeData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isShareLoading, setIsShareLoading] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   const generatedCode = encodeChallengeCode({
     team: team.map((s) => ({
@@ -44,6 +48,46 @@ export default function ChallengeCode({ team, onAccept }: ChallengeCodeProps) {
       /* clipboard unavailable */
     }
   };
+
+  const handleShareLink = useCallback(async () => {
+    if (isShareLoading || team.length === 0) return;
+    setIsShareLoading(true);
+    setShareFeedback(null);
+
+    try {
+      const res = await fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "challenge" as const,
+          data: generatedCode,
+          metadata: {
+            title: `Challenge: ${team.map((s) => s.pokemon.name).join(", ")}`,
+            createdAt: new Date().toISOString(),
+            pokemonNames: team.slice(0, 6).map((s) => s.pokemon.name),
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error ?? `HTTP ${res.status}`);
+      }
+
+      const { url } = (await res.json()) as ShareResponse;
+      const fullUrl = `${window.location.origin}${url}`;
+
+      await navigator.clipboard.writeText(fullUrl);
+      setShareFeedback("Link copied!");
+      setTimeout(() => setShareFeedback(null), TOAST_DURATION);
+    } catch (e) {
+      silentWarn("shareChallenge", e);
+      setShareFeedback("Share failed");
+      setTimeout(() => setShareFeedback(null), TOAST_DURATION);
+    } finally {
+      setIsShareLoading(false);
+    }
+  }, [isShareLoading, team, generatedCode]);
 
   const handlePaste = (value: string) => {
     setCode(value);
@@ -128,6 +172,16 @@ export default function ChallengeCode({ team, onAccept }: ChallengeCodeProps) {
                     Format: OU | Rules: Sleep Clause, Species Clause
                   </p>
                 </div>
+                <button
+                  onClick={handleShareLink}
+                  disabled={isShareLoading}
+                  aria-label="Share challenge as link"
+                  className="mt-3 w-full rounded-lg bg-[#262b44] border border-[#3a4466] px-4 py-2 text-xs font-pixel text-[#f0f0e8] hover:bg-[#3a4466] hover:border-[#f7a838] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isShareLoading
+                    ? "Sharing..."
+                    : shareFeedback ?? "Share as Link"}
+                </button>
               </>
             )}
           </motion.div>

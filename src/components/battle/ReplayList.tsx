@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { BattleReplay } from "@/types";
+import type { ShareResponse } from "@/types/share";
 import { useReplayRecorder } from "@/hooks/useReplayRecorder";
+import { encodeReplay } from "@/utils/replayShare";
+import { TOAST_DURATION } from "@/data/constants";
+import { silentWarn } from "@/utils/silentWarn";
 
 interface ReplayListProps {
   onViewReplay: (replay: BattleReplay) => void;
@@ -16,10 +20,66 @@ export default function ReplayList({ onViewReplay }: ReplayListProps) {
     setReplays(loadReplays());
   }, [loadReplays]);
 
+  const [sharingId, setSharingId] = useState<string | null>(null);
+  const [shareFeedback, setShareFeedback] = useState<Record<string, string>>({});
+
   const handleDelete = useCallback((id: string) => {
     deleteReplay(id);
     setReplays((prev) => prev.filter((r) => r.id !== id));
   }, [deleteReplay]);
+
+  const handleShare = useCallback(async (replay: BattleReplay) => {
+    if (sharingId) return;
+    setSharingId(replay.id);
+
+    try {
+      const encoded = encodeReplay(replay);
+
+      const res = await fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "replay" as const,
+          data: encoded,
+          metadata: {
+            title: `${replay.player1TeamNames.slice(0, 3).join(", ")} vs ${replay.player2TeamNames.slice(0, 3).join(", ")}`,
+            createdAt: new Date().toISOString(),
+            pokemonNames: [...replay.player1TeamNames, ...replay.player2TeamNames].slice(0, 6),
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error ?? `HTTP ${res.status}`);
+      }
+
+      const { url } = (await res.json()) as ShareResponse;
+      const fullUrl = `${window.location.origin}${url}`;
+
+      await navigator.clipboard.writeText(fullUrl);
+      setShareFeedback((prev) => ({ ...prev, [replay.id]: "Copied!" }));
+      setTimeout(() => {
+        setShareFeedback((prev) => {
+          const next = { ...prev };
+          delete next[replay.id];
+          return next;
+        });
+      }, TOAST_DURATION);
+    } catch (e) {
+      silentWarn("shareReplay", e);
+      setShareFeedback((prev) => ({ ...prev, [replay.id]: "Failed" }));
+      setTimeout(() => {
+        setShareFeedback((prev) => {
+          const next = { ...prev };
+          delete next[replay.id];
+          return next;
+        });
+      }, TOAST_DURATION);
+    } finally {
+      setSharingId(null);
+    }
+  }, [sharingId]);
 
   if (replays.length === 0) return null;
 
@@ -78,6 +138,15 @@ export default function ReplayList({ onViewReplay }: ReplayListProps) {
                   className="px-2.5 py-1 rounded bg-[#3a4466] text-[#f0f0e8] text-[10px] font-pixel hover:bg-[#4a5577] transition-colors"
                 >
                   View
+                </button>
+                <button
+                  onClick={() => handleShare(replay)}
+                  disabled={sharingId === replay.id}
+                  className="px-2 py-1 rounded bg-[#3a4466] text-[#f0f0e8] text-[10px] font-pixel hover:bg-[#4a5577] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sharingId === replay.id
+                    ? "..."
+                    : shareFeedback[replay.id] ?? "Share"}
                 </button>
                 <button
                   onClick={() => handleDelete(replay.id)}

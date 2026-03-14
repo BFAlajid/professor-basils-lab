@@ -1,7 +1,12 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { getCurrentTier } from "@/data/eloTiers";
+import { useLeaderboard } from "@/hooks/useLeaderboard";
+import { getTrainerId, getTrainerName } from "@/utils/trainerIdentity";
+import { silentWarn } from "@/utils/silentWarn";
+import type { LeaderboardEntry } from "@/types/leaderboard";
 
 const ELO_TIERS = [
   { name: "Poke Ball", min: 0, color: "#e8433f" },
@@ -14,16 +19,40 @@ interface ELOLeaderboardProps {
   eloRating: number;
   totalWins: number;
   totalLosses: number;
+  teamPokemonNames?: string[];
 }
 
 export default function ELOLeaderboard({
   eloRating,
   totalWins,
   totalLosses,
+  teamPokemonNames = [],
 }: ELOLeaderboardProps) {
   const tier = getCurrentTier(eloRating);
   const totalGames = totalWins + totalLosses;
   const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
+
+  const { entries, playerRank, isLoading, error, submitScore } = useLeaderboard("elo-rating");
+  const lastSubmittedRating = useRef<number>(0);
+
+  // Auto-submit ELO rating when it changes
+  useEffect(() => {
+    if (eloRating <= 0 || eloRating === lastSubmittedRating.current) return;
+    // Only submit after at least 1 game
+    if (totalGames <= 0) return;
+    lastSubmittedRating.current = eloRating;
+
+    const entry: LeaderboardEntry = {
+      trainerName: getTrainerName(),
+      trainerId: getTrainerId(),
+      score: eloRating,
+      teamPokemon: teamPokemonNames.slice(0, 6),
+      timestamp: new Date().toISOString(),
+    };
+    submitScore(entry).catch((e) => silentWarn("eloLeaderboardSubmit", e));
+  }, [eloRating, totalGames, teamPokemonNames, submitScore]);
+
+  const trainerId = getTrainerId();
 
   return (
     <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
@@ -125,6 +154,84 @@ export default function ELOLeaderboard({
             </motion.div>
           );
         })}
+      </div>
+
+      {/* Global Rankings */}
+      <div className="mt-4 pt-4 border-t border-[#3a4466]">
+        <p className="text-[9px] font-pixel text-[#8b9bb4] uppercase tracking-wider mb-2">
+          Global Rankings
+        </p>
+
+        {isLoading && (
+          <div className="py-4 text-center">
+            <p className="text-[10px] text-[#8b9bb4] font-pixel animate-pulse">
+              Loading rankings...
+            </p>
+          </div>
+        )}
+
+        {error && !isLoading && (
+          <div className="py-3 text-center">
+            <p className="text-[10px] text-[#e8433f] font-pixel">{error}</p>
+          </div>
+        )}
+
+        {!isLoading && !error && entries.length === 0 && (
+          <div className="py-3 text-center">
+            <p className="text-[10px] text-[#8b9bb4] font-pixel">
+              No global rankings yet. Play a ranked battle!
+            </p>
+          </div>
+        )}
+
+        {!isLoading && !error && entries.length > 0 && (
+          <div className="space-y-1 max-h-64 overflow-y-auto">
+            {entries.map((entry, i) => {
+              const rank = i + 1;
+              const isPlayer = entry.trainerId === trainerId;
+              const entryTier = getCurrentTier(entry.score);
+              return (
+                <div
+                  key={`${entry.trainerId}-${i}`}
+                  className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-[10px] font-pixel ${
+                    isPlayer
+                      ? "bg-[#38b764]/15 border border-[#38b764]/40"
+                      : "bg-[#1a1c2c]"
+                  }`}
+                >
+                  <span className="w-5 text-right text-[#8b9bb4]">
+                    {rank <= 3 ? ["1st", "2nd", "3rd"][rank - 1] : `${rank}.`}
+                  </span>
+                  <span
+                    className="text-xs"
+                    style={{ color: entryTier.color }}
+                    aria-hidden="true"
+                  >
+                    {entryTier.icon}
+                  </span>
+                  <span className={`flex-1 truncate ${isPlayer ? "text-[#38b764]" : "text-[#f0f0e8]"}`}>
+                    {entry.trainerName}
+                    {isPlayer && " (you)"}
+                  </span>
+                  <span className="font-bold" style={{ color: entryTier.color }}>
+                    {entry.score}
+                  </span>
+                  {entry.teamPokemon.length > 0 && (
+                    <span className="text-[8px] text-[#8b9bb4] truncate max-w-[80px] hidden sm:inline">
+                      {entry.teamPokemon.slice(0, 3).join(", ")}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {playerRank !== null && (
+          <p className="mt-2 text-[9px] text-[#f7a838] font-pixel text-center">
+            Your rank: #{playerRank}
+          </p>
+        )}
       </div>
     </div>
   );

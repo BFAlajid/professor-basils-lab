@@ -107,7 +107,7 @@ export default function Home() {
   const [shareMessage, setShareMessage] = useState("");
   const { markSeen } = usePokedexContext();
   const { incrementStat } = useAchievementsContext();
-  const { announcement } = useFeatureFlagsContext();
+  const { features, announcement } = useFeatureFlagsContext();
   const prevTeamSize = useRef(0);
   const shouldReduceMotion = useReducedMotion();
 
@@ -220,27 +220,47 @@ export default function Home() {
 
   const [selectedTeamPokemonIdx, setSelectedTeamPokemonIdx] = useState(0);
 
+  const visibleTabs = tabs.filter((tab) => {
+    if (tab.id === "emulator" && !features.enableEmulator) return false;
+    return true;
+  });
+
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent, tabId: Tab) => {
-      const idx = tabs.findIndex((t) => t.id === tabId);
+      const idx = visibleTabs.findIndex((t) => t.id === tabId);
       let nextIdx = -1;
       if (e.key === "ArrowRight") {
         e.preventDefault();
-        nextIdx = (idx + 1) % tabs.length;
+        nextIdx = (idx + 1) % visibleTabs.length;
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
-        nextIdx = (idx - 1 + tabs.length) % tabs.length;
+        nextIdx = (idx - 1 + visibleTabs.length) % visibleTabs.length;
       }
       if (nextIdx >= 0) {
-        setActiveTab(tabs[nextIdx].id);
-        document.getElementById(`tab-${tabs[nextIdx].id}`)?.focus();
+        setActiveTab(visibleTabs[nextIdx].id);
+        document.getElementById(`tab-${visibleTabs[nextIdx].id}`)?.focus();
       }
     },
-    []
+    [visibleTabs]
   );
 
   const teamPokemon = team.map((s) => s.pokemon);
   const motionDuration = shouldReduceMotion ? 0 : 0.2;
+
+  if (features.maintenanceMode) {
+    return (
+      <div className="min-h-screen bg-[#1a1c2c] flex items-center justify-center">
+        <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-8 text-center max-w-md">
+          <h1 className="text-2xl font-bold text-[#f0f0e8] font-pixel mb-4">
+            Under Maintenance
+          </h1>
+          <p className="text-[#8b9bb4] font-pixel text-sm">
+            Check back soon
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#1a1c2c]">
@@ -278,13 +298,15 @@ export default function Home() {
             <AudioPlayer />
             {team.length > 0 && (
               <>
-                <button
-                  onClick={handleShare}
-                  aria-label="Share team link"
-                  className="rounded-lg bg-[#3a4466] px-4 py-2 text-base text-[#f0f0e8] hover:bg-[#4a5577] transition-colors"
-                >
-                  {shareMessage || "Share Team"}
-                </button>
+                {features.enableSharing && (
+                  <button
+                    onClick={handleShare}
+                    aria-label="Share team link"
+                    className="rounded-lg bg-[#3a4466] px-4 py-2 text-base text-[#f0f0e8] hover:bg-[#4a5577] transition-colors"
+                  >
+                    {shareMessage || "Share Team"}
+                  </button>
+                )}
                 <button
                   onClick={clearTeam}
                   aria-label="Clear all team members"
@@ -304,7 +326,7 @@ export default function Home() {
       {/* Tabs */}
       <nav className="border-b border-[#3a4466]" aria-label="Main navigation">
         <div className="mx-auto flex max-w-[1400px] px-6 overflow-x-auto" role="tablist" aria-label="App sections">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               id={`tab-${tab.id}`}
@@ -341,11 +363,13 @@ export default function Home() {
         aria-labelledby={`tab-${activeTab}`}
       >
         {/* Emulator stays mounted to preserve WASM state across tab switches */}
-        <div style={{ display: activeTab === "emulator" ? "block" : "none" }}>
-          <ErrorBoundary fallbackLabel="Emulator failed to load">
-            <UnifiedEmulatorTab />
-          </ErrorBoundary>
-        </div>
+        {features.enableEmulator && (
+          <div style={{ display: activeTab === "emulator" ? "block" : "none" }}>
+            <ErrorBoundary fallbackLabel="Emulator failed to load">
+              <UnifiedEmulatorTab />
+            </ErrorBoundary>
+          </div>
+        )}
 
         <AnimatePresence mode="wait">
           {activeTab !== "emulator" && (
