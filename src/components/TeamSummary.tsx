@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -18,7 +18,7 @@ interface TeamSummaryProps {
   team: Pokemon[];
 }
 
-export default function TeamSummary({ team }: TeamSummaryProps) {
+function TeamSummary({ team }: TeamSummaryProps) {
   const stats = useMemo(() => {
     if (team.length === 0) return null;
 
@@ -144,3 +144,5 @@ export default function TeamSummary({ team }: TeamSummaryProps) {
     </div>
   );
 }
+
+export default React.memo(TeamSummary);

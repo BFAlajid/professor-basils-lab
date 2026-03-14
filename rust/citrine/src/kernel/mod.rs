@@ -39,6 +39,12 @@ pub enum HandleEntry {
     Timer,
 }
 
+impl Default for HandleTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HandleTable {
     pub fn new() -> Self {
         Self {
@@ -60,6 +66,12 @@ impl HandleTable {
 
     pub fn close(&mut self, handle: u32) -> bool {
         self.entries.remove(&handle).is_some()
+    }
+}
+
+impl Default for Kernel {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -140,11 +152,11 @@ impl Kernel {
         let mut best_prio = i32::MAX;
         let count = self.threads.len();
         for i in 0..count {
-            if self.threads[i].state == thread::ThreadState::Ready {
-                if self.threads[i].priority < best_prio {
-                    best_prio = self.threads[i].priority;
-                    best = Some(i);
-                }
+            if self.threads[i].state == thread::ThreadState::Ready
+                && self.threads[i].priority < best_prio
+            {
+                best_prio = self.threads[i].priority;
+                best = Some(i);
             }
         }
 

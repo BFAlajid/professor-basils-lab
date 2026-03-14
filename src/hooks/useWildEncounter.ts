@@ -13,6 +13,7 @@ import {
   StatusCondition,
 } from "@/types";
 import { initBattlePokemon, initStatStages } from "@/utils/battle";
+import { fetchPokemonCached } from "@/utils/pokeApiCache";
 import { createWildBattlePokemon, preloadWildMoves, fetchCaptureRate, executeWildTurn } from "@/utils/wildBattle";
 import { randomInt } from "@/utils/random";
 import { calculateCatchProbability, shouldWildFlee } from "@/utils/catchRateWasm";
@@ -153,9 +154,12 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
     const level = randomInt(encounter.minLevel, encounter.maxLevel);
 
     // Fetch Pokemon data
-    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${encounter.pokemonId}`);
-    if (!res.ok) return;
-    const pokemon: Pokemon = await res.json();
+    let pokemon: Pokemon;
+    try {
+      pokemon = await fetchPokemonCached(encounter.pokemonId) as Pokemon;
+    } catch {
+      return;
+    }
 
     // Fetch capture rate and preload moves in parallel
     const [captureRate] = await Promise.all([

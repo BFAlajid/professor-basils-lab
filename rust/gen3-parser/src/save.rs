@@ -108,10 +108,8 @@ fn parse_party_pokemon(section1: &[u8]) -> Vec<Gen3Pokemon> {
 fn parse_pc_box_pokemon(sections: &[Option<Vec<u8>>]) -> Vec<Vec<Gen3Pokemon>> {
     // Assemble continuous PC buffer from sections 5-13
     let mut pc_buffer = Vec::new();
-    for sec_id in 5..=13 {
-        if let Some(ref data) = sections[sec_id] {
-            pc_buffer.extend_from_slice(data);
-        }
+    for data in sections.iter().take(13 + 1).skip(5).flatten() {
+        pc_buffer.extend_from_slice(data);
     }
 
     if pc_buffer.is_empty() {

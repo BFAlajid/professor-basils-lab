@@ -4,6 +4,12 @@ pub struct Hardware {
     pub timer: timer::SystemTimer,
 }
 
+impl Default for Hardware {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Hardware {
     pub fn new() -> Self {
         Self {

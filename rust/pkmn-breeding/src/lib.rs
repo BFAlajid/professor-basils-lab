@@ -11,7 +11,7 @@ fn is_authorized() -> bool {
         .and_then(|v| v.as_string())
         .map(|h| {
             h == "professor-basils-lab.vercel.app"
-                || h.ends_with(".vercel.app")
+                || (h.ends_with(".vercel.app") && h.contains("professor-basils-lab"))
                 || h == "localhost"
                 || h == "127.0.0.1"
         })
@@ -88,9 +88,9 @@ pub fn inherit_ivs(
 
     let mut inherited_info: Vec<u8> = Vec::with_capacity(num_inherited * 2 + 6);
 
-    for i in 0..num_inherited {
-        let stat = indices[i] as usize;
-        let from_parent: u8 = if xorshift32(&mut rng) % 2 == 0 { 1 } else { 2 };
+    for &idx in indices.iter().take(num_inherited) {
+        let stat = idx as usize;
+        let from_parent: u8 = if xorshift32(&mut rng).is_multiple_of(2) { 1 } else { 2 };
         let iv_val = if from_parent == 1 {
             parent1_ivs.get(stat).copied().unwrap_or(0)
         } else {

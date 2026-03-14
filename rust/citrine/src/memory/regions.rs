@@ -11,6 +11,12 @@ pub struct MemoryRegions {
 
 const IO_SIZE: usize = 0x0040_0000;
 
+impl Default for MemoryRegions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryRegions {
     pub fn new() -> Self {
         let mut regions = Self {
@@ -110,7 +116,6 @@ impl MemoryRegions {
 
         if addr >= VADDR_SHARED_PAGE && addr < VADDR_SHARED_PAGE + SHARED_PAGE_SIZE as u32 {
             self.shared_page[(addr - VADDR_SHARED_PAGE) as usize] = val;
-            return;
         }
     }
 

@@ -5,6 +5,7 @@ import { BattleTurnAction, TeamSlot, BattleMode, GenerationalMechanic, AltFormeD
 import { isMegaStone, getMegaStone } from "@/data/megaStones";
 import { battleReducer, initialBattleState } from "@/utils/battle";
 import { fetchAndCacheMoves } from "@/utils/moveCache";
+import { fetchPokemonCached } from "@/utils/pokeApiCache";
 import { selectAIAction, generateRandomTeam, getBestSwitchIn } from "@/utils/aiWasm";
 import { useReplayRecorder } from "./useReplayRecorder";
 
@@ -54,8 +55,7 @@ export function useBattle() {
         const stone = getMegaStone(slot.heldItem);
         if (stone && stone.formeApiName) {
           megaFetches.push(
-            fetch(`https://pokeapi.co/api/v2/pokemon/${stone.formeApiName}`)
-              .then(res => res.ok ? res.json() : null)
+            fetchPokemonCached(stone.formeApiName)
               .then(data => {
                 if (data) {
                   formeCache.set(slot.pokemon.name, {

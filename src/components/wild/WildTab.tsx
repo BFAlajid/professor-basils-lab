@@ -35,6 +35,7 @@ import { LEGENDARY_IDS } from "@/data/legendaries";
 import { FOSSILS, FOSSIL_DROP_RATES } from "@/data/fossils";
 import { generateRandomIVs } from "@/utils/wildBattle";
 import { playCry } from "@/utils/cryPlayer";
+import { fetchPokemonCached } from "@/utils/pokeApiCache";
 
 interface WildTabProps {
   team: TeamSlot[];
@@ -171,8 +172,7 @@ export default function WildTab({ team, onAddToTeam, onSetEvs, onSetMoves }: Wil
     }));
 
     try {
-      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${fossil.pokemonId}`);
-      const pokemon = await res.json();
+      const pokemon = await fetchPokemonCached(fossil.pokemonId);
 
       const pcPokemon: PCBoxPokemon = {
         pokemon,
@@ -201,8 +201,7 @@ export default function WildTab({ team, onAddToTeam, onSetEvs, onSetMoves }: Wil
   // Handle game corner prize purchase (fetch Pokemon, add to PC box)
   const handleGameCornerPurchase = useCallback(async (pokemonId: number, level: number, area: string) => {
     try {
-      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonId}`);
-      const pokemon = await res.json();
+      const pokemon = await fetchPokemonCached(pokemonId);
 
       const pcPokemon: PCBoxPokemon = {
         pokemon,

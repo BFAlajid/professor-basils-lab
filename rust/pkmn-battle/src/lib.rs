@@ -11,7 +11,7 @@ fn is_authorized() -> bool {
         .and_then(|v| v.as_string())
         .map(|h| {
             h == "professor-basils-lab.vercel.app"
-                || h.ends_with(".vercel.app")
+                || (h.ends_with(".vercel.app") && h.contains("professor-basils-lab"))
                 || h == "localhost"
                 || h == "127.0.0.1"
         })
@@ -53,6 +53,7 @@ fn defensive_multiplier(atk_type: u8, def_type1: u8, def_type2: u8) -> f64 {
     pkmn_type_chart::get_defensive_multiplier(atk_type, def_type1, def2)
 }
 
+#[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
 pub fn score_move(
     power: u16,
@@ -132,6 +133,7 @@ pub fn score_matchup(
     score * hp_ratio
 }
 
+#[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
 pub fn select_ai_action(
     move_scores: &[f64],
@@ -180,9 +182,9 @@ pub fn select_ai_action(
 
     let mut best_move_score: f64 = f64::NEG_INFINITY;
     let mut best_move_index: usize = 0;
-    for i in 0..nm {
-        if move_scores[i] > best_move_score {
-            best_move_score = move_scores[i];
+    for (i, &score) in move_scores.iter().enumerate().take(nm) {
+        if score > best_move_score {
+            best_move_score = score;
             best_move_index = i;
         }
     }
@@ -249,6 +251,7 @@ pub fn determine_turn_order(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
 pub fn should_terastallize(
     ai_type1: u8,
@@ -280,10 +283,8 @@ pub fn should_terastallize(
 
     match difficulty {
         2 => {
-            if hp_ratio > 0.5 {
-                if rng.next_f64() < 0.25 {
-                    return 1.0;
-                }
+            if hp_ratio > 0.5 && rng.next_f64() < 0.25 {
+                return 1.0;
             }
             0.0
         }
@@ -295,10 +296,8 @@ pub fn should_terastallize(
             }
         }
         _ => {
-            if hp_ratio > 0.6 {
-                if rng.next_f64() < 0.4 {
-                    return 1.0;
-                }
+            if hp_ratio > 0.6 && rng.next_f64() < 0.4 {
+                return 1.0;
             }
             0.0
         }
@@ -320,10 +319,8 @@ pub fn should_dynamax(
 
     match difficulty {
         2 => {
-            if hp_ratio > 0.8 {
-                if rng.next_f64() < 0.6 {
-                    return 1.0;
-                }
+            if hp_ratio > 0.8 && rng.next_f64() < 0.6 {
+                return 1.0;
             }
             0.0
         }
@@ -342,10 +339,8 @@ pub fn should_dynamax(
             }
         }
         _ => {
-            if hp_ratio > 0.7 {
-                if rng.next_f64() < 0.5 {
-                    return 1.0;
-                }
+            if hp_ratio > 0.7 && rng.next_f64() < 0.5 {
+                return 1.0;
             }
             0.0
         }

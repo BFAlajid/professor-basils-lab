@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Pokemon, TypeName } from "@/types";
 import { typeColors } from "@/data/typeColors";
@@ -17,7 +17,7 @@ interface TypeCoverageProps {
   team: Pokemon[];
 }
 
-export default function TypeCoverage({ team }: TypeCoverageProps) {
+function TypeCoverage({ team }: TypeCoverageProps) {
   const coverage = useMemo(() => analyzeDefensiveCoverage(team), [team]);
   const weaknesses = useMemo(() => getWeaknesses(coverage), [coverage]);
   const resistances = useMemo(() => getResistances(coverage), [coverage]);
@@ -116,3 +116,5 @@ export default function TypeCoverage({ team }: TypeCoverageProps) {
     </div>
   );
 }
+
+export default React.memo(TypeCoverage);

@@ -11,7 +11,7 @@ fn is_authorized() -> bool {
         .and_then(|v| v.as_string())
         .map(|h| {
             h == "professor-basils-lab.vercel.app"
-                || h.ends_with(".vercel.app")
+                || (h.ends_with(".vercel.app") && h.contains("professor-basils-lab"))
                 || h == "localhost"
                 || h == "127.0.0.1"
         })
@@ -48,7 +48,7 @@ fn capitalize(s: &str) -> String {
 }
 
 fn to_display_name(api_name: &str) -> String {
-    api_name.split('-').map(|w| capitalize(w)).collect::<Vec<_>>().join(" ")
+    api_name.split('-').map(capitalize).collect::<Vec<_>>().join(" ")
 }
 
 #[wasm_bindgen]
@@ -105,7 +105,7 @@ pub fn parse_showdown_block(block: &str) -> String {
         } else if line.ends_with("Nature") {
             nature = line.strip_suffix("Nature").unwrap_or("").trim().to_lowercase();
         } else if line.starts_with('-') || line.starts_with('\u{2013}') || line.starts_with('\u{2014}') {
-            let move_name = line.trim_start_matches(|c: char| c == '-' || c == '\u{2013}' || c == '\u{2014}' || c == ' ');
+            let move_name = line.trim_start_matches(['-', '\u{2013}', '\u{2014}', ' ']);
             if !move_name.is_empty() {
                 moves.push(to_api_name(move_name));
             }

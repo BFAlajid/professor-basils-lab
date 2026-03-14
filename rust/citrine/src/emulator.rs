@@ -31,6 +31,12 @@ pub struct Emulator {
     last_failed_port: String, // Last ConnectToPort that returned NOT_FOUND
 }
 
+impl Default for Emulator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Emulator {
     pub fn new() -> Self {
         let mut emu = Self {

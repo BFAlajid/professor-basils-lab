@@ -13,7 +13,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (!ALLOWED_HOSTS.includes(hostname) && !hostname.endsWith(".vercel.app")) {
+  if (!ALLOWED_HOSTS.includes(hostname) && !(hostname.endsWith(".vercel.app") && hostname.includes("professor-basils-lab"))) {
     return new NextResponse("Unavailable", { status: 451 });
   }
 

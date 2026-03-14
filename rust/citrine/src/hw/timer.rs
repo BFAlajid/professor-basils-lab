@@ -5,6 +5,12 @@ pub struct SystemTimer {
     cycle_count: u64,
 }
 
+impl Default for SystemTimer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SystemTimer {
     pub fn new() -> Self {
         Self { cycle_count: 0 }

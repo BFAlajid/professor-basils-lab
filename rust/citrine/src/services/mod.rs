@@ -26,6 +26,12 @@ pub struct ServiceManager {
     pub hid_pad_event: u32,
 }
 
+impl Default for ServiceManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ServiceManager {
     pub fn new() -> Self {
         Self {

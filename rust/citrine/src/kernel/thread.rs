@@ -23,6 +23,12 @@ pub struct SavedRegisters {
     pub cpsr: u32,
 }
 
+impl Default for SavedRegisters {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SavedRegisters {
     pub fn new() -> Self {
         Self {

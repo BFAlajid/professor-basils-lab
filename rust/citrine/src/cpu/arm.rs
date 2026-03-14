@@ -347,9 +347,7 @@ fn exec_block_transfer(cpu: &mut Cpu, mem: &mut Memory, instr: u32) {
 
     let start_addr = if up {
         if pre { base.wrapping_add(4) } else { base }
-    } else {
-        if pre { base.wrapping_sub(count * 4) } else { base.wrapping_sub(count * 4).wrapping_add(4) }
-    };
+    } else if pre { base.wrapping_sub(count * 4) } else { base.wrapping_sub(count * 4).wrapping_add(4) };
 
     let mut addr = start_addr;
     for i in 0..16u32 {
@@ -410,11 +408,8 @@ fn exec_halfword_transfer(cpu: &mut Cpu, mem: &mut Memory, instr: u32) {
             3 => mem.read16(addr & !1) as i16 as i32 as u32, // LDRSH
             _ => 0,
         };
-    } else {
-        match sh {
-            1 => mem.write16(addr & !1, cpu.regs[rd] as u16), // STRH
-            _ => {}
-        }
+    } else if sh == 1 {
+        mem.write16(addr & !1, cpu.regs[rd] as u16); // STRH
     }
 
     if !pre {

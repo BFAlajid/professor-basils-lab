@@ -1,9 +1,9 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
-import { createHmac, createHash } from "node:crypto";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 
-const HMAC_KEY = process.env.INTEGRITY_PRIVATE_KEY;
-if (!HMAC_KEY) {
+const PRIVATE_KEY_B64 = process.env.INTEGRITY_PRIVATE_KEY;
+if (!PRIVATE_KEY_B64) {
   console.error("[sign-manifest] INTEGRITY_PRIVATE_KEY not set");
   process.exit(1);
 }
@@ -11,8 +11,21 @@ if (!HMAC_KEY) {
 const WASM_DIR = join(process.cwd(), "public", "wasm");
 const OUTPUT = join(process.cwd(), "public", "integrity.json");
 
+async function importPrivateKey() {
+  const keyBytes = Buffer.from(PRIVATE_KEY_B64, "base64");
+  return crypto.subtle.importKey(
+    "pkcs8",
+    keyBytes,
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["sign"],
+  );
+}
+
 async function main() {
-  console.log("[sign-manifest] Generating integrity manifest...");
+  console.log("[sign-manifest] Generating integrity manifest (ECDSA P-256)...");
+
+  const privateKey = await importPrivateKey();
 
   const files = await readdir(WASM_DIR);
   const encFiles = files.filter((f) => f.endsWith(".wasm.enc")).sort();
@@ -31,9 +44,16 @@ async function main() {
   }
 
   const payload = encFiles.map((f) => `${f}:${hashes[f]}`).join("|");
-  const signature = createHmac("sha256", Buffer.from(HMAC_KEY, "hex"))
-    .update(payload)
-    .digest("hex");
+  const payloadBytes = new TextEncoder().encode(payload);
+
+  const sigBuffer = await crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-256" },
+    privateKey,
+    payloadBytes,
+  );
+  const signature = Array.from(new Uint8Array(sigBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 
   const manifest = {
     files: hashes,

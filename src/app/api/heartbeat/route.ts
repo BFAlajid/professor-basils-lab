@@ -4,10 +4,20 @@ const SECRET = process.env.HEARTBEAT_SECRET;
 
 const ALLOWED_ORIGINS = ["https://professor-basils-lab.vercel.app"];
 
+function isLocalOrigin(origin: string): boolean {
+  try {
+    const h = new URL(origin).hostname;
+    return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
 function isAllowedOrigin(origin: string): boolean {
   if (ALLOWED_ORIGINS.includes(origin)) return true;
   try {
-    return new URL(origin).hostname.endsWith(".vercel.app");
+    const hostname = new URL(origin).hostname;
+    return hostname.endsWith(".vercel.app") && hostname.includes("professor-basils-lab");
   } catch {
     return false;
   }
@@ -16,7 +26,7 @@ function isAllowedOrigin(origin: string): boolean {
 export async function GET(request: NextRequest) {
   const origin = request.headers.get("origin") || request.headers.get("referer") || "";
 
-  if (!origin.includes("localhost") && !isAllowedOrigin(origin)) {
+  if (!isLocalOrigin(origin) && !isAllowedOrigin(origin)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 

@@ -3,10 +3,11 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import Image from "@/components/PokeImage";
 import { AnimatePresence, motion } from "framer-motion";
-import { usePokedexContext } from "@/contexts/PokedexContext";
+import { usePokedexState, usePokedexDispatch } from "@/contexts/PokedexContext";
 import HabitatDex from "./HabitatDex";
 import PokedexFilters from "./PokedexFilters";
 import { applyFilters, DEFAULT_FILTER_CONFIG, type PokedexFilterConfig, type PokemonBaseData } from "@/utils/pokedexFilterEngine";
+import { fetchPokemonCached } from "@/utils/pokeApiCache";
 
 // --- Constants ---
 
@@ -97,8 +98,8 @@ export default function PokedexTracker() {
     totalSeen,
     totalCaught,
     getCompletionPercent,
-    reset,
-  } = usePokedexContext();
+  } = usePokedexState();
+  const { reset } = usePokedexDispatch();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
@@ -118,28 +119,32 @@ export default function PokedexTracker() {
     filterConfig.abilitySearch !== "" ||
     Object.values(filterConfig.statThresholds).some((v) => v && v > 0);
 
-  // Lazy-load base data from PokeAPI when filters first need it
+  // Lazy-load base data from PokeAPI when filters first need it.
+  // Uses shared cache so repeated activations are instant, and fetches
+  // in controlled batches of 50 concurrent requests to avoid rate limiting.
   useEffect(() => {
     if (!hasAdvancedFilters || baseDataLoaded.current) return;
     baseDataLoaded.current = true;
     setIsLoadingBaseData(true);
 
-    // Fetch basic data for all 1025 Pokemon from PokeAPI list endpoint
+    let cancelled = false;
+    const BATCH_SIZE = 50;
+
     (async () => {
       try {
         const map = new Map<number, PokemonBaseData>();
-        // Fetch in batches to avoid overwhelming the API
-        for (let offset = 0; offset < TOTAL_POKEMON; offset += 100) {
-          const limit = Math.min(100, TOTAL_POKEMON - offset);
-          const res = await fetch(`https://pokeapi.co/api/v2/pokemon?offset=${offset}&limit=${limit}`);
-          const data = await res.json();
+
+        for (let start = 1; start <= TOTAL_POKEMON; start += BATCH_SIZE) {
+          if (cancelled) return;
+          const end = Math.min(start + BATCH_SIZE - 1, TOTAL_POKEMON);
+          const ids = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+
           const details = await Promise.all(
-            data.results.map(async (p: { url: string }) => {
-              const r = await fetch(p.url);
-              return r.json();
-            })
+            ids.map((id) => fetchPokemonCached(id).catch(() => null))
           );
+
           for (const pokemon of details) {
+            if (!pokemon) continue;
             const stats = {
               hp: pokemon.stats[0]?.base_stat ?? 0,
               attack: pokemon.stats[1]?.base_stat ?? 0,
@@ -157,14 +162,18 @@ export default function PokedexTracker() {
               bst: Object.values(stats).reduce((a: number, b: number) => a + b, 0),
             });
           }
+
+          // Yield partial results so early filters work while loading continues
+          if (!cancelled) setBaseDataMap(new Map(map));
         }
-        setBaseDataMap(map);
       } catch {
         // silently fail — filters just won't work for stats/types
       } finally {
-        setIsLoadingBaseData(false);
+        if (!cancelled) setIsLoadingBaseData(false);
       }
     })();
+
+    return () => { cancelled = true; };
   }, [hasAdvancedFilters]);
 
   // Build known Pokemon list for HabitatDex autocomplete

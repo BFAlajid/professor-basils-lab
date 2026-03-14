@@ -8,6 +8,12 @@ pub struct Cp15 {
     thread_id_priv: u32,
 }
 
+impl Default for Cp15 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Cp15 {
     pub fn new() -> Self {
         Self {

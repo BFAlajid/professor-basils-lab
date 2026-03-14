@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { TeamSlot, TypeName } from "@/types";
 import { TYPE_LIST } from "@/data/typeChart";
 import { analyzeTeam, TeamWeaknessReport } from "@/utils/teamAnalysisWasm";
@@ -94,7 +94,7 @@ interface TeamWeaknessPanelProps {
   team: TeamSlot[];
 }
 
-export default function TeamWeaknessPanel({ team }: TeamWeaknessPanelProps) {
+function TeamWeaknessPanel({ team }: TeamWeaknessPanelProps) {
   const report: TeamWeaknessReport = useMemo(() => analyzeTeam(team), [team]);
 
   if (team.length === 0) {
@@ -257,3 +257,5 @@ export default function TeamWeaknessPanel({ team }: TeamWeaknessPanelProps) {
     </div>
   );
 }
+
+export default React.memo(TeamWeaknessPanel);

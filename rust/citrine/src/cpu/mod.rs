@@ -36,6 +36,12 @@ struct BankedRegs {
     usr_r8_r12: [u32; 5],
 }
 
+impl Default for Cpu {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Cpu {
     pub fn new() -> Self {
         let mut cpu = Self {

@@ -11,7 +11,7 @@ fn is_authorized() -> bool {
         .and_then(|v| v.as_string())
         .map(|h| {
             h == "professor-basils-lab.vercel.app"
-                || h.ends_with(".vercel.app")
+                || (h.ends_with(".vercel.app") && h.contains("professor-basils-lab"))
                 || h == "localhost"
                 || h == "127.0.0.1"
         })
@@ -85,13 +85,13 @@ pub fn calculate_catch_probability(
     let mut shakes = [0.0_f64; 4];
     let mut num_shakes = 0u8;
 
-    for i in 0..4 {
+    for shake in &mut shakes {
         let roll = rng.next_f64_65536();
         num_shakes += 1;
         if roll < shake_probability {
-            shakes[i] = 1.0;
+            *shake = 1.0;
         } else {
-            shakes[i] = 0.0;
+            *shake = 0.0;
             break;
         }
     }

@@ -7,6 +7,12 @@ pub struct Mmu {
     enabled: bool,
 }
 
+impl Default for Mmu {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Mmu {
     pub fn new() -> Self {
         Self { enabled: false }

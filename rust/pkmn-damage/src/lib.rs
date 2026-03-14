@@ -11,7 +11,7 @@ fn is_authorized() -> bool {
         .and_then(|v| v.as_string())
         .map(|h| {
             h == "professor-basils-lab.vercel.app"
-                || h.ends_with(".vercel.app")
+                || (h.ends_with(".vercel.app") && h.contains("professor-basils-lab"))
                 || h == "localhost"
                 || h == "127.0.0.1"
         })
@@ -40,6 +40,7 @@ fn apply_stat_stage(stat: f64, stage: i8, is_critical: bool, favorable: bool) ->
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
 pub fn calculate_damage(
     effective_atk: u16,

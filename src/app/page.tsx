@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useTeam, encodeTeam, decodeTeam, type DecodedTeamData } from "@/hooks/useTeam";
 import { fetchPokemon } from "@/hooks/usePokemon";
-import { usePokedexContext } from "@/contexts/PokedexContext";
-import { useAchievementsContext } from "@/contexts/AchievementsContext";
+import { usePokedexDispatch } from "@/contexts/PokedexContext";
+import { useAchievementsDispatch } from "@/contexts/AchievementsContext";
 import { NATURES } from "@/data/natures";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
 import type { TeamSlot } from "@/types";
@@ -89,8 +89,8 @@ export default function Home() {
   } = useTeam();
   const [activeTab, setActiveTab] = useState<Tab>("team");
   const [shareMessage, setShareMessage] = useState("");
-  const { markSeen } = usePokedexContext();
-  const { incrementStat } = useAchievementsContext();
+  const { markSeen } = usePokedexDispatch();
+  const { incrementStat } = useAchievementsDispatch();
   const prevTeamSize = useRef(0);
   const shouldReduceMotion = useReducedMotion();
 

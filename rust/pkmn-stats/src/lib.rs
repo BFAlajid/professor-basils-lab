@@ -11,7 +11,7 @@ fn is_authorized() -> bool {
         .and_then(|v| v.as_string())
         .map(|h| {
             h == "professor-basils-lab.vercel.app"
-                || h.ends_with(".vercel.app")
+                || (h.ends_with(".vercel.app") && h.contains("professor-basils-lab"))
                 || h == "localhost"
                 || h == "127.0.0.1"
         })
@@ -39,6 +39,7 @@ pub fn calculate_stat(base: u32, iv: u32, ev: u32, nature_modifier: f64, level: 
     (raw as f64 * nature_modifier) as u32
 }
 
+#[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
 pub fn calculate_all_stats(
     hp_base: u32,

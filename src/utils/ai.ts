@@ -7,6 +7,7 @@ import { NATURES } from "@/data/natures";
 import { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { isMegaStone, MEGA_STONES } from "@/data/megaStones";
 import { randomChoice, shuffleArray } from "./random";
+import { fetchPokemonCached } from "./pokeApiCache";
 
 // Curated list of competitive Pokemon IDs (mix of OU/UU staples)
 const COMPETITIVE_POKEMON_IDS = [
@@ -49,9 +50,7 @@ export async function generateScaledTeam(floor: number): Promise<TeamSlot[]> {
   const pokemonList = await Promise.all(
     selectedIds.map(async (id) => {
       try {
-        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
-        if (!res.ok) return null;
-        return (await res.json()) as Pokemon;
+        return (await fetchPokemonCached(id)) as Pokemon;
       } catch {
         return null;
       }
@@ -116,9 +115,7 @@ export async function generateRandomTeam(): Promise<TeamSlot[]> {
   const pokemonList = await Promise.all(
     selectedIds.map(async (id) => {
       try {
-        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
-        if (!res.ok) return null;
-        return (await res.json()) as Pokemon;
+        return (await fetchPokemonCached(id)) as Pokemon;
       } catch {
         return null;
       }

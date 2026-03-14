@@ -33,6 +33,12 @@ pub struct EventState {
     pub waiting: Vec<u32>,
 }
 
+impl Default for MutexState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MutexState {
     pub fn new() -> Self {
         Self {
@@ -156,10 +162,10 @@ pub fn release(obj: &mut SyncObject, thread_id: u32) -> Vec<u32> {
                     }
                 }
                 ResetType::Sticky => {
-                    woken.extend(e.waiting.drain(..));
+                    woken.append(&mut e.waiting);
                 }
                 ResetType::Pulse => {
-                    woken.extend(e.waiting.drain(..));
+                    woken.append(&mut e.waiting);
                     e.signaled = false;
                 }
             }

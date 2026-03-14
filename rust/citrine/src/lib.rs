@@ -8,6 +8,7 @@ pub mod emulator;
 
 use wasm_bindgen::prelude::*;
 use emulator::Emulator;
+use std::ptr::{addr_of, addr_of_mut};
 
 static mut EMULATOR: Option<Emulator> = None;
 
@@ -22,7 +23,7 @@ fn is_authorized() -> bool {
         .and_then(|v| v.as_string())
         .map(|h| {
             h == "professor-basils-lab.vercel.app"
-                || h.ends_with(".vercel.app")
+                || (h.ends_with(".vercel.app") && h.contains("professor-basils-lab"))
                 || h == "localhost"
                 || h == "127.0.0.1"
         })
@@ -37,7 +38,7 @@ fn is_authorized() -> bool { true }
 pub fn citrine_create() -> bool {
     if !is_authorized() { return false; }
     unsafe {
-        EMULATOR = Some(Emulator::new());
+        (*addr_of_mut!(EMULATOR)) = Some(Emulator::new());
     }
     true
 }
@@ -45,7 +46,7 @@ pub fn citrine_create() -> bool {
 #[wasm_bindgen]
 pub fn citrine_destroy() {
     unsafe {
-        EMULATOR = None;
+        (*addr_of_mut!(EMULATOR)) = None;
     }
 }
 
@@ -53,7 +54,7 @@ pub fn citrine_destroy() {
 pub fn citrine_load_3dsx(data: &[u8]) -> bool {
     if !is_authorized() { return false; }
     unsafe {
-        if let Some(emu) = EMULATOR.as_mut() {
+        if let Some(emu) = (*addr_of_mut!(EMULATOR)).as_mut() {
             emu.load_3dsx(data)
         } else {
             false
@@ -65,7 +66,7 @@ pub fn citrine_load_3dsx(data: &[u8]) -> bool {
 pub fn citrine_run_frame() {
     if !is_authorized() { return; }
     unsafe {
-        if let Some(emu) = EMULATOR.as_mut() {
+        if let Some(emu) = (*addr_of_mut!(EMULATOR)).as_mut() {
             emu.run_frame();
         }
     }
@@ -74,7 +75,7 @@ pub fn citrine_run_frame() {
 #[wasm_bindgen]
 pub fn citrine_set_buttons(buttons: u32) {
     unsafe {
-        if let Some(emu) = EMULATOR.as_mut() {
+        if let Some(emu) = (*addr_of_mut!(EMULATOR)).as_mut() {
             emu.set_buttons(buttons);
         }
     }
@@ -84,7 +85,7 @@ pub fn citrine_set_buttons(buttons: u32) {
 pub fn citrine_get_fb_top() -> Vec<u8> {
     if !is_authorized() { return Vec::new(); }
     unsafe {
-        if let Some(emu) = EMULATOR.as_ref() {
+        if let Some(emu) = (*addr_of!(EMULATOR)).as_ref() {
             emu.get_fb_top()
         } else {
             Vec::new()
@@ -96,7 +97,7 @@ pub fn citrine_get_fb_top() -> Vec<u8> {
 pub fn citrine_get_fb_bottom() -> Vec<u8> {
     if !is_authorized() { return Vec::new(); }
     unsafe {
-        if let Some(emu) = EMULATOR.as_ref() {
+        if let Some(emu) = (*addr_of!(EMULATOR)).as_ref() {
             emu.get_fb_bottom()
         } else {
             Vec::new()
@@ -107,7 +108,7 @@ pub fn citrine_get_fb_bottom() -> Vec<u8> {
 #[wasm_bindgen]
 pub fn citrine_reset() {
     unsafe {
-        if let Some(emu) = EMULATOR.as_mut() {
+        if let Some(emu) = (*addr_of_mut!(EMULATOR)).as_mut() {
             emu.reset();
         }
     }
@@ -117,7 +118,7 @@ pub fn citrine_reset() {
 pub fn citrine_get_debug_info() -> String {
     if !is_authorized() { return String::new(); }
     unsafe {
-        if let Some(emu) = EMULATOR.as_ref() {
+        if let Some(emu) = (*addr_of!(EMULATOR)).as_ref() {
             emu.debug_info()
         } else {
             String::from("no emulator")
@@ -136,9 +137,9 @@ mod tests {
     #[test]
     fn create_and_destroy() {
         assert!(citrine_create());
-        unsafe { assert!(EMULATOR.is_some()); }
+        unsafe { assert!((*addr_of!(EMULATOR)).is_some()); }
         citrine_destroy();
-        unsafe { assert!(EMULATOR.is_none()); }
+        unsafe { assert!((*addr_of!(EMULATOR)).is_none()); }
     }
 
     #[test]

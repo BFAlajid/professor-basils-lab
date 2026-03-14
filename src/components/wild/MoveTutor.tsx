@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot, Move } from "@/types";
+import { fetchPokemonCached, fetchMoveCached } from "@/utils/pokeApiCache";
 
 interface MoveTutorProps {
   team: TeamSlot[];
@@ -22,9 +23,7 @@ interface TutorMove {
 
 async function fetchAllMoves(pokemonName: string): Promise<TutorMove[]> {
   try {
-    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`);
-    if (!res.ok) return [];
-    const data = await res.json();
+    const data = await fetchPokemonCached(pokemonName);
 
     const tutorMoves: TutorMove[] = [];
     const seen = new Set<string>();
@@ -60,9 +59,7 @@ async function fetchAllMoves(pokemonName: string): Promise<TutorMove[]> {
     const toFetch = tutorMoves.slice(0, 40);
     const details = await Promise.allSettled(
       toFetch.map(async (m) => {
-        const moveRes = await fetch(`https://pokeapi.co/api/v2/move/${m.name}`);
-        if (!moveRes.ok) return m;
-        const moveData = await moveRes.json();
+        const moveData = await fetchMoveCached(m.name);
         return {
           ...m,
           type: moveData.type?.name ?? "",

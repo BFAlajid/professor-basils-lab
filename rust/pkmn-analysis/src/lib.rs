@@ -11,7 +11,7 @@ fn is_authorized() -> bool {
         .and_then(|v| v.as_string())
         .map(|h| {
             h == "professor-basils-lab.vercel.app"
-                || h.ends_with(".vercel.app")
+                || (h.ends_with(".vercel.app") && h.contains("professor-basils-lab"))
                 || h == "localhost"
                 || h == "127.0.0.1"
         })
@@ -135,12 +135,7 @@ pub fn analyze_team(team_types: &[u8], team_size: u8) -> Vec<f64> {
     threat += gaps.len() as f64;
 
     // Clamp to 0-100
-    if threat < 0.0 {
-        threat = 0.0;
-    }
-    if threat > 100.0 {
-        threat = 100.0;
-    }
+    threat = threat.clamp(0.0, 100.0);
 
     let mut problematic: Vec<usize> = Vec::new();
     for t in 0..NUM_TYPES {

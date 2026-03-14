@@ -7,6 +7,24 @@ function isDev(): boolean {
   );
 }
 
+async function importPublicKey(): Promise<CryptoKey | null> {
+  const publicKeyB64 = process.env.NEXT_PUBLIC_INTEGRITY_KEY;
+  if (!publicKeyB64) return null;
+
+  try {
+    const keyBytes = Uint8Array.from(atob(publicKeyB64), (c) => c.charCodeAt(0));
+    return await crypto.subtle.importKey(
+      "spki",
+      keyBytes,
+      { name: "ECDSA", namedCurve: "P-256" },
+      true,
+      ["verify"],
+    );
+  } catch {
+    return null;
+  }
+}
+
 export async function verifyIntegrity(): Promise<boolean> {
   if (isDev()) { verified = true; return true; }
   if (verified !== null) return verified;
@@ -20,25 +38,21 @@ export async function verifyIntegrity(): Promise<boolean> {
       signature: string;
     };
 
-    const verifyKey = process.env.NEXT_PUBLIC_INTEGRITY_KEY;
-    if (!verifyKey) { verified = false; return false; }
+    const publicKey = await importPublicKey();
+    if (!publicKey) { verified = false; return false; }
 
     const fileNames = Object.keys(manifest.files).sort();
     const payload = fileNames.map((f) => `${f}:${manifest.files[f]}`).join("|");
-
-    const keyBytes = new Uint8Array(
-      (verifyKey as string).match(/.{2}/g)!.map((b) => parseInt(b, 16)),
-    );
-    const cryptoKey = await crypto.subtle.importKey(
-      "raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["verify"],
-    );
 
     const sigBytes = new Uint8Array(
       manifest.signature.match(/.{2}/g)!.map((b) => parseInt(b, 16)),
     );
 
     const valid = await crypto.subtle.verify(
-      "HMAC", cryptoKey, sigBytes, new TextEncoder().encode(payload),
+      { name: "ECDSA", hash: "SHA-256" },
+      publicKey,
+      sigBytes,
+      new TextEncoder().encode(payload),
     );
 
     if (!valid) { verified = false; return false; }

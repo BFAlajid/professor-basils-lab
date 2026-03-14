@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import React, { useRef } from "react";
 import { useAudio } from "@/hooks/useAudio";
 import { AudioTrack } from "@/utils/audioManager";
 
@@ -18,7 +18,7 @@ const TRACK_LABELS: Record<AudioTrack, string> = {
   catchSuccess: "Catch",
 };
 
-export default function AudioPlayer() {
+function AudioPlayer() {
   const {
     currentTrack,
     isPlaying,
@@ -144,3 +144,5 @@ export default function AudioPlayer() {
     </div>
   );
 }
+
+export default React.memo(AudioPlayer);
