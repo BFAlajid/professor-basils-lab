@@ -279,11 +279,6 @@ async function parseBlock(
       // Handle regular dash, en-dash, and em-dash prefixes
       const moveName = toMoveApiName(line.replace(/^[-–—]\s*/, ""));
       if (moveName) selectedMoves.push(moveName);
-    } else if (line && selectedMoves.length < 4) {
-      // Lines without a dash prefix are also treated as moves —
-      // Showdown format supports both "- Move" and bare "Move" lines
-      const moveName = toMoveApiName(line);
-      if (moveName) selectedMoves.push(moveName);
     }
   }
 

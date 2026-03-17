@@ -11,6 +11,10 @@ import { useOnlineTrade } from "./useOnlineTrade";
 
 const OPPONENT_ACTION_TIMEOUT_MS = 30_000;
 const MIN_MESSAGE_INTERVAL_MS = 50;
+const RATE_LIMIT_EXEMPT = new Set(["PING", "PONG", "ACTION", "FORCE_SWITCH_ACTION", "TEAM_SUBMIT", "READY", "DISCONNECT"]);
+
+// PeerJS cloud server config with explicit debug logging
+const PEER_CONFIG = { debug: process.env.NODE_ENV === "development" ? 2 : 0 };
 
 const initialTradeState: LinkTradeState = {
   mode: "idle",
@@ -120,6 +124,8 @@ export function useOnlineBattle() {
   const pingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const actionResolverRef = useRef<((action: BattleTurnAction) => void) | null>(null);
   const actionRejectRef = useRef<((reason: Error) => void) | null>(null);
+  const actionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingActionRef = useRef<BattleTurnAction | null>(null);
   const lastMessageTimeRef = useRef<number>(0);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -138,17 +144,11 @@ export function useOnlineBattle() {
     handleConnectionClose,
   } = useOnlineTrade(connRef, dispatch, stateRef);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      disconnect();
-    };
-  }, []);
-
   const setupConnection = useCallback((conn: import("peerjs").DataConnection) => {
     connRef.current = conn;
 
     conn.on("open", () => {
+      console.log("[OnlineBattle] DataConnection open with peer:", conn.peer);
       dispatch({ type: "CONNECTED" });
       // Start ping/pong heartbeat
       pingInterval.current = setInterval(() => {
@@ -160,11 +160,15 @@ export function useOnlineBattle() {
 
     conn.on("data", (raw) => {
       const msg = validateOnlineMessage(raw);
-      if (!msg) return;
+      if (!msg) {
+        console.warn("[OnlineBattle] Invalid message dropped:", typeof raw, raw);
+        return;
+      }
+      console.log("[OnlineBattle] Received:", msg.type);
 
-      // Rate limit: drop non-heartbeat messages arriving too fast
+      // Rate limit: drop non-critical messages arriving too fast
       const now = Date.now();
-      if (msg.type !== "PING" && msg.type !== "PONG") {
+      if (!RATE_LIMIT_EXEMPT.has(msg.type)) {
         if (now - lastMessageTimeRef.current < MIN_MESSAGE_INTERVAL_MS) return;
         lastMessageTimeRef.current = now;
       }
@@ -179,7 +183,11 @@ export function useOnlineBattle() {
           break;
         case "TEAM_SUBMIT": {
           const team = validateTeamSlots(msg.payload);
-          if (!team) return;
+          if (!team) {
+            console.warn("[OnlineBattle] TEAM_SUBMIT validation failed:", msg.payload);
+            return;
+          }
+          console.log("[OnlineBattle] Opponent team received:", team.length, "pokemon");
           dispatch({ type: "OPPONENT_TEAM", team });
           break;
         }
@@ -191,6 +199,9 @@ export function useOnlineBattle() {
             actionResolverRef.current(action);
             actionResolverRef.current = null;
             actionRejectRef.current = null;
+          } else {
+            // Buffer: action arrived before waitForOpponentAction was called
+            pendingActionRef.current = action;
           }
           break;
         }
@@ -207,6 +218,11 @@ export function useOnlineBattle() {
     });
 
     conn.on("close", () => {
+      if (actionRejectRef.current) {
+        actionRejectRef.current(new Error("Opponent disconnected"));
+        actionResolverRef.current = null;
+        actionRejectRef.current = null;
+      }
       handleConnectionClose();
       dispatch({ type: "DISCONNECT" });
     });
@@ -221,20 +237,24 @@ export function useOnlineBattle() {
     const roomCode = generateRoomCode();
     const peerId = `pkmn-battle-${roomCode}`;
 
-    dispatch({ type: "CREATE_LOBBY", roomCode });
+    dispatch({ type: "SET_PHASE", phase: "creating_lobby" });
 
-    const peer = new Peer(peerId);
+    const peer = new Peer(peerId, PEER_CONFIG);
     peerRef.current = peer;
 
-    peer.on("open", () => {
-      // Waiting for opponent to connect
+    peer.on("open", (id) => {
+      console.log("[OnlineBattle] Host peer open with id:", id);
+      // Peer registered with signaling server — safe to share code
+      dispatch({ type: "CREATE_LOBBY", roomCode });
     });
 
     peer.on("connection", (conn) => {
+      console.log("[OnlineBattle] Host received connection from:", conn.peer);
       setupConnection(conn);
     });
 
     peer.on("error", (err) => {
+      console.error("[OnlineBattle] Host peer error:", err.type, err.message);
       dispatch({ type: "ERROR", error: err.message });
     });
   }, [setupConnection]);
@@ -246,15 +266,18 @@ export function useOnlineBattle() {
 
     dispatch({ type: "JOIN_LOBBY", roomCode });
 
-    const peer = new Peer(peerId);
+    const peer = new Peer(peerId, PEER_CONFIG);
     peerRef.current = peer;
 
-    peer.on("open", () => {
+    peer.on("open", (id) => {
+      console.log("[OnlineBattle] Guest peer open with id:", id);
       const conn = peer.connect(`pkmn-battle-${roomCode}`, { reliable: true });
+      console.log("[OnlineBattle] Guest connecting to:", `pkmn-battle-${roomCode}`);
       setupConnection(conn);
     });
 
     peer.on("error", (err) => {
+      console.error("[OnlineBattle] Guest peer error:", err.type, err.message);
       dispatch({ type: "ERROR", error: err.message });
     });
   }, [setupConnection]);
@@ -287,14 +310,63 @@ export function useOnlineBattle() {
     } as OnlineMessage);
   }, []);
 
-  const waitForOpponentAction = useCallback((): Promise<BattleTurnAction> => {
-    return new Promise((resolve) => {
-      actionResolverRef.current = resolve;
-    });
+  const submitForceSwitch = useCallback((action: BattleTurnAction) => {
+    if (!connRef.current?.open) return;
+    connRef.current.send({
+      type: "FORCE_SWITCH_ACTION",
+      payload: action,
+      timestamp: Date.now(),
+    } as OnlineMessage);
   }, []);
+
+  const clearPendingAction = useCallback(() => {
+    if (actionTimerRef.current) {
+      clearTimeout(actionTimerRef.current);
+      actionTimerRef.current = null;
+    }
+    actionResolverRef.current = null;
+    actionRejectRef.current = null;
+  }, []);
+
+  const waitForOpponentAction = useCallback((): Promise<BattleTurnAction> => {
+    // Reject any existing pending wait to prevent overlapping promises
+    if (actionRejectRef.current) {
+      actionRejectRef.current(new Error("Superseded by new wait"));
+      clearPendingAction();
+    }
+
+    // Check buffer first — action may have arrived before we started waiting
+    if (pendingActionRef.current) {
+      const buffered = pendingActionRef.current;
+      pendingActionRef.current = null;
+      return Promise.resolve(buffered);
+    }
+
+    return new Promise((resolve, reject) => {
+      actionTimerRef.current = setTimeout(() => {
+        actionResolverRef.current = null;
+        actionRejectRef.current = null;
+        actionTimerRef.current = null;
+        reject(new Error("Opponent action timeout"));
+      }, OPPONENT_ACTION_TIMEOUT_MS);
+
+      actionResolverRef.current = (action: BattleTurnAction) => {
+        clearTimeout(actionTimerRef.current!);
+        actionTimerRef.current = null;
+        resolve(action);
+      };
+      actionRejectRef.current = (reason: Error) => {
+        clearTimeout(actionTimerRef.current!);
+        actionTimerRef.current = null;
+        reject(reason);
+      };
+    });
+  }, [clearPendingAction]);
 
   const disconnect = useCallback(() => {
     resetEscrow();
+    clearPendingAction();
+    pendingActionRef.current = null;
     if (connRef.current?.open) {
       connRef.current.send({ type: "DISCONNECT", payload: null, timestamp: Date.now() } as OnlineMessage);
       connRef.current.close();
@@ -304,7 +376,14 @@ export function useOnlineBattle() {
     peerRef.current = null;
     connRef.current = null;
     dispatch({ type: "RESET" });
-  }, [resetEscrow]);
+  }, [resetEscrow, clearPendingAction]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      disconnect();
+    };
+  }, [disconnect]);
 
   return {
     state,
@@ -313,6 +392,7 @@ export function useOnlineBattle() {
     submitTeam,
     sendReady,
     submitAction,
+    submitForceSwitch,
     waitForOpponentAction,
     disconnect,
     // Trade

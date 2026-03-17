@@ -10,11 +10,13 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:e2e": "playwright test",
-    "build:wasm": "cd rust && bash build-all.sh"
+    "build:wasm": "cd rust && bash build-all.sh",
+    "dev:peer": "peerjs --port 9000",
+    "dev:online": "concurrently \"npm run dev\" \"npm run dev:peer\""
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",
-    "@tanstack/react-virtual": "^3.13.19",
+    "@tanstack/react-virtual": "^3.13.23",
     "@thenick775/mgba-wasm": "^2.4.1",
     "@vercel/blob": "^2.3.1",
     "@vercel/edge-config": "^1.4.3",
@@ -36,9 +38,11 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "jsdom": "^28.1.0",
+    "peer": "^1.0.2",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.18"

@@ -19,6 +19,13 @@ interface BattleArenaProps {
   onAutoAISwitch: () => void;
   // PvP support
   onSubmitPvPActions?: (p1: BattleTurnAction, p2: BattleTurnAction) => void;
+  // Online battle support
+  isOnline?: boolean;
+  isHost?: boolean;
+  onSubmitOnlineAction?: (action: BattleTurnAction) => void;
+  onSubmitOnlineForceSwitch?: (action: BattleTurnAction) => void;
+  onWaitForOpponent?: () => Promise<BattleTurnAction>;
+  isOpponentDisconnected?: boolean;
 }
 
 export default memo(function BattleArena({
@@ -27,11 +34,19 @@ export default memo(function BattleArena({
   onForceSwitch,
   onAutoAISwitch,
   onSubmitPvPActions,
+  isOnline,
+  isHost,
+  onSubmitOnlineAction,
+  onSubmitOnlineForceSwitch,
+  onWaitForOpponent,
+  isOpponentDisconnected,
 }: BattleArenaProps) {
   const [showSwitch, setShowSwitch] = useState(false);
   const [mechanicActivated, setMechanicActivated] = useState(false);
   const [pvpPhase, setPvpPhase] = useState<"player1" | "player2" | "ready">("player1");
   const [pvpP1Action, setPvpP1Action] = useState<BattleTurnAction | null>(null);
+  const [waitingForOpponent, setWaitingForOpponent] = useState(false);
+  const [onlineError, setOnlineError] = useState<string | null>(null);
 
   // Move animation state
   const [activeAnimation, setActiveAnimation] = useState<ActiveAnimation | null>(null);
@@ -172,7 +187,51 @@ export default memo(function BattleArena({
     }
   }, [state.log, state.phase, p1Active, p2Active, playNextAnimation]);
 
-  const currentPlayer = state.mode === "pvp" ? pvpPhase : "player1";
+  // Online: send action, wait for opponent, then execute turn
+  const submitOnlineAction = useCallback(async (myAction: BattleTurnAction) => {
+    if (!onSubmitOnlineAction || !onWaitForOpponent || !onSubmitPvPActions) return;
+    onSubmitOnlineAction(myAction);
+    setWaitingForOpponent(true);
+    setOnlineError(null);
+    try {
+      const opponentAction = await onWaitForOpponent();
+      const p1 = isHost ? myAction : opponentAction;
+      const p2 = isHost ? opponentAction : myAction;
+      onSubmitPvPActions(p1, p2);
+    } catch (err) {
+      setOnlineError(err instanceof Error ? err.message : "Connection lost");
+    } finally {
+      setWaitingForOpponent(false);
+    }
+  }, [isHost, onSubmitOnlineAction, onWaitForOpponent, onSubmitPvPActions]);
+
+  // Online: handle force switch for opponent's side
+  useEffect(() => {
+    if (!isOnline || !onWaitForOpponent) return;
+    if (!isForceSwitch) return;
+    const opponentSide = isHost ? "player2" : "player1";
+    if (state.waitingForSwitch !== opponentSide) return;
+
+    let cancelled = false;
+    setWaitingForOpponent(true);
+    onWaitForOpponent()
+      .then((action) => {
+        if (!cancelled) {
+          onForceSwitch(opponentSide, action.type === "SWITCH" ? action.pokemonIndex : 0);
+          setWaitingForOpponent(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setOnlineError(err instanceof Error ? err.message : "Connection lost");
+          setWaitingForOpponent(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [isOnline, isHost, isForceSwitch, state.waitingForSwitch, onWaitForOpponent, onForceSwitch]);
+
+  const localSide = isOnline ? (isHost ? "player1" : "player2") : undefined;
+  const currentPlayer = isOnline ? (localSide!) : (state.mode === "pvp" ? pvpPhase : "player1");
   const currentTeam = currentPlayer === "player1" ? state.player1 : state.player2;
   const currentActive = currentPlayer === "player1" ? p1Active : p2Active;
 
@@ -214,7 +273,10 @@ export default memo(function BattleArena({
       action = { type: "MOVE", moveIndex };
     }
 
-    if (state.mode === "ai") {
+    if (isOnline) {
+      submitOnlineAction(action);
+      setShowSwitch(false);
+    } else if (state.mode === "ai") {
       onSubmitAction(action);
       setShowSwitch(false);
     } else {
@@ -232,7 +294,14 @@ export default memo(function BattleArena({
 
   const handleSwitch = (pokemonIndex: number) => {
     if (isForceSwitch) {
+      if (isOnline && onSubmitOnlineForceSwitch) {
+        const action: BattleTurnAction = { type: "SWITCH", pokemonIndex };
+        onSubmitOnlineForceSwitch(action);
+      }
       onForceSwitch(state.waitingForSwitch!, pokemonIndex);
+    } else if (isOnline) {
+      submitOnlineAction({ type: "SWITCH", pokemonIndex });
+      setShowSwitch(false);
     } else if (state.mode === "ai") {
       onSubmitAction({ type: "SWITCH", pokemonIndex });
       setShowSwitch(false);
@@ -258,7 +327,7 @@ export default memo(function BattleArena({
           <PokemonBattleSprite
             pokemon={p1Active}
             side="left"
-            label={state.mode === "ai" ? "Your Pokemon" : "Player 1"}
+            label={isOnline ? (isHost ? "Your Pokemon" : "Opponent") : state.mode === "ai" ? "Your Pokemon" : "Player 1"}
             animationState={p1SpriteAnim}
           />
 
@@ -273,7 +342,7 @@ export default memo(function BattleArena({
           <PokemonBattleSprite
             pokemon={p2Active}
             side="right"
-            label={state.mode === "ai" ? "Opponent" : "Player 2"}
+            label={isOnline ? (isHost ? "Opponent" : "Your Pokemon") : state.mode === "ai" ? "Opponent" : "Player 2"}
             animationState={p2SpriteAnim}
           />
         </div>
@@ -308,78 +377,138 @@ export default memo(function BattleArena({
         </div>
       </div>
 
+      {/* Opponent Disconnected Overlay */}
+      {isOnline && isOpponentDisconnected && (
+        <div className="rounded-xl border border-[#e8433f] bg-[#262b44] p-6 text-center space-y-3">
+          <h3 className="text-sm font-pixel text-[#e8433f]">Opponent Disconnected</h3>
+          <p className="text-xs text-[#8b9bb4]">Your opponent left the battle.</p>
+        </div>
+      )}
+
+      {/* Online Error */}
+      {isOnline && onlineError && !isOpponentDisconnected && (
+        <div className="rounded-xl border border-[#e8433f] bg-[#262b44] p-4 text-center">
+          <p className="text-xs text-[#e8433f] font-pixel">{onlineError}</p>
+        </div>
+      )}
+
       {/* Action Panel */}
-      {isActionSelect && (
+      {isActionSelect && !isOpponentDisconnected && currentActive && (
         <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
-          {state.mode === "pvp" && (
+          {isOnline && waitingForOpponent && (
+            <div className="text-center py-6">
+              <motion.div
+                animate={{ opacity: [0.3, 1, 0.3] }}
+                transition={{ repeat: Infinity, duration: 1.5 }}
+                className="text-sm font-pixel text-[#8b9bb4]"
+              >
+                Waiting for opponent...
+              </motion.div>
+            </div>
+          )}
+          {!isOnline && state.mode === "pvp" && (
             <div className="mb-3 text-sm font-bold text-[#e8433f] font-pixel">
               {pvpPhase === "player1" ? "Player 1 — Choose your action" : "Player 2 — Choose your action"}
             </div>
           )}
 
-          {!showSwitch ? (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-bold font-pixel">
-                  What will {currentActive.slot.pokemon.name} do?
-                </h4>
-                <button
-                  onClick={() => setShowSwitch(true)}
-                  className="rounded-lg bg-[#3a4466] px-3 py-1.5 text-xs text-[#8b9bb4] hover:bg-[#4a5577] hover:text-[#f0f0e8] transition-colors"
-                >
-                  Switch
-                </button>
+          {!(isOnline && waitingForOpponent) && (
+            !showSwitch ? (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-bold font-pixel">
+                    What will {currentActive.slot.pokemon.name} do?
+                  </h4>
+                  <button
+                    onClick={() => setShowSwitch(true)}
+                    className="rounded-lg bg-[#3a4466] px-3 py-1.5 text-xs text-[#8b9bb4] hover:bg-[#4a5577] hover:text-[#f0f0e8] transition-colors"
+                  >
+                    Switch
+                  </button>
+                </div>
+                {/* Mechanic Button */}
+                {canActivateMechanic && (
+                  <button
+                    onClick={() => setMechanicActivated(!mechanicActivated)}
+                    className={`w-full rounded-lg px-4 py-2 mb-3 text-sm font-bold font-pixel transition-all ${
+                      mechanicActivated ? "ring-2 ring-[#f0f0e8] scale-[1.02]" : ""
+                    }`}
+                    style={{
+                      backgroundColor: mechanicActivated
+                        ? (teamMechanic === "mega" ? "#f7a838" : teamMechanic === "tera" ? "#60a5fa" : "#e8433f")
+                        : "#3a4466",
+                      color: mechanicActivated ? "#1a1c2c" : "#f0f0e8",
+                    }}
+                  >
+                    {teamMechanic === "mega" ? "Mega Evolve" : teamMechanic === "tera" ? `Terastallize (${currentActive.teraType})` : `Dynamax${currentActive.isDynamaxed ? ` (${currentActive.dynamaxTurnsLeft}t)` : ""}`}
+                  </button>
+                )}
+                <MovePanel
+                  pokemon={currentActive}
+                  onSelectMove={handleMoveSelect}
+                  disabled={false}
+                  isDynamaxed={currentActive.isDynamaxed}
+                />
               </div>
-              {/* Mechanic Button */}
-              {canActivateMechanic && (
-                <button
-                  onClick={() => setMechanicActivated(!mechanicActivated)}
-                  className={`w-full rounded-lg px-4 py-2 mb-3 text-sm font-bold font-pixel transition-all ${
-                    mechanicActivated ? "ring-2 ring-[#f0f0e8] scale-[1.02]" : ""
-                  }`}
-                  style={{
-                    backgroundColor: mechanicActivated
-                      ? (teamMechanic === "mega" ? "#f7a838" : teamMechanic === "tera" ? "#60a5fa" : "#e8433f")
-                      : "#3a4466",
-                    color: mechanicActivated ? "#1a1c2c" : "#f0f0e8",
-                  }}
-                >
-                  {teamMechanic === "mega" ? "Mega Evolve" : teamMechanic === "tera" ? `Terastallize (${currentActive.teraType})` : `Dynamax${currentActive.isDynamaxed ? ` (${currentActive.dynamaxTurnsLeft}t)` : ""}`}
-                </button>
-              )}
-              <MovePanel
-                pokemon={currentActive}
-                onSelectMove={handleMoveSelect}
-                disabled={false}
-                isDynamaxed={currentActive.isDynamaxed}
+            ) : (
+              <SwitchPanel
+                team={currentTeam}
+                onSwitch={handleSwitch}
+                forced={false}
+                onCancel={() => setShowSwitch(false)}
               />
-            </div>
-          ) : (
-            <SwitchPanel
-              team={currentTeam}
-              onSwitch={handleSwitch}
-              forced={false}
-              onCancel={() => setShowSwitch(false)}
-            />
+            )
           )}
         </div>
       )}
 
       {/* Force Switch */}
-      {isForceSwitch && state.waitingForSwitch === "player1" && (
-        <SwitchPanel
-          team={state.player1}
-          onSwitch={(idx) => handleSwitch(idx)}
-          forced={true}
-        />
-      )}
-      {isForceSwitch && state.waitingForSwitch === "player2" && state.mode === "pvp" && (
-        <SwitchPanel
-          team={state.player2}
-          onSwitch={(idx) => onForceSwitch("player2", idx)}
-          forced={true}
-        />
-      )}
+      {isForceSwitch && (() => {
+        if (isOnline) {
+          // Online: show switch panel only for the local player's side
+          const mySwitch = state.waitingForSwitch === localSide;
+          if (mySwitch) {
+            return (
+              <SwitchPanel
+                team={localSide === "player1" ? state.player1 : state.player2}
+                onSwitch={(idx) => handleSwitch(idx)}
+                forced={true}
+              />
+            );
+          }
+          // Opponent's side — waiting handled by useEffect above
+          return waitingForOpponent ? (
+            <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-6 text-center">
+              <motion.div
+                animate={{ opacity: [0.3, 1, 0.3] }}
+                transition={{ repeat: Infinity, duration: 1.5 }}
+                className="text-sm font-pixel text-[#8b9bb4]"
+              >
+                Waiting for opponent to switch...
+              </motion.div>
+            </div>
+          ) : null;
+        }
+        // Non-online modes
+        return (
+          <>
+            {state.waitingForSwitch === "player1" && (
+              <SwitchPanel
+                team={state.player1}
+                onSwitch={(idx) => handleSwitch(idx)}
+                forced={true}
+              />
+            )}
+            {state.waitingForSwitch === "player2" && state.mode === "pvp" && (
+              <SwitchPanel
+                team={state.player2}
+                onSwitch={(idx) => onForceSwitch("player2", idx)}
+                forced={true}
+              />
+            )}
+          </>
+        );
+      })()}
 
       {/* Battle Log */}
       <BattleLog log={state.log} />

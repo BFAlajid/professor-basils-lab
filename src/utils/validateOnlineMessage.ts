@@ -64,11 +64,14 @@ export function validateTeamSlots(payload: unknown): TeamSlot[] | null {
   if (!Array.isArray(payload)) return null;
   if (payload.length < 1 || payload.length > 6) return null;
 
-  for (const slot of payload) {
+  for (let i = 0; i < payload.length; i++) {
+    const slot = payload[i];
     if (!isObject(slot)) return null;
     const s = slot as Record<string, unknown>;
-    if (!isValidPokemonShape(s.pokemon)) return null;
-    if (!isNumber(s.position)) return null;
+    // Relaxed check: pokemon must be an object with at least id and name
+    if (!isObject(s.pokemon)) return null;
+    const p = s.pokemon as Record<string, unknown>;
+    if (!isNumber(p.id) || !isString(p.name)) return null;
   }
 
   return payload as TeamSlot[];

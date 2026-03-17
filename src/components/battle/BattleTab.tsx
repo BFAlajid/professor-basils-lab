@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { TeamSlot, BattleReplay, BattleMode, GenerationalMechanic, DifficultyLevel } from "@/types";
 import { useBattle } from "@/hooks/useBattle";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
@@ -122,11 +122,45 @@ export default function BattleTab({ team }: BattleTabProps) {
   // Handle online ready to battle
   const handleOnlineReady = useCallback(() => {
     online.sendReady();
-    if (online.state.opponentTeam) {
+    if (online.state.opponentTeam && !onlineBattleStartedRef.current) {
+      onlineBattleStartedRef.current = true;
       setActiveBattleMode("online");
-      startBattle(team, online.state.opponentTeam, "pvp");
+      // Host is always player1, guest is always player2 — both sides must agree
+      const p1 = online.state.isHost ? team : online.state.opponentTeam;
+      const p2 = online.state.isHost ? online.state.opponentTeam : team;
+      startBattle(p1, p2, "pvp").catch((err) => {
+        console.error("[BattleTab] startBattle failed:", err);
+        onlineBattleStartedRef.current = false;
+      });
     }
   }, [online, team, startBattle]);
+
+  // Auto-start battle when opponent sends READY and battle hasn't started yet
+  const onlineBattleStartedRef = useRef(false);
+  useEffect(() => {
+    if (state.phase === "setup") {
+      onlineBattleStartedRef.current = false;
+    }
+  }, [state.phase]);
+
+  useEffect(() => {
+    if (
+      online.state.phase === "battling" &&
+      state.phase === "setup" &&
+      online.state.opponentTeam &&
+      !onlineBattleStartedRef.current
+    ) {
+      onlineBattleStartedRef.current = true;
+      setActiveBattleMode("online");
+      // Host is always player1, guest is always player2
+      const p1 = online.state.isHost ? team : online.state.opponentTeam;
+      const p2 = online.state.isHost ? online.state.opponentTeam : team;
+      startBattle(p1, p2, "pvp").catch((err) => {
+        console.error("[BattleTab] startBattle failed:", err);
+        onlineBattleStartedRef.current = false;
+      });
+    }
+  }, [online.state.phase, online.state.isHost, state.phase, online.state.opponentTeam, team, startBattle]);
 
   const handleResetBattle = useCallback(() => {
     resetBattle();
@@ -395,11 +429,19 @@ export default function BattleTab({ team }: BattleTabProps) {
           if (activeBattleMode === "tournament") {
             // Return to bracket, not setup
             resetBattle();
+          } else if (activeBattleMode === "online") {
+            online.disconnect();
+            handleResetBattle();
           } else {
             handleResetBattle();
           }
         }}
-        onReset={handleResetBattle}
+        onReset={() => {
+          if (activeBattleMode === "online") {
+            online.disconnect();
+          }
+          handleResetBattle();
+        }}
         onSaveReplay={handleSaveReplay}
         replaySaved={replaySaved}
         prizeMoney={state.mode === "ai" && state.winner === "player1" ? 500 + state.turn * 50 : undefined}
@@ -408,6 +450,8 @@ export default function BattleTab({ team }: BattleTabProps) {
     );
   }
 
+  const isOnlineBattle = activeBattleMode === "online";
+
   return (
     <BattleArena
       state={state}
@@ -415,6 +459,12 @@ export default function BattleTab({ team }: BattleTabProps) {
       onForceSwitch={forceSwitch}
       onAutoAISwitch={autoAISwitch}
       onSubmitPvPActions={submitActions}
+      isOnline={isOnlineBattle}
+      isHost={isOnlineBattle ? online.state.isHost : undefined}
+      onSubmitOnlineAction={isOnlineBattle ? online.submitAction : undefined}
+      onSubmitOnlineForceSwitch={isOnlineBattle ? online.submitForceSwitch : undefined}
+      onWaitForOpponent={isOnlineBattle ? online.waitForOpponentAction : undefined}
+      isOpponentDisconnected={isOnlineBattle ? online.state.phase === "disconnected" : undefined}
     />
   );
 }
