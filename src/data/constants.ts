@@ -18,12 +18,23 @@ export type StatKey = (typeof STAT_KEYS)[number];
 export const STAT_LABELS_SHORT = ["HP", "Atk", "Def", "SpA", "SpD", "Spe"] as const;
 
 // Battle mechanics
-export const CRIT_RATE = 1 / 16;
+export const CRIT_RATE = 1 / 16; // legacy flat rate, kept for backward compat
+export const CRIT_STAGE_RATES = [1 / 24, 1 / 8, 1 / 2, 1, 1]; // stages 0-4, Gen 7+
+export const HIGH_CRIT_MOVES = new Set([
+  "slash", "stone-edge", "cross-chop", "psycho-cut", "night-slash",
+  "leaf-blade", "drill-run", "crabhammer", "shadow-claw", "cross-poison",
+  "air-cutter", "attack-order", "razor-leaf", "karate-chop", "aeroblast",
+  "spacial-rend", "blaze-kick", "poison-tail", "razor-wind", "sky-attack",
+]);
 export const STAT_STAGE_MIN = -6;
 export const STAT_STAGE_MAX = 6;
 export const DRASTIC_THRESHOLD = 2;
 export const SLEEP_TURN_MIN = 1;
 export const SLEEP_TURN_RANGE = 3;
+export const CONFUSION_TURN_MIN = 2;
+export const CONFUSION_TURN_RANGE = 4; // 2-5 turns
+export const CONFUSION_SELF_HIT_CHANCE = 1 / 3;
+export const CONFUSION_SELF_HIT_POWER = 40;
 
 // UI timing constants (ms)
 export const DROPDOWN_BLUR_DELAY = 200;

@@ -138,6 +138,10 @@ export function applyEndOfTurnEffects(state: BattleState, log: BattleLogEntry[])
             const heal = Math.max(1, Math.floor(updated.maxHp * item.battleModifier.value));
             updated.currentHp = Math.min(updated.maxHp, updated.currentHp + heal);
             log.push({ turn: state.turn, message: `${updated.slot.pokemon.name} restored HP with Black Sludge!`, kind: "heal" });
+          } else {
+            const damage = Math.max(1, Math.floor(updated.maxHp / 8));
+            updated.currentHp = Math.max(0, updated.currentHp - damage);
+            log.push({ turn: state.turn, message: `${updated.slot.pokemon.name} was hurt by its Black Sludge!`, kind: "damage" });
           }
         } else if (item.name === "leftovers") {
           const heal = Math.max(1, Math.floor(updated.maxHp * item.battleModifier.value));
@@ -157,16 +161,21 @@ export function applyEndOfTurnEffects(state: BattleState, log: BattleLogEntry[])
 
     // Weather damage (sandstorm/hail) — blocked by Magic Guard
     if (!blocksIndirect) {
+      const abilityName = (updated.slot.ability ?? "").toLowerCase().replace(/\s+/g, "-");
       if (state.field.weather === "sandstorm") {
         const types = getEffectiveTypes(updated);
-        if (!types.includes("rock") && !types.includes("ground") && !types.includes("steel")) {
+        const sandImmune = types.includes("rock") || types.includes("ground") || types.includes("steel") ||
+          ["sand-veil", "sand-rush", "sand-force", "overcoat"].includes(abilityName);
+        if (!sandImmune) {
           const weatherDmg = Math.max(1, Math.floor(updated.maxHp / 16));
           updated.currentHp = Math.max(0, updated.currentHp - weatherDmg);
           log.push({ turn: state.turn, message: `${updated.slot.pokemon.name} was buffeted by the sandstorm!`, kind: "weather" });
         }
       } else if (state.field.weather === "hail") {
         const types = getEffectiveTypes(updated);
-        if (!types.includes("ice")) {
+        const hailImmune = types.includes("ice") ||
+          ["ice-body", "snow-cloak", "overcoat"].includes(abilityName);
+        if (!hailImmune) {
           const weatherDmg = Math.max(1, Math.floor(updated.maxHp / 16));
           updated.currentHp = Math.max(0, updated.currentHp - weatherDmg);
           log.push({ turn: state.turn, message: `${updated.slot.pokemon.name} was buffeted by the hail!`, kind: "weather" });
@@ -182,7 +191,8 @@ export function applyEndOfTurnEffects(state: BattleState, log: BattleLogEntry[])
     }
 
     // Ability: onEndOfTurn — Speed Boost (only if not already handled as Poison Heal)
-    if (!poisonHandled && abilityHooks?.onEndOfTurn) {
+    // Speed Boost should not activate on the switch-in turn (turnsOnField <= 1)
+    if (!poisonHandled && abilityHooks?.onEndOfTurn && (updated.turnsOnField ?? 0) > 1) {
       const endResult = abilityHooks.onEndOfTurn({ pokemon: updated });
       if (endResult?.type === "speed_boost" && endResult.stat && endResult.stages) {
         const statKey = endResult.stat as keyof StatStages;

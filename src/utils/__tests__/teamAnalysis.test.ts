@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   analyzeTeam,
   analyzeDefensiveCoverage,
@@ -7,7 +7,14 @@ import {
   getOffensiveCoverage,
 } from "../teamAnalysis";
 import { mockCharizard, mockBlastoise, mockVenusaur, createMockTeamSlot } from "@/test/mocks/pokemon";
-import { Pokemon, TeamSlot } from "@/types";
+import { Pokemon, TeamSlot, Move } from "@/types";
+
+// Mock getCachedMove for tests that verify move-type coverage
+vi.mock("../pokeApiClient", () => ({
+  getCachedMove: vi.fn(() => undefined),
+}));
+import { getCachedMove } from "../pokeApiClient";
+const mockGetCachedMove = getCachedMove as ReturnType<typeof vi.fn>;
 
 // Helper to create a mono-type mock Pokemon
 function mockMonoType(name: string, typeName: string, id: number = 1): Pokemon {
@@ -258,5 +265,133 @@ describe("getOffensiveCoverage", () => {
     // Types NOT on the team
     expect(offensive).not.toContain("electric");
     expect(offensive).not.toContain("dragon");
+  });
+
+  it("includes move types passed as argument", () => {
+    // Pass electric and dragon as extra move types
+    const coverage = analyzeDefensiveCoverage(
+      [mockCharizard, mockBlastoise],
+      ["electric", "dragon"]
+    );
+    const offensive = getOffensiveCoverage(coverage);
+
+    // STAB types still present
+    expect(offensive).toContain("fire");
+    expect(offensive).toContain("flying");
+    expect(offensive).toContain("water");
+
+    // Move types now included
+    expect(offensive).toContain("electric");
+    expect(offensive).toContain("dragon");
+  });
+});
+
+// --- Move-type integration in computeOffensiveCoverage ---
+
+describe("analyzeTeam with move types", () => {
+  function makeMoveStub(name: string, typeName: string, damageClass: string): Move {
+    return {
+      id: 1,
+      name,
+      power: damageClass === "status" ? null : 80,
+      accuracy: 100,
+      pp: 15,
+      priority: 0,
+      type: { name: typeName as any },
+      damage_class: { name: damageClass as any },
+    };
+  }
+
+  beforeEach(() => {
+    mockGetCachedMove.mockReset();
+  });
+
+  afterEach(() => {
+    mockGetCachedMove.mockReset();
+  });
+
+  it("includes move types in offensive coverage when moves are cached", () => {
+    // Charizard (fire/flying) with dragon-pulse (dragon) and solar-beam (grass) selected
+    // Without moves: team has fire + flying attacking types
+    // With moves: also has dragon + grass attacking types
+    mockGetCachedMove.mockImplementation((name: string) => {
+      if (name === "dragon-pulse") return makeMoveStub("dragon-pulse", "dragon", "special");
+      if (name === "solar-beam") return makeMoveStub("solar-beam", "grass", "special");
+      if (name === "flamethrower") return makeMoveStub("flamethrower", "fire", "special");
+      if (name === "air-slash") return makeMoveStub("air-slash", "flying", "special");
+      return undefined;
+    });
+
+    const team: TeamSlot[] = [
+      {
+        ...createMockTeamSlot(mockCharizard, 0),
+        selectedMoves: ["flamethrower", "air-slash", "dragon-pulse", "solar-beam"],
+      },
+    ];
+
+    const report = analyzeTeam(team);
+
+    // Dragon type is super effective against: dragon
+    // So "dragon" should now be in offensiveCoverage (can hit dragon-types SE)
+    expect(report.offensiveCoverage).toContain("dragon");
+
+    // Grass type is super effective against: water, ground, rock
+    // Water should now be covered (grass SE vs water)
+    expect(report.offensiveCoverage).toContain("water");
+    expect(report.offensiveCoverage).toContain("ground");
+    expect(report.offensiveCoverage).toContain("rock");
+  });
+
+  it("excludes status moves from offensive coverage", () => {
+    // Thunder Wave is electric/status — should NOT add electric as attacking type
+    mockGetCachedMove.mockImplementation((name: string) => {
+      if (name === "thunder-wave") return makeMoveStub("thunder-wave", "electric", "status");
+      if (name === "flamethrower") return makeMoveStub("flamethrower", "fire", "special");
+      return undefined;
+    });
+
+    const team: TeamSlot[] = [
+      {
+        ...createMockTeamSlot(mockCharizard, 0),
+        selectedMoves: ["flamethrower", "thunder-wave"],
+      },
+    ];
+
+    const report = analyzeTeam(team);
+
+    // Charizard still has fire/flying STAB
+    // Fire SE against: grass, ice, bug, steel → these should be covered
+    expect(report.offensiveCoverage).toContain("grass");
+    expect(report.offensiveCoverage).toContain("ice");
+    expect(report.offensiveCoverage).toContain("bug");
+    expect(report.offensiveCoverage).toContain("steel");
+
+    // Electric (status move) should NOT add coverage
+    // Electric would be SE against water, flying — check "water" is NOT newly covered
+    // Without electric: fire hits grass/ice/bug/steel, flying hits grass/fighting/bug
+    // Water is only hit SE by electric or grass — and we don't have grass or electric as damaging
+    expect(report.offensiveCoverage).not.toContain("water");
+  });
+
+  it("falls back to STAB-only when no moves are cached", () => {
+    // getCachedMove returns undefined for everything
+    mockGetCachedMove.mockReturnValue(undefined);
+
+    const team: TeamSlot[] = [
+      createMockTeamSlot(mockCharizard, 0),
+    ];
+
+    const report = analyzeTeam(team);
+
+    // Fire/Flying STAB: fire SE vs grass/ice/bug/steel, flying SE vs grass/fighting/bug
+    expect(report.offensiveCoverage).toContain("grass");
+    expect(report.offensiveCoverage).toContain("ice");
+    expect(report.offensiveCoverage).toContain("bug");
+    expect(report.offensiveCoverage).toContain("steel");
+    expect(report.offensiveCoverage).toContain("fighting");
+
+    // Dragon-pulse not cached → dragon type NOT in attacking types → can't hit dragon SE
+    // (only dragon is SE against dragon)
+    expect(report.offensiveCoverage).not.toContain("dragon");
   });
 });

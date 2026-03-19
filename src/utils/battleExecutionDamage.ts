@@ -7,7 +7,7 @@ import {
   TypeName,
 } from "@/types";
 import { calculateDamage } from "./damage";
-import { CRIT_RATE, STAT_STAGE_MAX, STAT_STAGE_MIN, SLEEP_TURN_MIN, SLEEP_TURN_RANGE } from "@/data/constants";
+import { STAT_STAGE_MAX, STAT_STAGE_MIN, SLEEP_TURN_MIN, SLEEP_TURN_RANGE } from "@/data/constants";
 import { convertToMaxMove, getMaxMoveEffect } from "@/data/maxMoves";
 import { getAbilityHooks, getHighestStat } from "@/data/abilities";
 import { getDefensiveMultiplier } from "@/data/typeChart";
@@ -22,6 +22,7 @@ import {
   getRelevantAtkStage,
   getRelevantDefStage,
   applyFieldEffect,
+  getCritRate,
 } from "./battleHelpers";
 
 const DAMAGE_ROLL_MIN = 0.85;
@@ -91,7 +92,8 @@ function applyDamageLoop(
   isCritical: boolean,
   moveData: MoveData,
   defenderAbility: ReturnType<typeof getAbilityHooks>,
-  log: BattleLogEntry[]
+  log: BattleLogEntry[],
+  critRate: number,
 ): { state: BattleState; newDefender: BattlePokemon; totalDamage: number } {
   let totalDamage = 0;
   let newDefender = { ...defender };
@@ -100,9 +102,18 @@ function applyDamageLoop(
   for (let hit = 0; hit < hitCount; hit++) {
     if (newDefender.isFainted) break;
 
-    const hitCritical = hitCount > 1 ? Math.random() < CRIT_RATE : isCritical;
+    const hitCritical = hitCount > 1 ? Math.random() < critRate : isCritical;
     const hitRandomFactor = DAMAGE_ROLL_MIN + Math.random() * DAMAGE_ROLL_RANGE;
     let hitDamage = Math.max(1, Math.floor(result.max * hitRandomFactor));
+
+    // Ability: Sniper — boost crit damage from 1.5x to 2.25x
+    if (hitCritical) {
+      const attackerAbilityHooks = getAbilityHooks(attacker.slot.ability);
+      if (attackerAbilityHooks?.modifyCritDamage) {
+        // calculateDamage already applied 1.5x; scale to target multiplier
+        hitDamage = Math.max(1, Math.floor(hitDamage * (attackerAbilityHooks.modifyCritDamage / 1.5)));
+      }
+    }
 
     // Ability: Multiscale halves damage at full HP (only applies on first hit)
     if (hit === 0 && defenderAbility?.modifyIncomingDamage) {
@@ -137,7 +148,7 @@ function applyDamageLoop(
 
     // Focus Sash check
     if (newDefender.currentHp <= 0 && !firstHitSurvivalUsed && defender.currentHp === defender.maxHp && defender.slot.heldItem === "focus-sash") {
-      newDefender = { ...newDefender, currentHp: 1 };
+      newDefender = { ...newDefender, currentHp: 1, slot: { ...newDefender.slot, heldItem: null } };
       firstHitSurvivalUsed = true;
       log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} hung on using its Focus Sash!`, kind: "info" });
     }
@@ -222,7 +233,9 @@ function applyRecoilDrain(
     const currentAttacker = getActivePokemon(state[attackerPlayer]);
     const atkAbility = getAbilityHooks(currentAttacker.slot.ability);
     if (!atkAbility?.preventIndirectDamage) {
-      const recoilDmg = Math.max(1, Math.floor(totalDamage * recoilFraction));
+      const recoilDmg = originalName === "struggle"
+        ? Math.max(1, Math.floor(currentAttacker.maxHp / 4))
+        : Math.max(1, Math.floor(totalDamage * recoilFraction));
       const newAtkHp = Math.max(0, currentAttacker.currentHp - recoilDmg);
       let recoilAttacker = { ...currentAttacker, currentHp: newAtkHp };
       log.push({ turn: state.turn, message: `${currentAttacker.slot.pokemon.name} was hurt by recoil!`, kind: "damage" });
@@ -432,8 +445,9 @@ export function executeDamagingMove(
     moveData = { ...moveData, power: moveData.power ? Math.floor(moveData.power / 2) : moveData.power };
   }
 
-  // Critical hit check
-  const isCritical = Math.random() < CRIT_RATE;
+  // Critical hit check (stage-based)
+  const critRate = getCritRate(attacker, originalMoveName);
+  const isCritical = Math.random() < critRate;
 
   const defSideKey = defenderPlayer === "player1" ? "player1Side" : "player2Side";
   const defSide = state.field[defSideKey];
@@ -527,7 +541,7 @@ export function executeDamagingMove(
   // Damage loop + logging
   const damageResult = applyDamageLoop(
     state, attacker, defender, defenderPlayer, defenderTeam,
-    result, hitCount, isCritical, moveData, defenderAbility, log
+    result, hitCount, isCritical, moveData, defenderAbility, log, critRate,
   );
   state = damageResult.state;
   const newDefender = damageResult.newDefender;

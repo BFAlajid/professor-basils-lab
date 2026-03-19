@@ -7,7 +7,7 @@ import { TeamSlot, Pokemon, Nature, EVSpread, IVSpread, TypeName } from "@/types
 import PokemonCard from "./PokemonCard";
 import PokemonSearch from "./PokemonSearch";
 import PokemonDetailPanel from "./PokemonDetailPanel";
-import { exportToShowdown, importFromShowdown } from "@/utils/showdownFormatWasm";
+import { exportToShowdown, exportSlotToShowdown, importFromShowdown } from "@/utils/showdownFormatWasm";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { useFeatureFlagsContext } from "@/contexts/FeatureFlagsContext";
 import { TEAM_PRESETS } from "@/data/teamPresets";
@@ -52,6 +52,7 @@ export default function TeamRoster({
   const [isImporting, setIsImporting] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [clipboardCopied, setClipboardCopied] = useState(false);
   const emptySlots = Math.max(0, 6 - team.length);
   const { incrementStat } = useAchievementsContext();
   const { features } = useFeatureFlagsContext();
@@ -88,6 +89,16 @@ export default function TeamRoster({
     });
   }, [showdownText]);
 
+  const handleCopyToClipboard = useCallback(() => {
+    if (team.length === 0) return;
+    const text = exportToShowdown(team);
+    navigator.clipboard.writeText(text).then(() => {
+      setClipboardCopied(true);
+      incrementStat("showdownExports");
+      setTimeout(() => setClipboardCopied(false), TOAST_DURATION);
+    });
+  }, [team, incrementStat]);
+
   const handleImport = useCallback(async () => {
     if (!showdownText.trim() || !onSetTeam) return;
     setIsImporting(true);
@@ -123,6 +134,12 @@ export default function TeamRoster({
               className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
             >
               Export Showdown
+            </button>
+            <button
+              onClick={handleCopyToClipboard}
+              className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
+            >
+              {clipboardCopied ? "Copied!" : "Copy Showdown"}
             </button>
             {features.enableSharing && (
               <button

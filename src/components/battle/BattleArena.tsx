@@ -55,6 +55,13 @@ export default memo(function BattleArena({
   const prevLogLen = useRef(0);
   const animQueue = useRef<ActiveAnimation[]>([]);
   const isAnimating = useRef(false);
+  const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+
+  const trackTimeout = useCallback((fn: () => void, ms: number) => {
+    const id = setTimeout(fn, ms);
+    timeoutsRef.current.push(id);
+    return id;
+  }, []);
 
   const p1Active = getActivePokemon(state.player1);
   const p2Active = getActivePokemon(state.player2);
@@ -91,22 +98,22 @@ export default memo(function BattleArena({
     // Set sprite states
     if (anim.attacker === "left") {
       setP1SpriteAnim("attacking");
-      setTimeout(() => { setP2SpriteAnim("hit"); }, 200);
+      trackTimeout(() => { setP2SpriteAnim("hit"); }, 200);
     } else {
       setP2SpriteAnim("attacking");
-      setTimeout(() => { setP1SpriteAnim("hit"); }, 200);
+      trackTimeout(() => { setP1SpriteAnim("hit"); }, 200);
     }
     // Reset sprite states after animation
-    setTimeout(() => {
+    trackTimeout(() => {
       setP1SpriteAnim("idle");
       setP2SpriteAnim("idle");
     }, anim.config.duration);
-  }, []);
+  }, [trackTimeout]);
 
   const handleAnimationComplete = useCallback(() => {
     // Small gap between animations
-    setTimeout(playNextAnimation, 100);
-  }, [playNextAnimation]);
+    trackTimeout(playNextAnimation, 100);
+  }, [playNextAnimation, trackTimeout]);
 
   useEffect(() => {
     if (state.log.length <= prevLogLen.current) {
@@ -125,7 +132,7 @@ export default memo(function BattleArena({
     for (const entry of newEntries) {
       // Check for move-use ("X used Y!")
       const moveMatch = entry.message.match(/^(.+?) used (.+?)!$/);
-      if (moveMatch && (entry.kind === "damage" || entry.kind === "status")) {
+      if (moveMatch && (entry.kind === "damage" || entry.kind === "status" || entry.kind === "info")) {
         const side = getAttackerSide(entry, p1Name, p2Name);
         const damageClass = entry.kind === "status" ? "status" as const : "physical" as const;
         pendingAnim = {
@@ -163,7 +170,7 @@ export default memo(function BattleArena({
         const switchSide = getAttackerSide(entry, p1Name, p2Name);
         if (switchSide === "left") setP1SpriteAnim("entering");
         else setP2SpriteAnim("entering");
-        setTimeout(() => {
+        trackTimeout(() => {
           setP1SpriteAnim("idle");
           setP2SpriteAnim("idle");
         }, 500);
@@ -185,7 +192,15 @@ export default memo(function BattleArena({
     if (!isAnimating.current && animQueue.current.length > 0) {
       playNextAnimation();
     }
-  }, [state.log, state.phase, p1Active, p2Active, playNextAnimation]);
+  }, [state.log, state.phase, p1Active, p2Active, playNextAnimation, trackTimeout]);
+
+  // Clear all tracked animation timeouts on unmount
+  useEffect(() => {
+    return () => {
+      timeoutsRef.current.forEach(clearTimeout);
+      timeoutsRef.current = [];
+    };
+  }, []);
 
   // Online: send action, wait for opponent, then execute turn
   const submitOnlineAction = useCallback(async (myAction: BattleTurnAction) => {

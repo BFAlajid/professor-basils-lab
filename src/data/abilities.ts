@@ -68,6 +68,9 @@ export interface AbilityHooks {
     pokemon: BattlePokemon;
     opponent: BattlePokemon;
   }) => boolean; // true = opponent is trapped
+
+  /** Modify critical hit damage multiplier (Sniper: 1.5x → 2.25x) */
+  modifyCritDamage?: number; // multiplier applied to crit damage (e.g. 2.25 for Sniper)
 }
 
 // --- Result Types ---
@@ -461,6 +464,15 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
 
   // === Additional common abilities ===
 
+  // === Critical hit abilities ===
+
+  "super-luck": {
+    // Crit stage +1 handled in getCritStage; no hooks needed here
+  },
+
+  sniper: {
+    modifyCritDamage: 2.25, // Sniper: crit damage is 2.25x instead of 1.5x
+  },
 };
 
 // --- Public API ---

@@ -19,6 +19,7 @@ export interface BattlePokemon {
   isFainted: boolean;
   toxicCounter: number;
   sleepTurns: number;
+  confusionTurns: number;
   // Battle tracking
   turnsOnField: number;
   isProtected: boolean;
@@ -26,6 +27,7 @@ export interface BattlePokemon {
   consecutiveProtects: number;
   isFlinched: boolean;
   choiceLockedMove: string | null;
+  focusEnergy: boolean;
   // Generational mechanic state
   isMegaEvolved: boolean;
   isTerastallized: boolean;

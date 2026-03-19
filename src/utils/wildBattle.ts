@@ -14,6 +14,7 @@ import {
 import { extractBaseStats, calculateDamage } from "./damage";
 import { calculateAllStats, DEFAULT_EVS } from "./stats";
 import { initBattlePokemon, initStatStages, getStatStageMultiplier, cacheBattleMove, getCachedMoves } from "./battle";
+import { getCritRate } from "./battleHelpers";
 import { getDefensiveMultiplier } from "@/data/typeChart";
 import { NATURES } from "@/data/natures";
 import { randomInt, randomChoice, shuffleArray } from "./random";
@@ -183,7 +184,7 @@ export function executeWildTurn(
 
       if (accRoll < accuracy) {
         if (moveData.power && moveData.damage_class.name !== "status") {
-          const isCritical = Math.random() < 0.0625;
+          const isCritical = Math.random() < getCritRate(playerBp, playerMoveName);
           const attackerTypes = playerBp.slot.pokemon.types.map((t) => t.type.name);
           const defenderTypes = wildBp.slot.pokemon.types.map((t) => t.type.name);
 
@@ -268,7 +269,7 @@ export function executeWildTurn(
 
       if (accRoll < accuracy) {
         if (wildMoveData.power && wildMoveData.damage_class.name !== "status") {
-          const isCritical = Math.random() < 0.0625;
+          const isCritical = Math.random() < getCritRate(wildBp, wildMoveName);
 
           const result = calculateDamage(
             wildBp.slot.pokemon,

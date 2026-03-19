@@ -29,6 +29,10 @@ export const HELD_ITEMS: HeldItem[] = [
   { name: "dragon-fang", displayName: "Dragon Fang", effect: "1.2x Dragon-type moves", battleModifier: { type: "damage_boost", value: 1.2, condition: "type:dragon" } },
   { name: "silk-scarf", displayName: "Silk Scarf", effect: "1.2x Normal-type moves", battleModifier: { type: "damage_boost", value: 1.2, condition: "type:normal" } },
 
+  // Critical hit boosters
+  { name: "scope-lens", displayName: "Scope Lens", effect: "+1 critical hit stage", battleModifier: { type: "crit_boost", value: 1 } },
+  { name: "razor-claw", displayName: "Razor Claw", effect: "+1 critical hit stage", battleModifier: { type: "crit_boost", value: 1 } },
+
   // Defensive items
   { name: "leftovers", displayName: "Leftovers", effect: "Restore 1/16 max HP each turn", battleModifier: { type: "hp_restore", value: 1/16 } },
   { name: "black-sludge", displayName: "Black Sludge", effect: "Restore 1/16 HP (Poison-type only)", battleModifier: { type: "hp_restore", value: 1/16, condition: "type:poison" } },

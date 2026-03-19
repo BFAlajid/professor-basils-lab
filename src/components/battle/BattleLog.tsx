@@ -21,6 +21,7 @@ const KIND_COLORS: Record<string, string> = {
   dynamax: "#e8433f",
   weather: "#f7a838",
   terrain: "#38b764",
+  hazard: "#A8835B",
 };
 
 export default function BattleLog({ log }: BattleLogProps) {

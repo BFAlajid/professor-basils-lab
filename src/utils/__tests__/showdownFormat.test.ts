@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { exportToShowdown } from "../showdownFormat";
+import { exportToShowdown, exportSlotToShowdown } from "../showdownFormat";
 import { TeamSlot } from "@/types";
 import { mockCharizard, createMockTeamSlot } from "@/test/mocks/pokemon";
 
@@ -75,5 +75,37 @@ describe("exportToShowdown", () => {
   it("handles empty team", () => {
     const result = exportToShowdown([]);
     expect(result).toBe("");
+  });
+
+  it("only lists non-31 IVs, not all IVs", () => {
+    const slot = createMockTeamSlot(mockCharizard, 0);
+    slot.ivs = { hp: 31, attack: 0, defense: 31, spAtk: 31, spDef: 31, speed: 0 };
+    const result = exportToShowdown([slot]);
+
+    expect(result).toContain("IVs: 0 Atk / 0 Spe");
+    // Should NOT contain 31-valued stats in IV line
+    expect(result).not.toContain("31 HP");
+    expect(result).not.toContain("31 Def");
+    expect(result).not.toContain("31 SpA");
+    expect(result).not.toContain("31 SpD");
+  });
+});
+
+describe("exportSlotToShowdown", () => {
+  it("exports a single slot", () => {
+    const slot = createMockTeamSlot(mockCharizard, 0);
+    const result = exportSlotToShowdown(slot);
+
+    expect(result).toContain("Charizard");
+    expect(result).toContain("Ability: Blaze");
+    expect(result).toContain("- Flamethrower");
+  });
+
+  it("matches first entry of team export", () => {
+    const slot = createMockTeamSlot(mockCharizard, 0);
+    const singleResult = exportSlotToShowdown(slot);
+    const teamResult = exportToShowdown([slot]);
+
+    expect(singleResult).toBe(teamResult);
   });
 });

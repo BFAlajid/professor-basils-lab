@@ -17,6 +17,7 @@ import { getHeldItem } from "@/data/heldItems";
 import { getAbilityHooks } from "@/data/abilities";
 import { getMaxMoveEffect } from "@/data/maxMoves";
 import { getStatLabel } from "./format";
+import { HIGH_CRIT_MOVES, CRIT_STAGE_RATES } from "@/data/constants";
 
 // --- Initialization ---
 
@@ -237,4 +238,22 @@ export function triggerOnStatDrop(
     }
   }
   return state;
+}
+
+// --- Critical Hit Stage ---
+
+export function getCritStage(attacker: BattlePokemon, moveName: string): number {
+  let stage = 0;
+  if (HIGH_CRIT_MOVES.has(moveName)) stage += 1;
+  const abilityKey = attacker.slot.ability?.toLowerCase().replace(/\s+/g, "-") ?? "";
+  if (abilityKey === "super-luck") stage += 1;
+  const itemKey = attacker.slot.heldItem?.toLowerCase().replace(/\s+/g, "-") ?? "";
+  if (itemKey === "scope-lens" || itemKey === "razor-claw") stage += 1;
+  if (attacker.focusEnergy) stage += 2;
+  return Math.min(stage, CRIT_STAGE_RATES.length - 1);
+}
+
+export function getCritRate(attacker: BattlePokemon, moveName: string): number {
+  const stage = getCritStage(attacker, moveName);
+  return CRIT_STAGE_RATES[stage];
 }

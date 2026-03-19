@@ -60,12 +60,14 @@ export function initBattlePokemon(slot: TeamSlot, megaFormeCache?: Map<string, A
     isFainted: false,
     toxicCounter: 0,
     sleepTurns: 0,
+    confusionTurns: 0,
     turnsOnField: 0,
     isProtected: false,
     lastMoveUsed: null,
     consecutiveProtects: 0,
     isFlinched: false,
     choiceLockedMove: null,
+    focusEnergy: false,
     isMegaEvolved: false,
     isTerastallized: false,
     isDynamaxed: false,
@@ -193,7 +195,8 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         const effect = abilityHooks.onSwitchIn({ pokemon: switchedIn, opponent: opp });
         if (effect) {
           if (effect.message) {
-            newState.log.push({ turn: state.turn, message: effect.message, kind: "status" });
+            const log: BattleLogEntry[] = [...newState.log, { turn: state.turn, message: effect.message, kind: "status" }];
+            newState = { ...newState, log };
           }
           if (effect.type === "stat_drop" && effect.stat && effect.stages) {
             const target = getActivePokemon(newState[oppPlayer]);
@@ -375,6 +378,9 @@ function performSwitch(
     isActive: false,
     statStages: initStatStages(),
     choiceLockedMove: null,
+    confusionTurns: 0,
+    toxicCounter: 0,
+    focusEnergy: false,
   };
   newPokemon[pokemonIndex] = {
     ...newPokemon[pokemonIndex],

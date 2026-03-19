@@ -378,12 +378,14 @@ export function useOnlineBattle() {
     dispatch({ type: "RESET" });
   }, [resetEscrow, clearPendingAction]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount — use ref to avoid re-running when disconnect identity changes
+  const disconnectRef = useRef(disconnect);
+  disconnectRef.current = disconnect;
   useEffect(() => {
     return () => {
-      disconnect();
+      disconnectRef.current();
     };
-  }, [disconnect]);
+  }, []);
 
   return {
     state,

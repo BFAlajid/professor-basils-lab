@@ -10,6 +10,8 @@ export interface StatusMoveEffect {
   clearHazards?: "rapid-spin" | "defog";
   reflect?: boolean;
   lightScreen?: boolean;
+  targetConfusion?: boolean;
+  focusEnergy?: boolean;
 }
 
 export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
@@ -83,4 +85,15 @@ export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
   // Screens
   "reflect": { reflect: true },
   "light-screen": { lightScreen: true },
+
+  // Critical hit boost
+  "focus-energy": { focusEnergy: true },
+
+  // Confusion
+  "confuse-ray": { targetConfusion: true },
+  "swagger": { targetConfusion: true, targetStatChanges: { attack: 2 } },
+  "flatter": { targetConfusion: true, targetStatChanges: { spAtk: 1 } },
+  "teeter-dance": { targetConfusion: true },
+  "sweet-kiss": { targetConfusion: true },
+  "supersonic": { targetConfusion: true },
 };

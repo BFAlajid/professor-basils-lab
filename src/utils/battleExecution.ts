@@ -4,10 +4,14 @@ import {
   StatusCondition,
 } from "@/types";
 import { STATUS_MOVE_EFFECTS } from "@/data/statusMoves";
+import { CONFUSION_SELF_HIT_CHANCE, CONFUSION_SELF_HIT_POWER } from "@/data/constants";
 import {
   getActivePokemon,
   updatePokemon,
+  getStatStageMultiplier,
 } from "./battleHelpers";
+import { extractBaseStats } from "./damage";
+import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { executeDamagingMove } from "./battleExecutionDamage";
 import { applyStatusMoveEffect } from "./battleExecutionStatus";
 
@@ -20,7 +24,7 @@ export function executeMove(
   const defenderPlayer = attackerPlayer === "player1" ? "player2" : "player1";
   const attackerTeam = state[attackerPlayer];
   const defenderTeam = state[defenderPlayer];
-  const attacker = getActivePokemon(attackerTeam);
+  let attacker = getActivePokemon(attackerTeam);
   const defender = getActivePokemon(defenderTeam);
 
   if (attacker.isFainted) return state;
@@ -40,11 +44,13 @@ export function executeMove(
     if (attacker.sleepTurns <= 0) {
       const newAttacker = { ...attacker, status: null as StatusCondition, sleepTurns: 0 };
       log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} woke up!`, kind: "status" });
+      state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, newAttacker);
+      attacker = newAttacker;
+    } else {
+      const newAttacker = { ...attacker, sleepTurns: attacker.sleepTurns - 1 };
+      log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} is fast asleep!`, kind: "status" });
       return updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, newAttacker);
     }
-    const newAttacker = { ...attacker, sleepTurns: attacker.sleepTurns - 1 };
-    log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} is fast asleep!`, kind: "status" });
-    return updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, newAttacker);
   }
   if (attacker.status === "freeze") {
     if (Math.random() < 0.2) {
@@ -56,6 +62,49 @@ export function executeMove(
       return state;
     }
   }
+
+  // Confusion check
+  if (attacker.confusionTurns > 0) {
+    const remaining = attacker.confusionTurns - 1;
+    if (remaining <= 0) {
+      const newAttacker = { ...attacker, confusionTurns: 0 };
+      log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} snapped out of confusion!`, kind: "status" });
+      state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, newAttacker);
+      attacker = newAttacker;
+    } else {
+      const newAttacker = { ...attacker, confusionTurns: remaining };
+      log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} is confused!`, kind: "status" });
+      state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, newAttacker);
+      attacker = newAttacker;
+
+      // 1/3 chance to hit itself
+      if (Math.random() < CONFUSION_SELF_HIT_CHANCE) {
+        log.push({ turn: state.turn, message: `It hurt itself in its confusion!`, kind: "status" });
+
+        // Typeless 40 BP physical self-hit: ((2*50/5+2) * 40 * Atk/Def) / 50 + 2
+        const baseStats = extractBaseStats(attacker.slot.pokemon);
+        const calc = calculateAllStats(
+          baseStats,
+          attacker.slot.ivs ?? DEFAULT_IVS,
+          attacker.slot.evs ?? DEFAULT_EVS,
+          attacker.slot.nature ?? null
+        );
+        const atk = Math.floor(calc.attack * getStatStageMultiplier(attacker.statStages.attack));
+        const def = Math.floor(calc.defense * getStatStageMultiplier(attacker.statStages.defense));
+        const baseDamage = Math.floor(((22 * CONFUSION_SELF_HIT_POWER * atk) / def) / 50 + 2);
+        const damage = Math.max(1, baseDamage);
+        const newHp = Math.max(0, attacker.currentHp - damage);
+        let selfHitAttacker = { ...attacker, currentHp: newHp };
+        if (newHp <= 0) {
+          selfHitAttacker = { ...selfHitAttacker, currentHp: 0, isFainted: true, isActive: false };
+          log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} fainted!`, kind: "faint" });
+        }
+        return updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, selfHitAttacker);
+      }
+    }
+  }
+
+  // TODO: Outrage/Thrash/Petal Dance cause confusion after 2-3 turns of locked use
 
   const moves = attacker.slot.selectedMoves ?? [];
   const moveName = moves[moveIndex];

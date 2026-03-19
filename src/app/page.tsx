@@ -412,7 +412,7 @@ export default function Home() {
               {activeTab === "analysis" && (
                 <ErrorBoundary fallbackLabel="Coverage analysis crashed">
                   <div className="space-y-6">
-                    <TypeCoverage team={teamPokemon} />
+                    <TypeCoverage team={team} />
                     <TeamWeaknessPanel team={team} />
                   </div>
                 </ErrorBoundary>
@@ -458,7 +458,7 @@ export default function Home() {
               {activeTab === "damage" && (
                 <ErrorBoundary fallbackLabel="Damage calculator crashed">
                   <div className="space-y-6">
-                    <DamageCalculator team={teamPokemon} />
+                    <DamageCalculator team={team} />
                     <DamageMatrix team={team} />
                   </div>
                 </ErrorBoundary>

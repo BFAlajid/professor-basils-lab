@@ -39,13 +39,17 @@ export default function MovePanel({ pokemon, onSelectMove, disabled, isDynamaxed
         const moveType = displayData?.type.name ?? "normal";
         const color = typeColors[moveType as keyof typeof typeColors] ?? "#A8A878";
 
+        const isChoiceLocked = pokemon.choiceLockedMove !== null;
+        const isLockedMove = isChoiceLocked && pokemon.choiceLockedMove === moveName;
+        const isBlockedByLock = isChoiceLocked && pokemon.choiceLockedMove !== moveName;
+
         return (
           <button
             key={moveName}
-            onClick={() => onSelectMove(index)}
-            disabled={disabled}
-            aria-label={`Use move ${(displayData?.name ?? moveName).replace(/-/g, " ")}`}
-            className="rounded-lg border-2 px-3 py-2 text-left text-sm font-medium transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={() => { if (!isBlockedByLock) onSelectMove(index); }}
+            disabled={disabled || isBlockedByLock}
+            aria-label={`Use move ${(displayData?.name ?? moveName).replace(/-/g, " ")}${isLockedMove ? " (locked)" : ""}${isBlockedByLock ? " (unavailable - choice locked)" : ""}`}
+            className={`rounded-lg border-2 px-3 py-2 text-left text-sm font-medium transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed relative ${isBlockedByLock ? "opacity-50 cursor-not-allowed" : ""}`}
             style={{
               borderColor: color,
               backgroundColor: `${color}20`,
@@ -60,6 +64,11 @@ export default function MovePanel({ pokemon, onSelectMove, disabled, isDynamaxed
                   ? "Status"
                   : `${displayData.power ?? "—"} BP`}
                 {displayData.accuracy ? ` · ${displayData.accuracy}%` : ""}
+              </span>
+            )}
+            {isLockedMove && (
+              <span className="absolute top-1 right-1 text-[8px] font-pixel text-[#f7a838] bg-[#1a1c2c] px-1 rounded">
+                Locked
               </span>
             )}
           </button>

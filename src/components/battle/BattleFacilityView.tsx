@@ -51,6 +51,7 @@ export default function BattleFacilityView({
   const hofLeaderboard = useLeaderboard("hall-of-fame");
   const submittedTowerStreak = useRef<number>(0);
   const submittedHof = useRef(false);
+  const savedHof = useRef(false);
 
   // Auto-submit battle tower streak when a new personal best is achieved (defeat/victory phase)
   useEffect(() => {
@@ -94,6 +95,32 @@ export default function BattleFacilityView({
     };
     hofLeaderboard.submitScore(entry).catch((e) => silentWarn("hofLeaderboardSubmit", e));
   }, [phase, playerTeam, hofLeaderboard.submitScore]);
+
+  // Auto-save to Hall of Fame on victory
+  useEffect(() => {
+    if (phase !== "victory") {
+      savedHof.current = false;
+      return;
+    }
+    if (savedHof.current) return;
+    savedHof.current = true;
+
+    const teamForHof = playerTeam.map((slot) => ({
+      pokemonId: slot.pokemon.id,
+      name: slot.pokemon.name,
+      spriteUrl: slot.pokemon.sprites.front_default,
+      level: 50,
+    }));
+
+    saveToHallOfFame({
+      id: "",
+      date: new Date().toISOString(),
+      mode: mode as "elite_four" | "battle_tower" | "gym_challenge",
+      team: teamForHof,
+      streak: isTower ? streak : undefined,
+      gymBadges: isGym ? (badges?.length ?? 0) : undefined,
+    });
+  }, [phase, mode, playerTeam, isTower, isGym, streak, badges]);
 
   // Hall of Fame overlay
   if (showHallOfFame) {
@@ -277,24 +304,6 @@ export default function BattleFacilityView({
 
   // Victory
   if (phase === "victory") {
-    // Auto-save to Hall of Fame
-    const teamForHof = playerTeam.map((slot) => ({
-      pokemonId: slot.pokemon.id,
-      name: slot.pokemon.name,
-      spriteUrl: slot.pokemon.sprites.front_default,
-      level: 50,
-    }));
-
-    // Save once (useEffect pattern not ideal here, so we rely on idempotent save)
-    saveToHallOfFame({
-      id: "",
-      date: new Date().toISOString(),
-      mode: mode as "elite_four" | "battle_tower" | "gym_challenge",
-      team: teamForHof,
-      streak: isTower ? streak : undefined,
-      gymBadges: isGym ? (badges?.length ?? 0) : undefined,
-    });
-
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateDamage, extractBaseStats, getEffectivenessText } from "../damage";
+import { calculateDamage, extractBaseStats, getEffectivenessText, calculateKO } from "../damage";
 import { mockCharizard, mockBlastoise, mockVenusaur } from "@/test/mocks/pokemon";
 import { Move } from "@/types";
 
@@ -121,5 +121,62 @@ describe("getEffectivenessText", () => {
     expect(getEffectivenessText(0.5)).toBe("not very effective");
     expect(getEffectivenessText(1)).toBe("neutral");
     expect(getEffectivenessText(2)).toBe("super effective!");
+  });
+});
+
+describe("calculateKO", () => {
+  it("returns guaranteed OHKO when min damage >= HP", () => {
+    const result = calculateKO(200, 250, 150);
+    expect(result.koText).toBe("Guaranteed OHKO");
+    expect(result.hpPercent.min).toBeGreaterThan(100);
+  });
+
+  it("returns chance to OHKO when only max damage >= HP", () => {
+    const result = calculateKO(140, 160, 150);
+    expect(result.koText).toContain("chance to OHKO");
+    expect(result.koText).toContain("%");
+  });
+
+  it("calculates OHKO probability correctly", () => {
+    // range = 160 - 140 + 1 = 21, koRolls = 160 - 150 + 1 = 11
+    // chance = round(11/21 * 100) = 52%
+    const result = calculateKO(140, 160, 150);
+    expect(result.koText).toBe("52% chance to OHKO");
+  });
+
+  it("returns guaranteed 2HKO when min*2 >= HP", () => {
+    const result = calculateKO(80, 100, 150);
+    expect(result.koText).toBe("Guaranteed 2HKO");
+  });
+
+  it("returns possible 2HKO when max*2 >= HP but min*2 < HP", () => {
+    const result = calculateKO(60, 80, 150);
+    expect(result.koText).toBe("Possible 2HKO");
+  });
+
+  it("returns 3HKO when appropriate", () => {
+    const result = calculateKO(55, 60, 150);
+    expect(result.koText).toBe("3HKO");
+  });
+
+  it("returns multi-hit KO for low damage", () => {
+    const result = calculateKO(10, 15, 150);
+    expect(result.koText).toContain("HKO");
+  });
+
+  it("returns does not KO for zero damage", () => {
+    const result = calculateKO(0, 0, 150);
+    expect(result.koText).toBe("Does not KO");
+  });
+
+  it("returns does not KO for zero HP", () => {
+    const result = calculateKO(50, 60, 0);
+    expect(result.koText).toBe("Does not KO");
+  });
+
+  it("calculates HP percentages correctly", () => {
+    const result = calculateKO(50, 100, 200);
+    expect(result.hpPercent.min).toBe(25);
+    expect(result.hpPercent.max).toBe(50);
   });
 });

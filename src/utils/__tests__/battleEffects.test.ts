@@ -364,13 +364,14 @@ describe("applyEndOfTurnEffects", () => {
       expect(log.some((l) => l.message.includes("Black Sludge"))).toBe(true);
     });
 
-    it("Black Sludge does not heal non-poison types", () => {
+    it("Black Sludge damages non-poison types", () => {
       const normalMon = mockMonoType("snorlax", "normal");
       const slot = createMockTeamSlot(normalMon);
       slot.heldItem = "black-sludge";
       const { state, log } = stateForEOT({ currentHp: 200, slot }, undefined, normalMon);
       const result = applyEndOfTurnEffects(state, log);
-      expect(result.player1.pokemon[0].currentHp).toBe(200);
+      const dmg = Math.max(1, Math.floor(300 / 8));
+      expect(result.player1.pokemon[0].currentHp).toBe(200 - dmg);
     });
   });
 
@@ -441,7 +442,7 @@ describe("applyEndOfTurnEffects", () => {
   });
 
   describe("Speed Boost ability", () => {
-    it("raises speed by 1 stage at end of turn", () => {
+    it("raises speed by 1 stage at end of turn (after first turn)", () => {
       vi.mocked(getAbilityHooks).mockReturnValue({
         onEndOfTurn: () => ({
           type: "speed_boost",
@@ -450,9 +451,23 @@ describe("applyEndOfTurnEffects", () => {
           message: "Speed Boost raised its speed!",
         }),
       } as any);
-      const { state, log } = stateForEOT({});
+      const { state, log } = stateForEOT({ turnsOnField: 2 });
       const result = applyEndOfTurnEffects(state, log);
       expect(result.player1.pokemon[0].statStages.speed).toBe(1);
+    });
+
+    it("does not activate on the switch-in turn", () => {
+      vi.mocked(getAbilityHooks).mockReturnValue({
+        onEndOfTurn: () => ({
+          type: "speed_boost",
+          stat: "speed",
+          stages: 1,
+          message: "Speed Boost raised its speed!",
+        }),
+      } as any);
+      const { state, log } = stateForEOT({ turnsOnField: 1 });
+      const result = applyEndOfTurnEffects(state, log);
+      expect(result.player1.pokemon[0].statStages.speed).toBe(0);
     });
   });
 

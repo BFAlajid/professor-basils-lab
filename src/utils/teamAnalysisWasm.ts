@@ -1,4 +1,4 @@
-import type { TypeName, TeamSlot, Pokemon } from "@/types";
+import { TypeName, TeamSlot, Pokemon } from "@/types";
 import { silentWarn } from "@/utils/silentWarn";
 import { TYPE_LIST } from "@/data/typeChart";
 import { typeToIndex } from "./typeChartWasm";
@@ -145,7 +145,15 @@ export function analyzeTeam(team: TeamSlot[]): TeamWeaknessReport {
   }
 }
 
-export function analyzeDefensiveCoverage(team: Pokemon[]): CoverageResult[] {
+export function analyzeDefensiveCoverage(
+  team: Pokemon[],
+  moveTypes?: TypeName[]
+): CoverageResult[] {
+  // When move types are provided, use JS path which supports them natively
+  if (moveTypes && moveTypes.length > 0) {
+    return analyzeDefensiveCoverage_JS(team, moveTypes);
+  }
+
   const wasmModule = wrapper.getModule();
   if (!wasmModule || team.length === 0) {
     return analyzeDefensiveCoverage_JS(team);

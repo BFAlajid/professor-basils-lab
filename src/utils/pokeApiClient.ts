@@ -27,11 +27,21 @@ export interface PokemonSpeciesData {
   varieties: { is_default: boolean; pokemon: { name: string; url: string } }[];
 }
 
+interface TypePokemonEntry {
+  pokemon: { name: string; url: string };
+  slot: number;
+}
+
+interface TypeEndpointResponse {
+  pokemon: TypePokemonEntry[];
+}
+
 const cache = {
   pokemon: new Map<string, Pokemon>(),
   move: new Map<string, Move>(),
   species: new Map<string, PokemonSpeciesData>(),
   ability: new Map<string, AbilityData>(),
+  typePokemon: new Map<string, Set<string>>(),
   pokemonList: null as PokemonListItem[] | null,
 };
 
@@ -76,6 +86,28 @@ export async function fetchAbilityData(nameOrId: string | number): Promise<Abili
   const data = await fetchJson<AbilityData>(`${getBase()}/ability/${key}`);
   cache.ability.set(key, data);
   return data;
+}
+
+/**
+ * Fetch all Pokemon names that have a given type. Returns a Set of lowercase names.
+ * Used by the search filter to narrow results by type.
+ */
+export async function fetchTypePokemonNames(typeName: string): Promise<Set<string>> {
+  const key = typeName.toLowerCase();
+  const cached = cache.typePokemon.get(key);
+  if (cached) return cached;
+  const data = await fetchJson<TypeEndpointResponse>(`${getBase()}/type/${key}`);
+  const names = new Set(data.pokemon.map((e) => e.pokemon.name));
+  cache.typePokemon.set(key, names);
+  return names;
+}
+
+/**
+ * Synchronously retrieve a cached Move by name (returns undefined if not yet fetched).
+ * Used by team analysis to include move types in offensive coverage without async calls.
+ */
+export function getCachedMove(name: string): Move | undefined {
+  return cache.move.get(name.toLowerCase());
 }
 
 export async function fetchPokemonListData(): Promise<PokemonListItem[]> {

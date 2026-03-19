@@ -93,10 +93,10 @@ function toMoveApiName(showdownName: string): string {
  * ```
  */
 export function exportToShowdown(team: TeamSlot[]): string {
-  return team.map(exportSlot).join("\n\n");
+  return team.map(exportSlotToShowdown).join("\n\n");
 }
 
-function exportSlot(slot: TeamSlot): string {
+export function exportSlotToShowdown(slot: TeamSlot): string {
   const lines: string[] = [];
 
   // ── Line 1: Species / Nickname @ Item ───────────────────────────────
@@ -136,13 +136,15 @@ function exportSlot(slot: TeamSlot): string {
     lines.push(`${capitalize(slot.nature.name)} Nature`);
   }
 
-  // ── IVs ──────────────────────────────────────────────────────────────
+  // ── IVs (only list non-31 values) ──────────────────────────────────
   const ivs = slot.ivs ?? { ...DEFAULT_IVS };
-  const hasNonMaxIv = STAT_KEYS.some((key) => ivs[key] !== 31);
-  if (hasNonMaxIv) {
-    const ivParts = STAT_KEYS.map(
-      (key) => `${ivs[key]} ${STAT_TO_SHOWDOWN[key]}`
-    );
+  const ivParts: string[] = [];
+  for (const key of STAT_KEYS) {
+    if (ivs[key] !== 31) {
+      ivParts.push(`${ivs[key]} ${STAT_TO_SHOWDOWN[key]}`);
+    }
+  }
+  if (ivParts.length > 0) {
     lines.push(`IVs: ${ivParts.join(" / ")}`);
   }
 

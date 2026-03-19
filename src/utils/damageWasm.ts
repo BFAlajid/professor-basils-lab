@@ -199,5 +199,5 @@ export function calculateDamage(
   }
 }
 
-export { extractBaseStats, getEffectivenessText } from "./damage";
-export type { DamageCalcOptions, DamageResult } from "./damage";
+export { extractBaseStats, getEffectivenessText, calculateKO } from "./damage";
+export type { DamageCalcOptions, DamageResult, KOResult } from "./damage";

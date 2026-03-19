@@ -53,6 +53,7 @@ export default function BattleTab({ team }: BattleTabProps) {
   const [viewingReplay, setViewingReplay] = useState<BattleReplay | null>(null);
   const [replaySaved, setReplaySaved] = useState(false);
   const [activeBattleMode, setActiveBattleMode] = useState<"ai" | "pvp" | "tournament" | "online" | "facility" | "factory" | null>(null);
+  const factoryEndHandled = useRef(false);
 
   // Determine which battle state to use
   const isFacilityMode = activeBattleMode === "facility";
@@ -74,6 +75,24 @@ export default function BattleTab({ team }: BattleTabProps) {
       setReplaySaved(false);
     }
   }, [state.phase]);
+
+  // Handle factory battle end (report win/loss + reset)
+  useEffect(() => {
+    if (activeBattleMode !== "factory") return;
+    const fPhase = factory.factoryState.phase;
+    if (fPhase !== "battling" || state.phase !== "ended") {
+      factoryEndHandled.current = false;
+      return;
+    }
+    if (factoryEndHandled.current) return;
+    factoryEndHandled.current = true;
+    if (state.winner === "player1") {
+      factory.reportWin();
+    } else {
+      factory.reportLoss();
+    }
+    resetBattle();
+  }, [state.phase, state.winner, activeBattleMode, factory, resetBattle]);
 
   const handleSaveReplay = useCallback(() => {
     const replay = saveReplay(state);
@@ -273,14 +292,8 @@ export default function BattleTab({ team }: BattleTabProps) {
       );
     }
 
-    // Battle ended in factory mode
+    // Battle ended in factory mode — handled by useEffect below
     if (fPhase === "battling" && state.phase === "ended") {
-      if (state.winner === "player1") {
-        factory.reportWin();
-      } else {
-        factory.reportLoss();
-      }
-      resetBattle();
       return null;
     }
 
