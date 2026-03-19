@@ -83,7 +83,7 @@ export async function generateScaledTeam(floor: number): Promise<TeamSlot[]> {
 
       // EVs scale with difficulty
       const evs = difficulty === "easy"
-        ? { hp: 128, attack: 128, defense: 64, spAtk: 64, spDef: 64, speed: 64 }
+        ? { hp: 126, attack: 126, defense: 64, spAtk: 64, spDef: 64, speed: 64 }
         : isPhysical
           ? randomChoice(EV_SPREADS.slice(0, 2))
           : randomChoice(EV_SPREADS.slice(2, 4));

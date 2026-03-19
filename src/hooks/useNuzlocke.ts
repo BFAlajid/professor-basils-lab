@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import { NuzlockeState, NuzlockeGravePokemon, Pokemon } from "@/types";
 
@@ -15,9 +15,13 @@ const initialState: NuzlockeState = {
 
 export function useNuzlocke() {
   const [state, setState] = useState<NuzlockeState>(initialState);
+  const initialized = useRef(false);
 
   // Load from localStorage on mount
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
     try {
       const saved = localStorage.getItem(NUZLOCKE_KEY);
       if (saved) {
@@ -30,6 +34,7 @@ export function useNuzlocke() {
 
   // Persist to localStorage on change
   useEffect(() => {
+    if (!initialized.current) return;
     try {
       localStorage.setItem(NUZLOCKE_KEY, JSON.stringify(state));
     } catch (e) {

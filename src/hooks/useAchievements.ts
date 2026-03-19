@@ -108,12 +108,15 @@ export function useAchievements() {
   }, [definitions, unlockedMap]);
 
   // Check achievements and return newly unlocked ones
+  const newUnlocksRef = useRef<Achievement[]>([]);
+
   const checkAchievements = useCallback(() => {
-    let newUnlocks: Achievement[] = [];
+    newUnlocksRef.current = [];
 
     setUnlockedMap((prev) => {
       const updated = { ...prev };
       let changed = false;
+      const unlocks: Achievement[] = [];
 
       for (const def of definitions) {
         if (def.id in updated) continue;
@@ -121,7 +124,7 @@ export function useAchievements() {
           const now = new Date().toISOString();
           updated[def.id] = now;
           changed = true;
-          newUnlocks.push({
+          unlocks.push({
             ...def,
             unlocked: true,
             unlockedAt: now,
@@ -129,11 +132,13 @@ export function useAchievements() {
         }
       }
 
+      newUnlocksRef.current = unlocks;
       if (!changed) return prev;
       return updated;
     });
 
     // Show the most recent unlock as a toast trigger
+    const newUnlocks = newUnlocksRef.current;
     if (newUnlocks.length > 0) {
       const latest = newUnlocks[newUnlocks.length - 1];
       setRecentUnlock(latest);

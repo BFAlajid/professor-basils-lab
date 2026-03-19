@@ -50,7 +50,6 @@ export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
   "yawn": { targetStatus: "sleep" },
   "glare": { targetStatus: "paralyze" },
   "stun-spore": { targetStatus: "paralyze" },
-  "nuzzle": { targetStatus: "paralyze" },
 
   // Protection
   "protect": { protect: true },

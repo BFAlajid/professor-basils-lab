@@ -13,6 +13,7 @@ import {
 import { pickRandomFromPool } from "@/data/wonderTradePool";
 import { NATURES } from "@/data/natures";
 import { generateRandomIVs } from "@/utils/wildBattle";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 import { shuffleArray } from "@/utils/random";
 
 const WONDER_TRADE_KEY = "pokemon-wonder-trade";
@@ -107,11 +108,7 @@ export function useWonderTrade() {
         const poolEntry = pickRandomFromPool();
 
         // Fetch Pokemon data from PokeAPI
-        const response = await fetch(
-          `https://pokeapi.co/api/v2/pokemon/${poolEntry.pokemonId}`
-        );
-        if (!response.ok) throw new Error("Failed to fetch Pokemon");
-        const pokemonData = await response.json();
+        const pokemonData = await fetchPokemonData(poolEntry.pokemonId);
 
         // Random level 1-50
         const level = Math.floor(Math.random() * 50) + 1;

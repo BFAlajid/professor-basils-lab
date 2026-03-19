@@ -115,9 +115,13 @@ export function getMoveIndexFromAction(action: BattleTurnAction): number | null 
   return null;
 }
 
+const BATTLE_MOVE_CACHE_LIMIT = 500;
 const battleMoveCache: Map<string, BattleMoveData> = new Map();
 
 export function cacheBattleMove(name: string, data: BattleMoveData) {
+  if (battleMoveCache.size >= BATTLE_MOVE_CACHE_LIMIT) {
+    battleMoveCache.clear();
+  }
   battleMoveCache.set(name, data);
 }
 

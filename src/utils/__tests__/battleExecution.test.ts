@@ -194,12 +194,12 @@ describe("executeMove", () => {
   });
 
   describe("Fake Out", () => {
-    it("fails when turnsOnField > 0", () => {
+    it("fails when turnsOnField > 1", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.99);
       cacheTestMove("fake-out", { type: { name: "normal" }, priority: 3 });
       const slot = createMockTeamSlot(mockCharizard);
       slot.selectedMoves = ["fake-out", "flamethrower", "air-slash", "dragon-pulse"];
-      const state = createMockBattleState({ p1Overrides: { slot, turnsOnField: 1 } });
+      const state = createMockBattleState({ p1Overrides: { slot, turnsOnField: 2 } });
       const log: BattleLogEntry[] = [];
       executeMove(state, "player1", 0, log);
       expect(log.some((l) => l.message.includes("Fake Out failed"))).toBe(true);

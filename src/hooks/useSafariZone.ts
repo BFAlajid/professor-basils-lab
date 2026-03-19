@@ -11,6 +11,7 @@ import {
   SafariZoneState,
   Pokemon,
 } from "@/types";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 import {
   SAFARI_ENCOUNTERS,
   SafariEncounterDef,
@@ -301,11 +302,7 @@ export function useSafariZone() {
       const encounter = weightedRandom(pool);
 
       try {
-        const res = await fetch(
-          `https://pokeapi.co/api/v2/pokemon/${encounter.pokemonId}`
-        );
-        if (!res.ok) throw new Error("Failed to fetch Pokemon");
-        const pokemon: Pokemon = await res.json();
+        const pokemon: Pokemon = await fetchPokemonData(encounter.pokemonId);
 
         const level =
           encounter.minLevel +

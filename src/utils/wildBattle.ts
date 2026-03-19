@@ -61,18 +61,20 @@ export function createWildTeamSlot(pokemon: Pokemon, level: number): TeamSlot {
 
 export function createWildBattlePokemon(pokemon: Pokemon, level: number): BattlePokemon {
   const slot = createWildTeamSlot(pokemon, level);
-  const bp = initBattlePokemon(slot);
-  bp.isActive = true;
+  const base = initBattlePokemon(slot);
 
   // Scale HP based on level (wild Pokemon at lower levels should have less HP)
   // Use a simple level-based scaling factor
   const levelScale = Math.max(WILD_CONFIG.MIN_HP_SCALE, level / WILD_CONFIG.MAX_LEVEL_DIVISOR);
-  const scaledHp = Math.max(10, Math.floor(bp.maxHp * levelScale));
-  bp.currentHp = scaledHp;
-  bp.maxHp = scaledHp;
-  bp.originalMaxHp = scaledHp;
+  const scaledHp = Math.max(10, Math.floor(base.maxHp * levelScale));
 
-  return bp;
+  return {
+    ...base,
+    isActive: true,
+    currentHp: scaledHp,
+    maxHp: scaledHp,
+    originalMaxHp: scaledHp,
+  };
 }
 
 export async function preloadWildMoves(pokemon: Pokemon): Promise<void> {

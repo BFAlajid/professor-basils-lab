@@ -90,5 +90,5 @@ export async function GET(request: Request) {
 
   const durationMs = Date.now() - start;
 
-  return Response.json({ warmed, failed, durationMs });
+  return Response.json({ warmed, failedCount: failed.length, durationMs });
 }

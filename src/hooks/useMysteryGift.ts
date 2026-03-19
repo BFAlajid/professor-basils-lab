@@ -13,6 +13,7 @@ import {
 import { getTodaysGift } from "@/data/mysteryGifts";
 import { NATURES } from "@/data/natures";
 import { generateRandomIVs } from "@/utils/wildBattle";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 
 const STORAGE_KEY = "pokemon-mystery-gift";
 
@@ -105,11 +106,12 @@ export function useMysteryGift() {
     const gift = giftResult.gift;
 
     // Fetch the Pokemon from PokeAPI
-    const res = await fetch(
-      `https://pokeapi.co/api/v2/pokemon/${gift.pokemonId}`
-    );
-    if (!res.ok) return null;
-    const data: Pokemon = await res.json();
+    let data: Pokemon;
+    try {
+      data = await fetchPokemonData(gift.pokemonId);
+    } catch {
+      return null;
+    }
 
     // Nature: use gift-specified nature or random
     const nature = gift.nature

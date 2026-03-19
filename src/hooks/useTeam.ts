@@ -129,10 +129,12 @@ export function useTeam() {
   // Load team from localStorage on mount
   useEffect(() => {
     if (initialized.current) return;
-    initialized.current = true;
 
     const saved = loadTeamData();
-    if (saved.length === 0) return;
+    if (saved.length === 0) {
+      initialized.current = true;
+      return;
+    }
 
     // Detect old format (number[]) vs new format (SavedSlot[])
     const isOldFormat = typeof saved[0] === "number";
@@ -155,8 +157,10 @@ export function useTeam() {
         if (slots.length > 0) {
           dispatch({ type: "SET_TEAM", slots });
         }
+        initialized.current = true;
       }).catch((e) => {
         silentWarn("loadTeamPokemon", e);
+        initialized.current = true;
       });
     } else {
       const savedSlots = saved as SavedSlot[];
@@ -188,8 +192,10 @@ export function useTeam() {
         if (validSlots.length > 0) {
           dispatch({ type: "SET_TEAM", slots: validSlots });
         }
+        initialized.current = true;
       }).catch((e) => {
         silentWarn("loadTeamPokemon", e);
+        initialized.current = true;
       });
     }
   }, []);
@@ -303,7 +309,31 @@ export type DecodedTeamData = ShareableSlot[];
 
 export function decodeTeam(encoded: string): number[] | DecodedTeamData {
   try {
-    return JSON.parse(atob(encoded));
+    const parsed = JSON.parse(atob(encoded));
+    if (!Array.isArray(parsed) || parsed.length === 0 || parsed.length > MAX_TEAM_SIZE) return [];
+
+    // Old format: array of numeric IDs
+    if (typeof parsed[0] === "number") {
+      if (!parsed.every((v: unknown) => typeof v === "number" && Number.isFinite(v) && v > 0)) return [];
+      return parsed as number[];
+    }
+
+    // New format: array of ShareableSlot objects
+    const validated: ShareableSlot[] = [];
+    for (const slot of parsed) {
+      if (typeof slot !== "object" || slot === null) return [];
+      if (typeof slot.id !== "number" || !Number.isFinite(slot.id) || slot.id <= 0) return [];
+      if (slot.n !== undefined && typeof slot.n !== "string") return [];
+      if (slot.a !== undefined && slot.a !== null && typeof slot.a !== "string") return [];
+      if (slot.h !== undefined && slot.h !== null && typeof slot.h !== "string") return [];
+      if (slot.t !== undefined && typeof slot.t !== "string") return [];
+      if (slot.f !== undefined && slot.f !== null && typeof slot.f !== "string") return [];
+      if (slot.m !== undefined && (!Array.isArray(slot.m) || !slot.m.every((v: unknown) => typeof v === "string"))) return [];
+      if (slot.e !== undefined && (!Array.isArray(slot.e) || slot.e.length !== 6 || !slot.e.every((v: unknown) => typeof v === "number" && v >= 0 && v <= 252))) return [];
+      if (slot.i !== undefined && (!Array.isArray(slot.i) || slot.i.length !== 6 || !slot.i.every((v: unknown) => typeof v === "number" && v >= 0 && v <= 31))) return [];
+      validated.push({ id: slot.id, n: slot.n, e: slot.e, i: slot.i, a: slot.a, h: slot.h, m: slot.m, t: slot.t, f: slot.f });
+    }
+    return validated;
   } catch (e) {
     silentWarn("decodeTeam", e);
     return [];

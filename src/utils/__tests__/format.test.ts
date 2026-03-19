@@ -31,8 +31,8 @@ describe("getStatLabel", () => {
     expect(getStatLabel("attack")).toBe("Attack");
   });
 
-  it("returns 'Hp' for hp", () => {
-    expect(getStatLabel("hp")).toBe("Hp");
+  it("returns 'HP' for hp", () => {
+    expect(getStatLabel("hp")).toBe("HP");
   });
 
   it("returns 'Speed' for speed", () => {

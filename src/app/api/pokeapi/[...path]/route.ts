@@ -37,10 +37,11 @@ export async function GET(
     }
   }
 
+  const ALLOWED_PARAMS = new Set(["limit", "offset"]);
   const { searchParams } = new URL(request.url);
   const upstreamUrl = new URL(`${UPSTREAM_BASE}/${path.join("/")}`);
   searchParams.forEach((value, key) => {
-    upstreamUrl.searchParams.set(key, value);
+    if (ALLOWED_PARAMS.has(key)) upstreamUrl.searchParams.set(key, value);
   });
 
   const controller = new AbortController();

@@ -1,5 +1,5 @@
 "use client";
-import { useReducer, useEffect, useCallback } from "react";
+import { useReducer, useEffect, useCallback, useRef } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import { BERRIES } from "@/data/berries";
 
@@ -90,8 +90,12 @@ function reducer(state: BerryFarmState, action: BerryFarmAction): BerryFarmState
 
 export function useBerryFarm() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const initialized = useRef(false);
 
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -106,6 +110,7 @@ export function useBerryFarm() {
   }, []);
 
   useEffect(() => {
+    if (!initialized.current) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 

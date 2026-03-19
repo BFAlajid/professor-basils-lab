@@ -15,7 +15,24 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   async headers() {
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' raw.githubusercontent.com *.public.blob.vercel-storage.com data:",
+      "connect-src 'self' pokeapi.co *.pokeapi.co 0.peerjs.com *.public.blob.vercel-storage.com",
+      "worker-src 'self' blob:",
+      "child-src 'self' blob:",
+    ].join("; ");
+
     return [
+      // CSP for all routes
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "Content-Security-Policy", value: csp },
+        ],
+      },
       // COOP/COEP only on the root SPA page (needed for WASM SharedArrayBuffer in emulator tab)
       // New routes (/pokemon/*, /share/*, /api/og) are free of these restrictions
       {

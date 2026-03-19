@@ -140,6 +140,8 @@ export function pickWeightedRandom(pool: WildPokemonData[]): WildPokemonData {
 
 export function useWildEncounter(playerTeam: TeamSlot[]) {
   const [state, dispatch] = useReducer(wildEncounterReducer, initialState);
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const wildBpRef = useRef<BattlePokemon | null>(null);
   const playerBpRef = useRef<BattlePokemon | null>(null);
   const battleLogRef = useRef<string[]>([]);
@@ -149,9 +151,10 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
   }, []);
 
   const startEncounter = useCallback(async () => {
-    if (!state.currentArea || playerTeam.length === 0) return;
+    const current = stateRef.current;
+    if (!current.currentArea || playerTeam.length === 0) return;
 
-    const encounter = pickWeightedRandom(state.currentArea.encounterPool);
+    const encounter = pickWeightedRandom(current.currentArea.encounterPool);
     const level = randomInt(encounter.minLevel, encounter.maxLevel);
 
     // Fetch Pokemon data
@@ -189,29 +192,30 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
       playerHp: playerBp?.currentHp ?? 0,
       playerMaxHp: playerBp?.maxHp ?? 0,
     });
-  }, [state.currentArea, playerTeam]);
+  }, [playerTeam]);
 
   const enterBattle = useCallback(() => {
+    const current = stateRef.current;
     // Transition from encounter_intro to battle phase
-    // We dispatch a no-change attack to move to battle phase
     dispatch({
       type: "PLAYER_ATTACK",
-      newWildHp: state.wildCurrentHp,
-      newWildStatus: state.wildStatus,
-      newPlayerHp: state.playerCurrentHp,
-      newPlayerStatus: state.playerStatus,
+      newWildHp: current.wildCurrentHp,
+      newWildStatus: current.wildStatus,
+      newPlayerHp: current.playerCurrentHp,
+      newPlayerStatus: current.playerStatus,
       logMessages: [],
     });
-  }, [state]);
+  }, []);
 
   const playerAttack = useCallback((moveIndex: number) => {
     if (!wildBpRef.current || !playerBpRef.current) return;
+    const current = stateRef.current;
 
     // Update refs with current state
-    wildBpRef.current.currentHp = state.wildCurrentHp;
-    wildBpRef.current.status = state.wildStatus;
-    playerBpRef.current.currentHp = state.playerCurrentHp;
-    playerBpRef.current.status = state.playerStatus;
+    wildBpRef.current.currentHp = current.wildCurrentHp;
+    wildBpRef.current.status = current.wildStatus;
+    playerBpRef.current.currentHp = current.playerCurrentHp;
+    playerBpRef.current.status = current.playerStatus;
 
     const result = executeWildTurn(playerBpRef.current, wildBpRef.current, moveIndex);
     battleLogRef.current = [...battleLogRef.current, ...result.log];
@@ -232,36 +236,37 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
 
     // Check if wild should flee after turn
     if (!result.wildFainted && !result.playerFainted) {
-      if (shouldWildFlee(state.wildCaptureRate, state.encounterTurn)) {
+      if (shouldWildFlee(current.wildCaptureRate, current.encounterTurn)) {
         setTimeout(() => {
           dispatch({ type: "WILD_FLED" });
         }, 500);
       }
     }
-  }, [state]);
+  }, []);
 
   const throwBall = useCallback((ball: BallType, isRepeatCatch?: boolean) => {
-    if (!state.wildPokemon) return;
+    const current = stateRef.current;
+    if (!current.wildPokemon) return;
 
-    const area = state.currentArea;
+    const area = current.currentArea;
     const context = {
-      turn: state.encounterTurn,
+      turn: current.encounterTurn,
       isNight: new Date().getHours() >= 20 || new Date().getHours() < 6,
       isCave: area?.theme === "cave",
       isWater: area?.theme === "water",
-      wildPokemonTypes: state.wildPokemon.types.map((t) => t.type.name),
-      wildPokemonLevel: state.wildLevel,
+      wildPokemonTypes: current.wildPokemon.types.map((t) => t.type.name),
+      wildPokemonLevel: current.wildLevel,
       playerPokemonLevel: 50,
-      wildHpPercent: state.wildCurrentHp / state.wildMaxHp,
-      wildStatus: state.wildStatus,
+      wildHpPercent: current.wildCurrentHp / current.wildMaxHp,
+      wildStatus: current.wildStatus,
       isRepeatCatch: isRepeatCatch ?? false,
     };
 
     const result = calculateCatchProbability(
-      state.wildCaptureRate,
-      state.wildCurrentHp,
-      state.wildMaxHp,
-      state.wildStatus,
+      current.wildCaptureRate,
+      current.wildCurrentHp,
+      current.wildMaxHp,
+      current.wildStatus,
       ball,
       context
     );
@@ -272,7 +277,7 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
       shakeChecks: result.shakeChecks,
       isCaught: result.isCaught,
     });
-  }, [state]);
+  }, []);
 
   const playerRun = useCallback(() => {
     dispatch({ type: "PLAYER_RUN" });
@@ -286,25 +291,26 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
   }, []);
 
   const continueAfterCatch = useCallback(() => {
-    if (!state.isCaught) {
+    const current = stateRef.current;
+    if (!current.isCaught) {
       // Failed catch — wild attacks back
       if (wildBpRef.current && playerBpRef.current) {
-        wildBpRef.current.currentHp = state.wildCurrentHp;
-        wildBpRef.current.status = state.wildStatus;
-        playerBpRef.current.currentHp = state.playerCurrentHp;
-        playerBpRef.current.status = state.playerStatus;
+        wildBpRef.current.currentHp = current.wildCurrentHp;
+        wildBpRef.current.status = current.wildStatus;
+        playerBpRef.current.currentHp = current.playerCurrentHp;
+        playerBpRef.current.status = current.playerStatus;
       }
       // Return to battle phase
       dispatch({
         type: "PLAYER_ATTACK",
-        newWildHp: state.wildCurrentHp,
-        newWildStatus: state.wildStatus,
-        newPlayerHp: state.playerCurrentHp,
-        newPlayerStatus: state.playerStatus,
+        newWildHp: current.wildCurrentHp,
+        newWildStatus: current.wildStatus,
+        newPlayerHp: current.playerCurrentHp,
+        newPlayerStatus: current.playerStatus,
         logMessages: ["The Pokemon broke free!"],
       });
     }
-  }, [state]);
+  }, []);
 
   return {
     state,

@@ -136,6 +136,7 @@ export function calculateDamage(
       attacker: options.attackerBattlePokemon,
       movePower: move.power,
       isPhysical,
+      moveName: move.name,
     });
     if (atkMod !== 1) {
       atk = Math.floor(atk * atkMod);

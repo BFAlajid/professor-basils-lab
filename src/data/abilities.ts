@@ -22,6 +22,7 @@ export interface AbilityHooks {
     attacker: BattlePokemon;
     movePower: number;
     isPhysical: boolean;
+    moveName?: string;
   }) => number; // multiplier (1 = no change)
 
   /** Modify STAB multiplier */
@@ -271,7 +272,7 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
   },
 
   "iron-fist": {
-    modifyAttackStat: ({ attacker }) => {
+    modifyAttackStat: ({ moveName }) => {
       // Iron Fist boosts punching moves — we check via move name patterns
       const punchMoves = [
         "thunder-punch", "ice-punch", "fire-punch", "drain-punch",
@@ -279,8 +280,7 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
         "comet-punch", "shadow-punch", "bullet-punch", "hammer-arm",
         "power-up-punch", "plasma-fists", "meteor-mash",
       ];
-      const lastMove = attacker.lastMoveUsed;
-      if (lastMove && punchMoves.includes(lastMove)) return 1.2;
+      if (moveName && punchMoves.includes(moveName)) return 1.2;
       return 1;
     },
   },

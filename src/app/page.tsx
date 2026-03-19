@@ -128,15 +128,21 @@ export default function Home() {
       if (decoded.length === 0) return;
 
       if (typeof decoded[0] === "number") {
-        // Old format — just IDs
-        (decoded as number[]).forEach(async (id) => {
-          try {
-            const pokemon = await fetchPokemon(id);
-            addPokemon(pokemon);
-          } catch {
-            // skip invalid
-          }
-        });
+        // Old format — just IDs (atomic load via setTeam)
+        Promise.all(
+          (decoded as number[]).map(async (id) => {
+            try {
+              return await fetchPokemon(id);
+            } catch {
+              return null;
+            }
+          })
+        ).then((results) => {
+          const validSlots = results
+            .filter((p): p is NonNullable<typeof p> => p !== null)
+            .map((pokemon, i) => ({ pokemon, position: i } as TeamSlot));
+          if (validSlots.length > 0) setTeam(validSlots);
+        }).catch(() => {});
       } else {
         // New format — full team data
         const slots = decoded as DecodedTeamData;

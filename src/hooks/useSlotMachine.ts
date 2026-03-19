@@ -1,5 +1,5 @@
 "use client";
-import { useReducer, useEffect } from "react";
+import { useReducer, useEffect, useRef } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import { SLOT_SYMBOLS, calculatePayout } from "@/data/slotSymbols";
 
@@ -62,8 +62,12 @@ function randomReel(): number {
 
 export function useSlotMachine() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const initialized = useRef(false);
 
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -76,6 +80,7 @@ export function useSlotMachine() {
   }, []);
 
   useEffect(() => {
+    if (!initialized.current) return;
     localStorage.setItem(STORAGE_KEY, String(state.coins));
   }, [state.coins]);
 

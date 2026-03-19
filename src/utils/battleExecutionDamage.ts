@@ -386,7 +386,7 @@ export function executeDamagingMove(
 
   // Fake Out — only works on first turn on field
   const originalName = (attacker.slot.selectedMoves ?? [])[moveIndex] ?? "";
-  if (originalName === "fake-out" && (attacker.turnsOnField ?? 0) > 0) {
+  if (originalName === "fake-out" && (attacker.turnsOnField ?? 0) > 1) {
     log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name}'s Fake Out failed!`, kind: "info" });
     return state;
   }
@@ -425,6 +425,11 @@ export function executeDamagingMove(
   const originalMoveName = (attacker.slot.selectedMoves ?? [])[moveIndex] ?? "";
   if (originalMoveName === "tera-blast" && attacker.isTerastallized && attacker.teraType) {
     moveData = { ...moveData, type: { name: attacker.teraType } };
+  }
+
+  // Solar Beam power reduction in non-sun weather
+  if (originalMoveName === "solar-beam" && state.field.weather && state.field.weather !== "sun") {
+    moveData = { ...moveData, power: moveData.power ? Math.floor(moveData.power / 2) : moveData.power };
   }
 
   // Critical hit check
@@ -468,11 +473,6 @@ export function executeDamagingMove(
   // Accuracy check
   if (!resolveAccuracy(state, attacker, defender, moveData, originalMoveName, isDynamaxMove, log)) {
     return state;
-  }
-
-  // Solar Beam power reduction in non-sun weather
-  if (originalMoveName === "solar-beam" && state.field.weather && state.field.weather !== "sun") {
-    moveData = { ...moveData, power: moveData.power ? Math.floor(moveData.power / 2) : moveData.power };
   }
 
   // Psychic Terrain priority block
