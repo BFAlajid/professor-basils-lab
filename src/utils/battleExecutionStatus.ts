@@ -417,6 +417,39 @@ function handleConfusion(
   return state;
 }
 
+function handleSubstitute(
+  state: BattleState,
+  attackerPlayer: "player1" | "player2",
+  moveName: string,
+  log: BattleLogEntry[]
+): BattleState {
+  const attackerTeam = state[attackerPlayer];
+  const attacker = getActivePokemon(attackerTeam);
+  const cost = Math.floor(attacker.maxHp / 4);
+
+  if (attacker.substituteHp > 0) {
+    log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} already has a substitute!`, kind: "info" });
+    return state;
+  }
+
+  if (attacker.currentHp <= cost) {
+    log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} doesn't have enough HP to make a substitute!`, kind: "info" });
+    return state;
+  }
+
+  const newAttacker = {
+    ...attacker,
+    currentHp: attacker.currentHp - cost,
+    substituteHp: cost,
+    lastMoveUsed: moveName,
+    consecutiveProtects: 0,
+  };
+  state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, newAttacker);
+  log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} made a substitute!`, kind: "status" });
+
+  return state;
+}
+
 export function applyStatusMoveEffect(
   state: BattleState,
   attackerPlayer: "player1" | "player2",
@@ -426,21 +459,31 @@ export function applyStatusMoveEffect(
   log: BattleLogEntry[]
 ): BattleState {
   if (effect.protect) return handleProtect(state, attackerPlayer, moveName, log);
+  if (effect.substitute) return handleSubstitute(state, attackerPlayer, moveName, log);
 
+  // Self-targeting effects always work (even if the user has a substitute)
   if (effect.selfStatChanges) {
     state = handleSelfStatChanges(state, attackerPlayer, effect, moveName, log);
-  }
-  if (effect.targetStatChanges) {
-    state = handleTargetStatChanges(state, defenderPlayer, effect, log);
   }
   if (effect.focusEnergy) {
     state = handleFocusEnergy(state, attackerPlayer, log);
   }
-  if (effect.targetConfusion) {
-    state = handleConfusion(state, defenderPlayer, log);
-  }
-  if (effect.targetStatus) {
-    state = handleStatusInfliction(state, defenderPlayer, effect.targetStatus, log);
+
+  // Check if opponent's substitute blocks the move
+  const defender = getActivePokemon(state[defenderPlayer]);
+  const targetsOpponent = !!(effect.targetStatChanges || effect.targetConfusion || effect.targetStatus);
+  if (targetsOpponent && defender.substituteHp > 0) {
+    log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} is protected by its substitute!`, kind: "info" });
+  } else {
+    if (effect.targetStatChanges) {
+      state = handleTargetStatChanges(state, defenderPlayer, effect, log);
+    }
+    if (effect.targetConfusion) {
+      state = handleConfusion(state, defenderPlayer, log);
+    }
+    if (effect.targetStatus) {
+      state = handleStatusInfliction(state, defenderPlayer, effect.targetStatus, log);
+    }
   }
   if (effect.hazard) return handleHazard(state, attackerPlayer, defenderPlayer, effect.hazard, moveName, log);
   if (effect.clearHazards) return handleHazardRemoval(state, attackerPlayer, defenderPlayer, effect.clearHazards, moveName, log);

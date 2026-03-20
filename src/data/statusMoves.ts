@@ -17,6 +17,7 @@ export interface StatusMoveEffect {
   resetStats?: boolean;
   forceSwitch?: boolean;
   healTeamStatus?: boolean;
+  substitute?: boolean;
 }
 
 export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
@@ -116,4 +117,7 @@ export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
   // Team status heal
   "aromatherapy": { healTeamStatus: true },
   "heal-bell": { healTeamStatus: true },
+
+  // Substitute
+  "substitute": { substitute: true },
 };

@@ -68,6 +68,9 @@ export function initBattlePokemon(slot: TeamSlot, megaFormeCache?: Map<string, A
     isFlinched: false,
     choiceLockedMove: null,
     focusEnergy: false,
+    substituteHp: 0,
+    chargingMove: null,
+    semiInvulnerable: null,
     isMegaEvolved: false,
     isTerastallized: false,
     isDynamaxed: false,
@@ -210,6 +213,8 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
             }
           } else if (effect.type === "weather" && effect.weather) {
             newState = { ...newState, field: { ...newState.field, weather: effect.weather, weatherTurnsLeft: effect.weatherTurns ?? 5 } };
+          } else if (effect.type === "terrain" && effect.terrain) {
+            newState = { ...newState, field: { ...newState.field, terrain: effect.terrain, terrainTurnsLeft: effect.terrainTurns ?? 5 } };
           }
         }
       }
@@ -381,6 +386,9 @@ function performSwitch(
     confusionTurns: 0,
     toxicCounter: 0,
     focusEnergy: false,
+    substituteHp: 0,
+    chargingMove: null,
+    semiInvulnerable: null,
   };
   newPokemon[pokemonIndex] = {
     ...newPokemon[pokemonIndex],
@@ -437,6 +445,11 @@ function performSwitch(
         result = {
           ...result,
           field: { ...result.field, weather: effect.weather, weatherTurnsLeft: effect.weatherTurns ?? 5 },
+        };
+      } else if (effect.type === "terrain" && effect.terrain) {
+        result = {
+          ...result,
+          field: { ...result.field, terrain: effect.terrain, terrainTurnsLeft: effect.terrainTurns ?? 5 },
         };
       }
     }

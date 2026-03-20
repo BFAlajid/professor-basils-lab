@@ -1,4 +1,4 @@
-import { BattlePokemon, TypeName, WeatherType, StatusCondition } from "@/types";
+import { BattlePokemon, TypeName, WeatherType, TerrainType, StatusCondition } from "@/types";
 
 // --- Ability Hook Types ---
 
@@ -76,7 +76,7 @@ export interface AbilityHooks {
 // --- Result Types ---
 
 export interface SwitchInResult {
-  type: "stat_drop" | "weather";
+  type: "stat_drop" | "weather" | "terrain";
   // stat_drop (Intimidate)
   stat?: "attack" | "spAtk";
   stages?: number;
@@ -84,6 +84,9 @@ export interface SwitchInResult {
   // weather (Drizzle, Drought, etc.)
   weather?: WeatherType;
   weatherTurns?: number;
+  // terrain (Electric Surge, Grassy Surge, etc.)
+  terrain?: TerrainType;
+  terrainTurns?: number;
   message?: string;
 }
 
@@ -463,6 +466,261 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
   sniper: {
     modifyCritDamage: 2.25, // Sniper: crit damage is 2.25x instead of 1.5x
   },
+
+  // === Damage modifier abilities (modifyAttackStat as power proxy) ===
+
+  "sheer-force": {
+    // 1.3x power on moves with secondary effects; secondary effect removal
+    // is handled in battleExecutionDamage.ts applySecondaryEffects (TODO: consumer must check this flag)
+    modifyAttackStat: ({ moveName }) => {
+      const SECONDARY_EFFECT_MOVES = [
+        "flamethrower", "ice-beam", "thunderbolt", "psychic", "shadow-ball",
+        "fire-blast", "blizzard", "thunder", "focus-blast", "sludge-bomb",
+        "sludge-wave", "earth-power", "moonblast", "flash-cannon",
+        "scald", "lava-plume", "discharge", "tri-attack", "ancient-power",
+        "rock-slide", "iron-head", "air-slash", "zen-headbutt", "waterfall",
+        "fire-punch", "ice-punch", "thunder-punch", "poison-jab", "crunch",
+        "fire-fang", "ice-fang", "thunder-fang", "play-rough", "body-slam",
+        "headbutt", "stomp", "bite", "snore", "icicle-crash",
+        "rock-tomb", "liquidation", "darkest-lariat", "dragon-rush",
+        "sky-attack", "needle-arm", "blaze-kick", "bounce", "fake-out",
+      ];
+      if (moveName && SECONDARY_EFFECT_MOVES.includes(moveName)) return 1.3;
+      return 1;
+    },
+  },
+
+  reckless: {
+    modifyAttackStat: ({ moveName }) => {
+      const RECOIL_MOVES = [
+        "brave-bird", "flare-blitz", "double-edge", "wild-charge",
+        "take-down", "submission", "head-smash", "wood-hammer",
+        "volt-tackle", "wave-crash", "light-of-ruin", "head-charge",
+      ];
+      if (moveName && RECOIL_MOVES.includes(moveName)) return 1.2;
+      return 1;
+    },
+  },
+
+  "tough-claws": {
+    modifyAttackStat: ({ moveName }) => {
+      // Contact moves — comprehensive list of common physical contact moves
+      const CONTACT_MOVES = [
+        "tackle", "body-slam", "double-edge", "take-down", "headbutt",
+        "slam", "stomp", "mega-kick", "jump-kick", "hi-jump-kick",
+        "low-kick", "karate-chop", "submission", "seismic-toss",
+        "scratch", "slash", "fury-swipes", "cut", "x-scissor",
+        "aerial-ace", "wing-attack", "brave-bird", "drill-peck", "fly",
+        "peck", "acrobatics", "bounce", "sky-attack", "pluck",
+        "waterfall", "aqua-tail", "crabhammer", "liquidation", "dive",
+        "wave-crash", "flip-turn",
+        "thunder-punch", "ice-punch", "fire-punch", "drain-punch",
+        "mach-punch", "mega-punch", "focus-punch", "sky-uppercut",
+        "shadow-punch", "bullet-punch", "hammer-arm", "power-up-punch",
+        "close-combat", "superpower", "cross-chop",
+        "crunch", "bite", "fire-fang", "ice-fang", "thunder-fang",
+        "poison-fang", "psychic-fangs", "jaw-lock", "fishious-rend",
+        "wild-charge", "volt-tackle", "spark", "nuzzle",
+        "flare-blitz", "flame-charge", "blaze-kick", "fire-lash",
+        "iron-head", "iron-tail", "meteor-mash", "steel-wing", "smart-strike",
+        "zen-headbutt", "psycho-cut", "heart-stamp",
+        "poison-jab", "cross-poison", "gunk-shot",
+        "earthquake", "bulldoze", "drill-run", "stomping-tantrum",
+        "rock-slide", "stone-edge", "rock-tomb", "head-smash",
+        "shadow-claw", "shadow-sneak", "phantom-force",
+        "dragon-claw", "dragon-rush", "outrage", "dragon-tail",
+        "wood-hammer", "leaf-blade", "power-whip", "seed-bomb",
+        "u-turn", "leech-life", "bug-bite", "megahorn", "lunge",
+        "play-rough", "spirit-break",
+        "knock-off", "sucker-punch", "darkest-lariat", "throat-chop",
+        "icicle-crash", "ice-shard", "triple-axel",
+        "return", "frustration", "facade", "extreme-speed", "quick-attack",
+        "fake-out", "rapid-spin", "covet", "thief",
+      ];
+      if (moveName && CONTACT_MOVES.includes(moveName)) return 1.33;
+      return 1;
+    },
+  },
+
+  analytic: {
+    // 1.3x power if moving last — approximated via modifyAttackStat
+    // TODO: Consumer needs to pass turn order info for accurate check;
+    // for now always applies since AI moves second in most scenarios
+    modifyAttackStat: () => 1.3,
+  },
+
+  "mega-launcher": {
+    modifyAttackStat: ({ moveName }) => {
+      const PULSE_MOVES = [
+        "dark-pulse", "water-pulse", "aura-sphere", "dragon-pulse",
+        "heal-pulse", "origin-pulse", "terrain-pulse",
+      ];
+      if (moveName && PULSE_MOVES.includes(moveName)) return 1.5;
+      return 1;
+    },
+  },
+
+  "strong-jaw": {
+    modifyAttackStat: ({ moveName }) => {
+      const BITE_MOVES = [
+        "bite", "crunch", "fire-fang", "ice-fang", "thunder-fang",
+        "poison-fang", "psychic-fangs", "jaw-lock", "fishious-rend",
+        "hyper-fang",
+      ];
+      if (moveName && BITE_MOVES.includes(moveName)) return 1.5;
+      return 1;
+    },
+  },
+
+  // === Type immunity abilities (via modifyIncomingDamage) ===
+
+  "sap-sipper": {
+    modifyIncomingDamage: ({ moveType, defender }) => {
+      if (moveType === "grass") {
+        return {
+          multiplier: 0,
+          statBoost: { stat: "attack", stages: 1 },
+          message: `${defender.slot.pokemon.name}'s Sap Sipper raised its Attack!`,
+        };
+      }
+      return null;
+    },
+  },
+
+  "motor-drive": {
+    modifyIncomingDamage: ({ moveType, defender }) => {
+      if (moveType === "electric") {
+        return {
+          multiplier: 0,
+          statBoost: { stat: "speed", stages: 1 },
+          message: `${defender.slot.pokemon.name}'s Motor Drive raised its Speed!`,
+        };
+      }
+      return null;
+    },
+  },
+
+  "dry-skin": {
+    modifyIncomingDamage: ({ moveType, defender }) => {
+      if (moveType === "water") {
+        return {
+          multiplier: 0,
+          healInstead: true,
+          message: `${defender.slot.pokemon.name}'s Dry Skin absorbed the water!`,
+        };
+      }
+      // TODO: Fire takes 1.25x damage — consumer damage loop only handles multiplier < 1;
+      // needs update to applyDamageLoop to also apply multiplier > 1
+      return null;
+    },
+  },
+
+  // === Defensive abilities (via modifyIncomingDamage) ===
+
+  "solid-rock": {
+    // Super-effective reduction handled in damage.ts (line 187-192)
+    // Registered here for completeness — the damage.ts consumer reads defenderAbility directly
+  },
+
+  filter: {
+    // Super-effective reduction handled in damage.ts (line 187-192)
+  },
+
+  "fur-coat": {
+    // Doubles Defense — approximated via modifyIncomingDamage for physical moves
+    modifyIncomingDamage: ({ defender, movePower }) => {
+      // Only halve physical damage; movePower > 0 filters out status moves
+      // TODO: Ideally needs isPhysical from the move's damage_class
+      if (movePower > 0) {
+        return { multiplier: 0.5, message: `${defender.slot.pokemon.name}'s Fur Coat softened the blow!` };
+      }
+      return null;
+    },
+  },
+
+  "ice-scales": {
+    // Doubles Special Defense — approximated via modifyIncomingDamage
+    // TODO: Ideally needs isSpecial from the move's damage_class to only halve special damage
+    modifyIncomingDamage: ({ defender, movePower }) => {
+      if (movePower > 0) {
+        return { multiplier: 0.5, message: `${defender.slot.pokemon.name}'s Ice Scales weakened the attack!` };
+      }
+      return null;
+    },
+  },
+
+  // === On-Switch abilities (terrain setters) ===
+
+  "electric-surge": {
+    onSwitchIn: ({ pokemon }) => ({
+      type: "terrain",
+      terrain: "electric",
+      terrainTurns: 5,
+      message: `${pokemon.slot.pokemon.name}'s Electric Surge electrified the battlefield!`,
+    }),
+  },
+
+  "grassy-surge": {
+    onSwitchIn: ({ pokemon }) => ({
+      type: "terrain",
+      terrain: "grassy",
+      terrainTurns: 5,
+      message: `${pokemon.slot.pokemon.name}'s Grassy Surge covered the field in grass!`,
+    }),
+  },
+
+  "misty-surge": {
+    onSwitchIn: ({ pokemon }) => ({
+      type: "terrain",
+      terrain: "misty",
+      terrainTurns: 5,
+      message: `${pokemon.slot.pokemon.name}'s Misty Surge covered the field in mist!`,
+    }),
+  },
+
+  "psychic-surge": {
+    onSwitchIn: ({ pokemon }) => ({
+      type: "terrain",
+      terrain: "psychic",
+      terrainTurns: 5,
+      message: `${pokemon.slot.pokemon.name}'s Psychic Surge set Psychic Terrain!`,
+    }),
+  },
+
+  // === Status/Utility abilities ===
+
+  // Prankster: +1 priority to status moves
+  // TODO: Consumer in battleReducer.ts executeTurn needs to check this and boost priority
+  prankster: {},
+
+  // Gale Wings: +1 priority to Flying moves at full HP
+  // TODO: Consumer in battleReducer.ts executeTurn needs to check this and boost priority
+  "gale-wings": {},
+
+  // Triage: +3 priority to healing moves
+  // TODO: Consumer in battleReducer.ts executeTurn needs to check this and boost priority
+  triage: {},
+
+  // Serene Grace: doubles secondary effect chance
+  // TODO: Consumer in battleExecutionDamage.ts applySecondaryEffects needs to check this
+  // and multiply ailment_chance and flinch chance by 2
+  "serene-grace": {},
+
+  // Mold Breaker: ignores opponent's defensive abilities
+  // TODO: Consumer in damage.ts and battleExecutionDamage.ts need to check attacker ability
+  // and skip defender ability hooks when this is active
+  "mold-breaker": {},
+
+  // === Switch-out abilities ===
+  // TODO: Consumer in battleReducer.ts performSwitch needs onSwitchOut hook support
+
+  // Regenerator: heals 33% HP on switch out
+  // When switch-out hooks are added: onSwitchOut should heal 1/3 maxHp
+  regenerator: {},
+
+  // Natural Cure: cures status on switch out
+  // When switch-out hooks are added: onSwitchOut should clear status
+  "natural-cure": {},
 };
 
 // --- Public API ---

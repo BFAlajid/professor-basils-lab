@@ -33,6 +33,30 @@ const MULTI_HIT_4 = 0.85;
 
 type MoveData = ReturnType<typeof getBattleMove>;
 
+// Two-turn move definitions
+const TWO_TURN_MOVES: Record<string, {
+  semiInvulnerable?: "fly" | "dig" | "dive";
+  chargeMessage: string;
+  defBoost?: boolean;
+}> = {
+  "fly": { semiInvulnerable: "fly", chargeMessage: "{name} flew up high!" },
+  "dig": { semiInvulnerable: "dig", chargeMessage: "{name} dug underground!" },
+  "dive": { semiInvulnerable: "dive", chargeMessage: "{name} dove underwater!" },
+  "bounce": { semiInvulnerable: "fly", chargeMessage: "{name} sprang up!" },
+  "phantom-force": { semiInvulnerable: "dive", chargeMessage: "{name} vanished!" },
+  "shadow-force": { semiInvulnerable: "dive", chargeMessage: "{name} vanished!" },
+  "solar-beam": { chargeMessage: "{name} is absorbing light!" },
+  "skull-bash": { chargeMessage: "{name} lowered its head!", defBoost: true },
+  "sky-attack": { chargeMessage: "{name} is glowing!" },
+};
+
+// Moves that can hit semi-invulnerable targets
+const SEMI_INVULNERABLE_EXCEPTIONS: Record<string, string[]> = {
+  "fly": ["thunder", "hurricane", "twister", "sky-uppercut"],
+  "dig": ["earthquake", "magnitude"],
+  "dive": ["surf", "whirlpool"],
+};
+
 function resolveAccuracy(
   state: BattleState,
   attacker: BattlePokemon,
@@ -43,6 +67,15 @@ function resolveAccuracy(
   log: BattleLogEntry[]
 ): boolean {
   if (isDynamaxMove) return true;
+
+  // Semi-invulnerable targets dodge most moves
+  if (defender.semiInvulnerable) {
+    const exceptions = SEMI_INVULNERABLE_EXCEPTIONS[defender.semiInvulnerable] ?? [];
+    if (!exceptions.includes(originalMoveName)) {
+      log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name}'s attack missed!`, kind: "miss" });
+      return false;
+    }
+  }
 
   let accuracy = moveData.accuracy ?? 100;
 
@@ -94,10 +127,11 @@ function applyDamageLoop(
   defenderAbility: ReturnType<typeof getAbilityHooks>,
   log: BattleLogEntry[],
   critRate: number,
-): { state: BattleState; newDefender: BattlePokemon; totalDamage: number } {
+): { state: BattleState; newDefender: BattlePokemon; totalDamage: number; hitSubstitute: boolean } {
   let totalDamage = 0;
   let newDefender = { ...defender };
   let firstHitSurvivalUsed = false;
+  let hitSubstitute = false;
 
   for (let hit = 0; hit < hitCount; hit++) {
     if (newDefender.isFainted) break;
@@ -115,8 +149,8 @@ function applyDamageLoop(
       }
     }
 
-    // Ability: Multiscale halves damage at full HP (only applies on first hit)
-    if (hit === 0 && defenderAbility?.modifyIncomingDamage) {
+    // Ability: Multiscale halves damage at full HP (only applies on first hit, not behind substitute)
+    if (hit === 0 && newDefender.substituteHp <= 0 && defenderAbility?.modifyIncomingDamage) {
       const multiscaleResult = defenderAbility.modifyIncomingDamage({
         defender: newDefender,
         attacker,
@@ -129,6 +163,20 @@ function applyDamageLoop(
           log.push({ turn: state.turn, message: multiscaleResult.message, kind: "status" });
         }
       }
+    }
+
+    // Substitute absorbs damage — excess does not carry through
+    if (newDefender.substituteHp > 0) {
+      hitSubstitute = true;
+      const newSubHp = newDefender.substituteHp - hitDamage;
+      if (newSubHp <= 0) {
+        newDefender = { ...newDefender, substituteHp: 0 };
+        log.push({ turn: state.turn, message: `${defender.slot.pokemon.name}'s substitute broke!`, kind: "status" });
+      } else {
+        newDefender = { ...newDefender, substituteHp: newSubHp };
+      }
+      totalDamage += hitDamage;
+      continue;
     }
 
     const newHp = Math.max(0, newDefender.currentHp - hitDamage);
@@ -190,7 +238,7 @@ function applyDamageLoop(
 
   state = updatePokemon(state, defenderPlayer, defenderTeam.activePokemonIndex, newDefender);
 
-  return { state, newDefender, totalDamage };
+  return { state, newDefender, totalDamage, hitSubstitute };
 }
 
 function applyRecoilDrain(
@@ -404,6 +452,46 @@ export function executeDamagingMove(
     return state;
   }
 
+  // Two-turn move charge/release handling
+  const twoTurnData = TWO_TURN_MOVES[originalName];
+  if (twoTurnData) {
+    // Solar Beam skips charge in sun
+    const skipCharge = originalName === "solar-beam" && state.field.weather === "sun";
+
+    if (!skipCharge && !attacker.chargingMove) {
+      // Start charging — set state and return without attacking
+      let updatedAttacker: BattlePokemon = {
+        ...attacker,
+        chargingMove: originalName,
+        semiInvulnerable: twoTurnData.semiInvulnerable ?? null,
+      };
+
+      // Skull Bash: +1 Def on charge turn
+      if (twoTurnData.defBoost) {
+        const oldDef = updatedAttacker.statStages.defense;
+        const newDef = Math.min(STAT_STAGE_MAX, oldDef + 1);
+        if (newDef !== oldDef) {
+          updatedAttacker = {
+            ...updatedAttacker,
+            statStages: { ...updatedAttacker.statStages, defense: newDef },
+          };
+          log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name}'s Defense rose!`, kind: "status" });
+        }
+      }
+
+      const chargeMsg = twoTurnData.chargeMessage.replace("{name}", attacker.slot.pokemon.name);
+      log.push({ turn: state.turn, message: chargeMsg, kind: "info" });
+      state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, updatedAttacker);
+      return state;
+    }
+
+    if (attacker.chargingMove === originalName) {
+      // Release turn — clear charging state, then proceed with damage
+      const updatedAttacker = { ...attacker, chargingMove: null as string | null, semiInvulnerable: null as "fly" | "dig" | "dive" | null };
+      state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, updatedAttacker);
+    }
+  }
+
   // Get move data — convert to Max Move if Dynamaxed
   let moveData = getBattleMove(attacker, moveIndex);
   const isDynamaxMove = attacker.isDynamaxed;
@@ -440,7 +528,8 @@ export function executeDamagingMove(
     moveData = { ...moveData, type: { name: attacker.teraType } };
   }
 
-  // Solar Beam power reduction in non-sun weather
+  // Solar Beam power reduction during adverse weather (rain, sand, hail)
+  // Note: charge turn is handled by TWO_TURN_MOVES above; this handles power in bad weather
   if (originalMoveName === "solar-beam" && state.field.weather && state.field.weather !== "sun") {
     moveData = { ...moveData, power: moveData.power ? Math.floor(moveData.power / 2) : moveData.power };
   }
@@ -500,8 +589,9 @@ export function executeDamagingMove(
     }
   }
 
-  // Protect check
-  if (defender.isProtected) {
+  // Protect check — Phantom Force and Shadow Force bypass Protect
+  const PROTECT_BYPASS_MOVES = ["phantom-force", "shadow-force"];
+  if (defender.isProtected && !PROTECT_BYPASS_MOVES.includes(originalMoveName)) {
     log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} protected itself!`, kind: "info" });
     return state;
   }
@@ -557,6 +647,7 @@ export function executeDamagingMove(
   state = damageResult.state;
   const newDefender = damageResult.newDefender;
   const totalDamage = damageResult.totalDamage;
+  const hitSubstitute = damageResult.hitSubstitute;
 
   // Ability: onAfterKO (Moxie, Beast Boost)
   if (newDefender.isFainted) {
@@ -587,11 +678,13 @@ export function executeDamagingMove(
   // Life Orb recoil, recoil moves, drain moves
   state = applyRecoilDrain(state, attackerPlayer, attacker, originalName, totalDamage, log);
 
-  // Max Move effects, secondary status, flinch, pivot moves
-  state = applySecondaryEffects(
-    state, attackerPlayer, defenderPlayer, attacker, defender,
-    moveData, moveIndex, originalName, isDynamaxMove, totalDamage, newDefender, log
-  );
+  // Max Move effects, secondary status, flinch, pivot moves — skip when hitting substitute
+  if (!hitSubstitute) {
+    state = applySecondaryEffects(
+      state, attackerPlayer, defenderPlayer, attacker, defender,
+      moveData, moveIndex, originalName, isDynamaxMove, totalDamage, newDefender, log
+    );
+  }
 
   // Track last move used, reset consecutiveProtects, apply Choice lock
   const currentAttackerFinal = getActivePokemon(state[attackerPlayer]);

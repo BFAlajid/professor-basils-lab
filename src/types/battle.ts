@@ -28,6 +28,9 @@ export interface BattlePokemon {
   isFlinched: boolean;
   choiceLockedMove: string | null;
   focusEnergy: boolean;
+  substituteHp: number;
+  chargingMove: string | null;
+  semiInvulnerable: "fly" | "dig" | "dive" | null;
   // Generational mechanic state
   isMegaEvolved: boolean;
   isTerastallized: boolean;
