@@ -12,7 +12,7 @@ import {
   BattleMoveData,
 } from "@/types";
 import { extractBaseStats, calculateDamage } from "./damage";
-import { calculateAllStats, DEFAULT_EVS } from "./stats";
+import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { initBattlePokemon, initStatStages, getStatStageMultiplier, cacheBattleMove, getCachedMoves } from "./battle";
 import { getCritRate } from "./battleHelpers";
 import { getDefensiveMultiplier } from "@/data/typeChart";
@@ -160,33 +160,40 @@ export interface WildTurnResult {
   log: string[];
 }
 
-export function executeWildTurn(
+function getEffectiveSpeed(bp: BattlePokemon): number {
+  const baseStats = extractBaseStats(bp.slot.pokemon);
+  const calc = calculateAllStats(
+    baseStats,
+    bp.slot.ivs ?? DEFAULT_IVS,
+    bp.slot.evs ?? DEFAULT_EVS,
+    bp.slot.nature ?? null
+  );
+  return Math.floor(calc.speed * getStatStageMultiplier(bp.statStages.speed));
+}
+
+function executePlayerAttack(
   playerBp: BattlePokemon,
   wildBp: BattlePokemon,
-  playerMoveIndex: number
-): WildTurnResult {
-  const log: string[] = [];
-  let newWildHp = wildBp.currentHp;
-  let newWildStatus = wildBp.status;
-  let newPlayerHp = playerBp.currentHp;
-  let newPlayerStatus = playerBp.status;
+  playerMoveIndex: number,
+  log: string[],
+  currentWildHp: number,
+  currentWildStatus: StatusCondition,
+): { hp: number; status: StatusCondition } {
+  let newWildHp = currentWildHp;
+  let newWildStatus = currentWildStatus;
 
-  // --- Player attacks first (simplified: always goes first) ---
   const playerMoves = playerBp.slot.selectedMoves ?? [];
   const playerMoveName = playerMoves[playerMoveIndex] ?? playerMoves[0];
 
   if (playerMoveName) {
     const moveData = getMoveData(playerMoveName);
     if (moveData) {
-      // Accuracy check
       const accuracy = moveData.accuracy ?? 100;
       const accRoll = Math.random() * 100;
 
       if (accRoll < accuracy) {
         if (moveData.power && moveData.damage_class.name !== "status") {
           const isCritical = Math.random() < getCritRate(playerBp, playerMoveName);
-          const attackerTypes = playerBp.slot.pokemon.types.map((t) => t.type.name);
-          const defenderTypes = wildBp.slot.pokemon.types.map((t) => t.type.name);
 
           const result = calculateDamage(
             playerBp.slot.pokemon,
@@ -243,21 +250,19 @@ export function executeWildTurn(
     }
   }
 
-  // Check if wild fainted
-  if (newWildHp <= 0) {
-    log.push("The wild Pokemon fainted!");
-    return {
-      newWildHp: 0,
-      newWildStatus,
-      newPlayerHp,
-      newPlayerStatus,
-      wildFainted: true,
-      playerFainted: false,
-      log,
-    };
-  }
+  return { hp: newWildHp, status: newWildStatus };
+}
 
-  // --- Wild Pokemon attacks ---
+function executeWildAttack(
+  wildBp: BattlePokemon,
+  playerBp: BattlePokemon,
+  log: string[],
+  currentPlayerHp: number,
+  currentPlayerStatus: StatusCondition,
+): { hp: number; status: StatusCondition } {
+  let newPlayerHp = currentPlayerHp;
+  let newPlayerStatus = currentPlayerStatus;
+
   const wildMoves = wildBp.slot.selectedMoves ?? [];
   if (wildMoves.length > 0) {
     const wildMoveName = randomChoice(wildMoves);
@@ -322,16 +327,74 @@ export function executeWildTurn(
     }
   }
 
-  // End of turn status damage
-  if (newWildStatus === "burn" || newWildStatus === "poison") {
+  return { hp: newPlayerHp, status: newPlayerStatus };
+}
+
+export function executeWildTurn(
+  playerBp: BattlePokemon,
+  wildBp: BattlePokemon,
+  playerMoveIndex: number
+): WildTurnResult {
+  const log: string[] = [];
+  let newWildHp = wildBp.currentHp;
+  let newWildStatus = wildBp.status;
+  let newPlayerHp = playerBp.currentHp;
+  let newPlayerStatus = playerBp.status;
+
+  // Determine turn order by speed (ties: player goes first)
+  const playerSpeed = getEffectiveSpeed(playerBp);
+  const wildSpeed = getEffectiveSpeed(wildBp);
+  const playerGoesFirst = playerSpeed >= wildSpeed;
+
+  if (playerGoesFirst) {
+    // Player attacks first
+    const pResult = executePlayerAttack(playerBp, wildBp, playerMoveIndex, log, newWildHp, newWildStatus);
+    newWildHp = pResult.hp;
+    newWildStatus = pResult.status;
+
+    if (newWildHp <= 0) {
+      log.push("The wild Pokemon fainted!");
+      return { newWildHp: 0, newWildStatus, newPlayerHp, newPlayerStatus, wildFainted: true, playerFainted: false, log };
+    }
+
+    // Wild attacks second
+    const wResult = executeWildAttack(wildBp, playerBp, log, newPlayerHp, newPlayerStatus);
+    newPlayerHp = wResult.hp;
+    newPlayerStatus = wResult.status;
+  } else {
+    // Wild attacks first (it's faster)
+    const wResult = executeWildAttack(wildBp, playerBp, log, newPlayerHp, newPlayerStatus);
+    newPlayerHp = wResult.hp;
+    newPlayerStatus = wResult.status;
+
+    if (newPlayerHp <= 0) {
+      log.push("Your Pokemon fainted!");
+      return { newWildHp, newWildStatus, newPlayerHp: 0, newPlayerStatus, wildFainted: false, playerFainted: true, log };
+    }
+
+    // Player attacks second
+    const pResult = executePlayerAttack(playerBp, wildBp, playerMoveIndex, log, newWildHp, newWildStatus);
+    newWildHp = pResult.hp;
+    newWildStatus = pResult.status;
+
+    if (newWildHp <= 0) {
+      log.push("The wild Pokemon fainted!");
+      return { newWildHp: 0, newWildStatus, newPlayerHp, newPlayerStatus, wildFainted: true, playerFainted: false, log };
+    }
+  }
+
+  // End of turn status damage (burn, poison, toxic all deal 1/8 in wild battles)
+  if (newWildStatus === "burn" || newWildStatus === "poison" || newWildStatus === "toxic") {
     const statusDmg = Math.max(1, Math.floor(wildBp.maxHp / 8));
     newWildHp = Math.max(0, newWildHp - statusDmg);
-    log.push(`The wild Pokemon took ${statusDmg} damage from ${newWildStatus}!`);
+    const statusLabel = newWildStatus === "toxic" ? "poison" : newWildStatus;
+    log.push(`The wild Pokemon took ${statusDmg} damage from ${statusLabel}!`);
   }
-  if (newPlayerStatus === "burn" || newPlayerStatus === "poison") {
+  if (newPlayerStatus === "burn" || newPlayerStatus === "poison" || newPlayerStatus === "toxic") {
     const statusDmg = Math.max(1, Math.floor(playerBp.maxHp / 8));
     newPlayerHp = Math.max(0, newPlayerHp - statusDmg);
-    log.push(`Your Pokemon took ${statusDmg} damage from ${newPlayerStatus}!`);
+    const statusLabel = newPlayerStatus === "toxic" ? "poison" : newPlayerStatus;
+    log.push(`Your Pokemon took ${statusDmg} damage from ${statusLabel}!`);
   }
 
   return {

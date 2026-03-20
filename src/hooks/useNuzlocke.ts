@@ -51,10 +51,13 @@ export function useNuzlocke() {
   }, []);
 
   const markAreaEncountered = useCallback((areaId: string) => {
-    setState((prev) => ({
-      ...prev,
-      encounteredAreas: [...prev.encounteredAreas, areaId],
-    }));
+    setState((prev) => {
+      if (prev.encounteredAreas.includes(areaId)) return prev;
+      return {
+        ...prev,
+        encounteredAreas: [...prev.encounteredAreas, areaId],
+      };
+    });
   }, []);
 
   const isAreaEncountered = useCallback(

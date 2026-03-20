@@ -9,6 +9,7 @@ import {
   getActivePokemon,
   updatePokemon,
   getStatStageMultiplier,
+  getCachedMoves,
 } from "./battleHelpers";
 import { extractBaseStats } from "./damage";
 import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
@@ -118,7 +119,9 @@ export function executeMove(
   // Assault Vest: blocks status moves
   if (attacker.slot.heldItem === "assault-vest") {
     const statusEffect = STATUS_MOVE_EFFECTS[moveName];
-    if (statusEffect && !statusEffect.clearHazards) {
+    const cached = getCachedMoves().get(moveName);
+    const isCachedStatus = cached?.damage_class?.name === "status";
+    if ((statusEffect && !statusEffect.clearHazards) || isCachedStatus) {
       log.push({ turn: state.turn, message: `The Assault Vest prevents the use of status moves!`, kind: "info" });
       return state;
     }

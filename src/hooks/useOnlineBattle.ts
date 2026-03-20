@@ -218,6 +218,10 @@ export function useOnlineBattle() {
     });
 
     conn.on("close", () => {
+      if (pingInterval.current) {
+        clearInterval(pingInterval.current);
+        pingInterval.current = null;
+      }
       if (actionRejectRef.current) {
         actionRejectRef.current(new Error("Opponent disconnected"));
         actionResolverRef.current = null;

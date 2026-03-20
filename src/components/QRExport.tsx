@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type KeyboardEvent } from "react";
 import { TOAST_DURATION } from "@/data/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot } from "@/types";
@@ -18,6 +18,8 @@ export default function QRExport({ team, isOpen, onClose }: QRExportProps) {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const showdownText = team.length > 0 ? exportToShowdown(team) : "";
 
@@ -49,12 +51,33 @@ export default function QRExport({ team, isOpen, onClose }: QRExportProps) {
     if (isOpen) {
       generateQR();
       setCopied(false);
+      // Focus close button on open
+      requestAnimationFrame(() => closeRef.current?.focus());
     } else {
       setQrUrl(null);
       setError(null);
       setLoading(false);
     }
   }, [isOpen, generateQR]);
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") { onClose(); return; }
+    if (e.key === "Tab" && modalRef.current) {
+      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  };
 
   const handleCopy = async () => {
     try {
@@ -89,8 +112,13 @@ export default function QRExport({ team, isOpen, onClose }: QRExportProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={handleOverlayClick}
+          onKeyDown={handleKeyDown}
         >
           <motion.div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Team QR Code"
             className="relative w-[360px] max-w-[95vw] rounded-lg border-2 p-6"
             style={{
               backgroundColor: "#262b44",
@@ -109,6 +137,7 @@ export default function QRExport({ team, isOpen, onClose }: QRExportProps) {
                 Team QR Code
               </h2>
               <button
+                ref={closeRef}
                 onClick={onClose}
                 className="flex h-7 w-7 items-center justify-center rounded transition-colors"
                 style={{ backgroundColor: "#3a4466", color: "#f0f0e8" }}

@@ -164,8 +164,10 @@ export function useBattle() {
 
   // Audio track triggers
   useEffect(() => {
+    let cancelled = false;
     // Dynamic import to avoid SSR issues
     import("@/utils/audioManager").then(({ playTrack }) => {
+      if (cancelled) return;
       if (state.phase === "action_select" || state.phase === "executing" || state.phase === "force_switch") {
         playTrack("battle");
       } else if (state.phase === "ended") {
@@ -178,6 +180,7 @@ export function useBattle() {
         playTrack("teamBuilder");
       }
     });
+    return () => { cancelled = true; };
   }, [state.phase, state.winner, state.mode]);
 
   return {

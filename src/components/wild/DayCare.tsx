@@ -27,11 +27,19 @@ export default function DayCare({ box }: DayCareProps) {
     if (selectedSlot === 1) {
       const otherIndex = state.currentPair?.parent2Index ?? -1;
       if (boxIndex === otherIndex) return;
-      setPair({ parent1Index: boxIndex, parent2Index: otherIndex >= 0 ? otherIndex : -1 });
+      const pair = { parent1Index: boxIndex, parent2Index: otherIndex >= 0 ? otherIndex : -1 };
+      // Only dispatch when both parents are selected
+      if (pair.parent1Index >= 0 && pair.parent2Index >= 0) {
+        setPair(pair);
+      }
     } else {
       const otherIndex = state.currentPair?.parent1Index ?? -1;
       if (boxIndex === otherIndex) return;
-      setPair({ parent1Index: otherIndex >= 0 ? otherIndex : -1, parent2Index: boxIndex });
+      const pair = { parent1Index: otherIndex >= 0 ? otherIndex : -1, parent2Index: boxIndex };
+      // Only dispatch when both parents are selected
+      if (pair.parent1Index >= 0 && pair.parent2Index >= 0) {
+        setPair(pair);
+      }
     }
     setShowSelector(false);
   };

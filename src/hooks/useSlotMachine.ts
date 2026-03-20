@@ -63,6 +63,7 @@ function randomReel(): number {
 export function useSlotMachine() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const initialized = useRef(false);
+  const spinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (initialized.current) return;
@@ -84,10 +85,18 @@ export function useSlotMachine() {
     localStorage.setItem(STORAGE_KEY, String(state.coins));
   }, [state.coins]);
 
+  // Clean up spin timer on unmount
+  useEffect(() => {
+    return () => {
+      if (spinTimerRef.current) clearTimeout(spinTimerRef.current);
+    };
+  }, []);
+
   const spin = () => {
     if (state.spinning || state.coins < state.bet) return;
     dispatch({ type: "SPIN" });
-    setTimeout(() => {
+    spinTimerRef.current = setTimeout(() => {
+      spinTimerRef.current = null;
       const reels: [number, number, number] = [randomReel(), randomReel(), randomReel()];
       dispatch({ type: "STOP", reels });
     }, 1500);

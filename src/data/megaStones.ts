@@ -27,7 +27,9 @@ export const MEGA_STONES: MegaStoneItem[] = [
   { name: "houndoominite", displayName: "Houndoominite", effect: "Mega Evolves Houndoom", battleModifier: { type: "mega_stone" }, megaTarget: "houndoom", formeApiName: "houndoom-mega" },
   { name: "tyranitarite", displayName: "Tyranitarite", effect: "Mega Evolves Tyranitar", battleModifier: { type: "mega_stone" }, megaTarget: "tyranitar", formeApiName: "tyranitar-mega" },
   // Gen 3
+  { name: "sceptilite", displayName: "Sceptilite", effect: "Mega Evolves Sceptile", battleModifier: { type: "mega_stone" }, megaTarget: "sceptile", formeApiName: "sceptile-mega" },
   { name: "blazikenite", displayName: "Blazikenite", effect: "Mega Evolves Blaziken", battleModifier: { type: "mega_stone" }, megaTarget: "blaziken", formeApiName: "blaziken-mega" },
+  { name: "swampertite", displayName: "Swampertite", effect: "Mega Evolves Swampert", battleModifier: { type: "mega_stone" }, megaTarget: "swampert", formeApiName: "swampert-mega" },
   { name: "gardevoirite", displayName: "Gardevoirite", effect: "Mega Evolves Gardevoir", battleModifier: { type: "mega_stone" }, megaTarget: "gardevoir", formeApiName: "gardevoir-mega" },
   { name: "mawilite", displayName: "Mawilite", effect: "Mega Evolves Mawile", battleModifier: { type: "mega_stone" }, megaTarget: "mawile", formeApiName: "mawile-mega" },
   { name: "aggronite", displayName: "Aggronite", effect: "Mega Evolves Aggron", battleModifier: { type: "mega_stone" }, megaTarget: "aggron", formeApiName: "aggron-mega" },

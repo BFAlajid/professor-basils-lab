@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useCallback, useRef } from "react";
+import { useReducer, useCallback, useRef, useEffect } from "react";
 import { SHINY_RATE } from "@/data/constants";
 import {
   WildEncounterState,
@@ -145,6 +145,14 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
   const wildBpRef = useRef<BattlePokemon | null>(null);
   const playerBpRef = useRef<BattlePokemon | null>(null);
   const battleLogRef = useRef<string[]>([]);
+  const wildFledTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up fled timer on unmount
+  useEffect(() => {
+    return () => {
+      if (wildFledTimerRef.current) clearTimeout(wildFledTimerRef.current);
+    };
+  }, []);
 
   const selectArea = useCallback((area: RouteArea) => {
     dispatch({ type: "SELECT_AREA", area });
@@ -237,7 +245,9 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
     // Check if wild should flee after turn
     if (!result.wildFainted && !result.playerFainted) {
       if (shouldWildFlee(current.wildCaptureRate, current.encounterTurn)) {
-        setTimeout(() => {
+        if (wildFledTimerRef.current) clearTimeout(wildFledTimerRef.current);
+        wildFledTimerRef.current = setTimeout(() => {
+          wildFledTimerRef.current = null;
           dispatch({ type: "WILD_FLED" });
         }, 500);
       }
@@ -284,6 +294,10 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
   }, []);
 
   const returnToMap = useCallback(() => {
+    if (wildFledTimerRef.current) {
+      clearTimeout(wildFledTimerRef.current);
+      wildFledTimerRef.current = null;
+    }
     dispatch({ type: "RETURN_TO_MAP" });
     wildBpRef.current = null;
     playerBpRef.current = null;

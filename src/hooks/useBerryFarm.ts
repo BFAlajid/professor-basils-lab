@@ -68,12 +68,13 @@ function reducer(state: BerryFarmState, action: BerryFarmAction): BerryFarmState
     case "HARVEST": {
       const plot = state.plots.find((p) => p.id === action.plotId);
       if (!plot || !plot.berryType || !plot.plantedAt) return state;
-      const speedMultiplier = plot.waterLevel > 0 ? 2 : 1;
+      const speedMultiplier = 1 + plot.waterLevel * 0.5;
       const elapsed = Date.now() - plot.plantedAt;
       const effectiveDuration = plot.growthDurationMs / speedMultiplier;
       if (elapsed < effectiveDuration) return state;
+      const yieldCount = 1 + plot.waterLevel;
       const inventory = { ...state.inventory };
-      inventory[plot.berryType] = (inventory[plot.berryType] || 0) + 1;
+      inventory[plot.berryType] = (inventory[plot.berryType] || 0) + yieldCount;
       const plots = state.plots.map((p) =>
         p.id === action.plotId
           ? { ...p, berryType: null, plantedAt: null, growthDurationMs: 0, waterLevel: 0 }
@@ -128,7 +129,7 @@ export function useBerryFarm() {
 
   const getGrowthProgress = useCallback((plot: BerryPlot): number => {
     if (!plot.plantedAt || !plot.berryType) return 0;
-    const speedMultiplier = plot.waterLevel > 0 ? 2 : 1;
+    const speedMultiplier = 1 + plot.waterLevel * 0.5;
     const elapsed = Date.now() - plot.plantedAt;
     const effectiveDuration = plot.growthDurationMs / speedMultiplier;
     return Math.min(1, elapsed / effectiveDuration);

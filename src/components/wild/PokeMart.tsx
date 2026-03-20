@@ -131,7 +131,7 @@ export default function PokeMart({ money, onBuy, ballInventory, battleItemInvent
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setQty(item.id, qty - 1)}
-                    className="w-4 h-4 rounded bg-[#3a4466] text-[#8b9bb4] text-[9px] flex items-center justify-center hover:text-[#f0f0e8]"
+                    className="min-w-[44px] min-h-[44px] w-8 h-8 rounded bg-[#3a4466] text-[#8b9bb4] text-[9px] flex items-center justify-center hover:text-[#f0f0e8]"
                     disabled={qty <= 1}
                   >
                     -
@@ -141,7 +141,7 @@ export default function PokeMart({ money, onBuy, ballInventory, battleItemInvent
                   </span>
                   <button
                     onClick={() => setQty(item.id, qty + 1)}
-                    className="w-4 h-4 rounded bg-[#3a4466] text-[#8b9bb4] text-[9px] flex items-center justify-center hover:text-[#f0f0e8]"
+                    className="min-w-[44px] min-h-[44px] w-8 h-8 rounded bg-[#3a4466] text-[#8b9bb4] text-[9px] flex items-center justify-center hover:text-[#f0f0e8]"
                   >
                     +
                   </button>

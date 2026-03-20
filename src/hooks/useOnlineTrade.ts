@@ -98,9 +98,19 @@ export function useOnlineTrade(
   const completeTrade = useCallback((sentPokemon: PCBoxPokemon) => {
     if (!connRef.current?.open) return;
 
-    resetEscrow();
+    // Clear any existing timeout without resetting the whole escrow
+    if (escrowRef.current.timeout) clearTimeout(escrowRef.current.timeout);
 
-    escrowRef.current.mySent = sentPokemon;
+    // Preserve opponentSent if already received, reset the rest
+    const previousOpponentSent = escrowRef.current.opponentSent;
+    const previousOpponentFinalized = escrowRef.current.opponentFinalized;
+    escrowRef.current = {
+      ...initialEscrow,
+      opponentSent: previousOpponentSent,
+      opponentFinalized: previousOpponentFinalized,
+      mySent: sentPokemon,
+    };
+
     connRef.current.send({ type: "TRADE_ESCROW", payload: sentPokemon, timestamp: Date.now() } as OnlineMessage);
 
     if (escrowRef.current.opponentSent && connRef.current.open) {

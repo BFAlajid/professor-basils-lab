@@ -92,10 +92,11 @@ export interface IncomingDamageResult {
   healInstead?: boolean; // Water Absorb, Volt Absorb
   message?: string;
   flashFireBoost?: boolean; // Flash Fire special case
+  statBoost?: { stat: string; stages: number }; // Lightning Rod, Storm Drain
 }
 
 export interface StatBoostResult {
-  stat: "attack" | "spAtk" | "speed" | "best";
+  stat: "attack" | "defense" | "spAtk" | "spDef" | "speed" | "best";
   stages: number;
   message?: string;
 }
@@ -222,6 +223,7 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
       if (moveType === "electric") {
         return {
           multiplier: 0,
+          statBoost: { stat: "spAtk", stages: 1 },
           message: `${defender.slot.pokemon.name}'s Lightning Rod drew in the move!`,
         };
       }
@@ -234,6 +236,7 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
       if (moveType === "water") {
         return {
           multiplier: 0,
+          statBoost: { stat: "spAtk", stages: 1 },
           message: `${defender.slot.pokemon.name}'s Storm Drain drew in the move!`,
         };
       }
@@ -281,7 +284,8 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
         "thunder-punch", "ice-punch", "fire-punch", "drain-punch",
         "mach-punch", "mega-punch", "focus-punch", "sky-uppercut",
         "comet-punch", "shadow-punch", "bullet-punch", "hammer-arm",
-        "power-up-punch", "plasma-fists", "meteor-mash",
+        "power-up-punch", "plasma-fists", "surging-strikes",
+        "wicked-blow", "rage-fist", "jet-punch",
       ];
       if (moveName && punchMoves.includes(moveName)) return 1.2;
       return 1;
@@ -399,20 +403,6 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
     },
   },
 
-  filter: {
-    modifyIncomingDamage: ({ defender, attacker, moveType }) => {
-      // Applied in damage calc based on type effectiveness, but we use a flat 0.75x for SE here
-      return null; // Handled via damage calc to check effectiveness
-    },
-  },
-
-  "solid-rock": {
-    modifyIncomingDamage: ({ defender }) => {
-      // Same as Filter — handled via damage calc
-      return null;
-    },
-  },
-
   // === onStatDrop abilities (Defiant, Competitive) ===
 
   defiant: {
@@ -490,13 +480,15 @@ export function hasAbility(pokemon: BattlePokemon, abilityName: string): boolean
 }
 
 /** Get the best stat for Beast Boost */
-export function getHighestStat(pokemon: BattlePokemon): "attack" | "spAtk" | "speed" {
+export function getHighestStat(pokemon: BattlePokemon): "attack" | "defense" | "spAtk" | "spDef" | "speed" {
   const stats = pokemon.slot.pokemon.stats;
   const get = (name: string) => stats.find((s) => s.stat.name === name)?.base_stat ?? 0;
-  const atk = get("attack");
-  const spAtk = get("special-attack");
-  const speed = get("speed");
-  if (atk >= spAtk && atk >= speed) return "attack";
-  if (spAtk >= atk && spAtk >= speed) return "spAtk";
-  return "speed";
+  const candidates: { key: "attack" | "defense" | "spAtk" | "spDef" | "speed"; value: number }[] = [
+    { key: "attack", value: get("attack") },
+    { key: "defense", value: get("defense") },
+    { key: "spAtk", value: get("special-attack") },
+    { key: "spDef", value: get("special-defense") },
+    { key: "speed", value: get("speed") },
+  ];
+  return candidates.reduce((best, c) => c.value > best.value ? c : best, candidates[0]).key;
 }

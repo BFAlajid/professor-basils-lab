@@ -55,6 +55,7 @@ export const BERRIES: BerryData[] = [
   { name: "haban-berry", displayName: "Haban Berry", growthTimeMinutes: 90, effect: "Halves super-effective Dragon damage", heldItemEffect: "0.5x super-effective Dragon damage (once)", color: "#7038F8", category: "type-resist" },
   { name: "colbur-berry", displayName: "Colbur Berry", growthTimeMinutes: 90, effect: "Halves super-effective Dark damage", heldItemEffect: "0.5x super-effective Dark damage (once)", color: "#705848", category: "type-resist" },
   { name: "babiri-berry", displayName: "Babiri Berry", growthTimeMinutes: 90, effect: "Halves super-effective Steel damage", heldItemEffect: "0.5x super-effective Steel damage (once)", color: "#B8B8D0", category: "type-resist" },
+  { name: "roseli-berry", displayName: "Roseli Berry", growthTimeMinutes: 90, effect: "Halves super-effective Fairy damage", heldItemEffect: "0.5x super-effective Fairy damage (once)", color: "#EE99AC", category: "type-resist" },
   { name: "chilan-berry", displayName: "Chilan Berry", growthTimeMinutes: 90, effect: "Halves Normal-type damage", heldItemEffect: "0.5x Normal-type damage (once)", color: "#A8A878", category: "type-resist" },
 
   // ── Stat-Boost Pinch Berries (activate at 25% HP) ──

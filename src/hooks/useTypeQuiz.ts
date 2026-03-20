@@ -184,6 +184,7 @@ function quizReducer(state: TypeQuizState, action: QuizAction): TypeQuizState {
 export function useTypeQuiz() {
   const [state, dispatch] = useReducer(quizReducer, initialState);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const answerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load best score from localStorage on mount
   useEffect(() => {
@@ -246,7 +247,9 @@ export function useTypeQuiz() {
 
       // In timed mode, auto-advance after brief delay
       if (state.mode === "timed") {
-        setTimeout(() => {
+        if (answerTimerRef.current) clearTimeout(answerTimerRef.current);
+        answerTimerRef.current = setTimeout(() => {
+          answerTimerRef.current = null;
           dispatch({ type: "NEXT_QUESTION" });
         }, 400);
       }
@@ -264,6 +267,13 @@ export function useTypeQuiz() {
 
   const resetQuiz = useCallback(() => {
     dispatch({ type: "RESET" });
+  }, []);
+
+  // Clean up answer timer on unmount
+  useEffect(() => {
+    return () => {
+      if (answerTimerRef.current) clearTimeout(answerTimerRef.current);
+    };
   }, []);
 
   return { state, startQuiz, answer, nextQuestion, endQuiz, resetQuiz };

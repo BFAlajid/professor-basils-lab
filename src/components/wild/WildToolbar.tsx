@@ -65,11 +65,11 @@ export default function WildToolbar({
   ];
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 overflow-x-auto">
       {/* Nuzlocke toggle */}
       <button
         onClick={onToggleNuzlocke}
-        className={`px-2 py-1 text-[9px] font-pixel rounded-lg border transition-colors ${
+        className={`flex-shrink-0 px-2 py-1 text-[9px] font-pixel rounded-lg border transition-colors ${
           nuzlockeEnabled
             ? "text-[#e8433f] border-[#e8433f] bg-[#e8433f]/10"
             : "text-[#3a4466] border-[#3a4466] hover:text-[#8b9bb4]"
@@ -93,7 +93,7 @@ export default function WildToolbar({
           <button
             key={btn.id}
             onClick={() => onTogglePanel(btn.id)}
-            className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
+            className={`flex-shrink-0 px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
               isActive
                 ? `text-[${btn.activeColor}] border-[${btn.activeColor}]${hasBgTint ? ` bg-[${btn.activeColor}]/10` : ""}`
                 : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"

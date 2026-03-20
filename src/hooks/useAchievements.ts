@@ -86,6 +86,7 @@ export function useAchievements() {
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
+    let cancelled = false;
 
     const saved = loadFromStorage();
     if (saved) {
@@ -94,8 +95,10 @@ export function useAchievements() {
     }
 
     import("@/data/achievementDefinitions").then((mod) => {
-      setDefinitions(mod.ACHIEVEMENT_DEFINITIONS);
+      if (!cancelled) setDefinitions(mod.ACHIEVEMENT_DEFINITIONS);
     });
+
+    return () => { cancelled = true; };
   }, []);
 
   // Build full achievement list with unlock state

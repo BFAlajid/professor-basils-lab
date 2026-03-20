@@ -530,6 +530,17 @@ export function executeDamagingMove(
           const healedHp = Math.min(defender.maxHp, defender.currentHp + heal);
           state = updatePokemon(state, defenderPlayer, defenderTeam.activePokemonIndex, { ...defender, currentHp: healedHp });
         }
+        if (abilityResult.statBoost) {
+          const latestDef = getActivePokemon(state[defenderPlayer]);
+          const boostKey = abilityResult.statBoost.stat as keyof StatStages;
+          const oldStage = latestDef.statStages[boostKey] ?? 0;
+          const newStage = Math.min(STAT_STAGE_MAX, oldStage + abilityResult.statBoost.stages);
+          if (newStage !== oldStage) {
+            const updatedStages = { ...latestDef.statStages, [boostKey]: newStage };
+            state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...latestDef, statStages: updatedStages });
+            log.push({ turn: state.turn, message: `${latestDef.slot.pokemon.name}'s Sp. Atk rose!`, kind: "status" });
+          }
+        }
         return state;
       }
     }

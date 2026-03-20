@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useEffect, useRef, useCallback, useState } from "react";
+import { useReducer, useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import { DayCareState, DayCareAction, BreedingPair, PCBoxPokemon, BreedingEgg } from "@/types";
 import { fetchEggGroups, checkCompatibility, getOffspringSpeciesId, createEgg } from "@/utils/breedingWasm";
@@ -79,9 +79,12 @@ export function useDayCare(box: PCBoxPokemon[]) {
     }
   }, [state.currentPair, state.eggs]);
 
+  // Stable boolean dep to avoid re-creating interval on every egg state change
+  const hasUnhatchedEggs = useMemo(() => state.eggs.some((e) => !e.isHatched), [state.eggs]);
+
   // Step counter interval — advances eggs every 3 seconds
   useEffect(() => {
-    if (state.eggs.some((e) => !e.isHatched)) {
+    if (hasUnhatchedEggs) {
       stepInterval.current = setInterval(() => {
         dispatch({ type: "ADVANCE_STEPS", steps: 128 });
       }, 3000);
@@ -89,7 +92,7 @@ export function useDayCare(box: PCBoxPokemon[]) {
     return () => {
       if (stepInterval.current) clearInterval(stepInterval.current);
     };
-  }, [state.eggs]);
+  }, [hasUnhatchedEggs]);
 
   // Check compatibility when pair changes
   useEffect(() => {

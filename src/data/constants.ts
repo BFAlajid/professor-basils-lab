@@ -12,7 +12,7 @@ export const ELO_MINIMUM = 100;
 
 // Stat keys matching BaseStats/EVSpread/IVSpread property names
 export const STAT_KEYS = ["hp", "attack", "defense", "spAtk", "spDef", "speed"] as const;
-export type StatKey = (typeof STAT_KEYS)[number];
+export type AllStatKey = (typeof STAT_KEYS)[number];
 
 // Abbreviated stat labels for compact display
 export const STAT_LABELS_SHORT = ["HP", "Atk", "Def", "SpA", "SpD", "Spe"] as const;

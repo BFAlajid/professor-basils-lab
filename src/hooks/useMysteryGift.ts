@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useEffect, useCallback, useRef, useMemo } from "react";
+import { useReducer, useEffect, useCallback, useRef, useMemo, useState } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import {
   MysteryGiftState,
@@ -45,6 +45,7 @@ function mysteryGiftReducer(
 export function useMysteryGift() {
   const [state, dispatch] = useReducer(mysteryGiftReducer, initialState);
   const initialized = useRef(false);
+  const claimingRef = useRef(false);
 
   // Load from localStorage
   useEffect(() => {
@@ -78,6 +79,17 @@ export function useMysteryGift() {
     }
   }, [state]);
 
+  const [dateKey, setDateKey] = useState(() => new Date().toISOString().slice(0, 10));
+
+  // Check for date rollover every 60s
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = new Date().toISOString().slice(0, 10);
+      if (now !== dateKey) setDateKey(now);
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [dateKey]);
+
   const todaysGift = useMemo<{
     gift: MysteryGiftDefinition;
     reason: string;
@@ -88,7 +100,7 @@ export function useMysteryGift() {
       silentWarn("getTodaysGift", e);
       return null;
     }
-  }, []);
+  }, [dateKey]);
 
   const isClaimedToday = useMemo<boolean>(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -96,6 +108,10 @@ export function useMysteryGift() {
   }, [state.claimedDates]);
 
   const claimGift = useCallback(async (): Promise<PCBoxPokemon | null> => {
+    if (claimingRef.current) return null;
+    claimingRef.current = true;
+
+    try {
     const today = new Date().toISOString().split("T")[0];
 
     // Already claimed today
@@ -150,6 +166,9 @@ export function useMysteryGift() {
     dispatch({ type: "CLAIM", date: today });
 
     return pokemon;
+    } finally {
+      claimingRef.current = false;
+    }
   }, [state.claimedDates]);
 
   return {

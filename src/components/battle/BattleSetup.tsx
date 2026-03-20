@@ -55,7 +55,7 @@ export default function BattleSetup({
       {/* Mode Selection */}
       <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
         <h3 className="mb-3 text-lg font-bold font-pixel">Battle Mode</h3>
-        <div className="flex gap-3" role="radiogroup" aria-label="Battle mode selection">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2" role="radiogroup" aria-label="Battle mode selection">
           <button
             onClick={() => setMode("ai")}
             role="radio"

@@ -25,7 +25,7 @@ export default function HealthBar({ current, max }: HealthBarProps) {
           {current}/{max}
         </span>
       </div>
-      <div className="h-2 w-full bg-[#1a1c2c] border-2 border-[#5a6988] overflow-hidden">
+      <div className="h-2 w-full bg-[#1a1c2c] border-2 border-[#5a6988] overflow-hidden" role="progressbar" aria-valuenow={current} aria-valuemin={0} aria-valuemax={max} aria-label="Hit points">
         <motion.div
           className="h-full"
           style={{ backgroundColor: color }}

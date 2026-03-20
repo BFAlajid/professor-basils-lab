@@ -12,6 +12,11 @@ export interface StatusMoveEffect {
   lightScreen?: boolean;
   targetConfusion?: boolean;
   focusEnergy?: boolean;
+  fieldEffect?: string;
+  sideEffect?: string;
+  resetStats?: boolean;
+  forceSwitch?: boolean;
+  healTeamStatus?: boolean;
 }
 
 export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
@@ -96,4 +101,19 @@ export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
   "teeter-dance": { targetConfusion: true },
   "sweet-kiss": { targetConfusion: true },
   "supersonic": { targetConfusion: true },
+
+  // Field/side effects
+  "trick-room": { fieldEffect: "trickRoom" },
+  "tailwind": { sideEffect: "tailwind" },
+
+  // Stat reset
+  "haze": { resetStats: true },
+
+  // Forced switch
+  "whirlwind": { forceSwitch: true },
+  "roar": { forceSwitch: true },
+
+  // Team status heal
+  "aromatherapy": { healTeamStatus: true },
+  "heal-bell": { healTeamStatus: true },
 };

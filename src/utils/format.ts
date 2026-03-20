@@ -3,8 +3,32 @@ export function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+const NAME_OVERRIDES: Record<string, string> = {
+  "mr-mime": "Mr. Mime",
+  "mr-rime": "Mr. Rime",
+  "mime-jr": "Mime Jr.",
+  "ho-oh": "Ho-Oh",
+  "nidoran-f": "Nidoran♀",
+  "nidoran-m": "Nidoran♂",
+  "porygon-z": "Porygon-Z",
+  "type-null": "Type: Null",
+  "jangmo-o": "Jangmo-o",
+  "hakamo-o": "Hakamo-o",
+  "kommo-o": "Kommo-o",
+  "tapu-koko": "Tapu Koko",
+  "tapu-lele": "Tapu Lele",
+  "tapu-bulu": "Tapu Bulu",
+  "tapu-fini": "Tapu Fini",
+  "chi-yu": "Chi-Yu",
+  "chien-pao": "Chien-Pao",
+  "ting-lu": "Ting-Lu",
+  "wo-chien": "Wo-Chien",
+};
+
 /** Convert a hyphenated API name to display format. e.g. "fire-punch" → "Fire Punch" */
 export function formatName(name: string): string {
+  const override = NAME_OVERRIDES[name];
+  if (override) return override;
   return name
     .split("-")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))

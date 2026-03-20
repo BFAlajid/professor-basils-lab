@@ -183,11 +183,16 @@ export function applyEndOfTurnEffects(state: BattleState, log: BattleLogEntry[])
       }
     }
 
-    // Grassy Terrain healing
+    // Grassy Terrain healing (grounded Pokemon only)
     if (state.field.terrain === "grassy") {
-      const heal = Math.max(1, Math.floor(updated.maxHp / 16));
-      updated.currentHp = Math.min(updated.maxHp, updated.currentHp + heal);
-      log.push({ turn: state.turn, message: `${updated.slot.pokemon.name} was healed by the Grassy Terrain!`, kind: "heal" });
+      const grassyTypes = getEffectiveTypes(updated);
+      const grassyIsFlying = grassyTypes.includes("flying");
+      const grassyHasLevitate = updated.slot.ability?.toLowerCase().replace(/\s+/g, "-") === "levitate";
+      if (!grassyIsFlying && !grassyHasLevitate) {
+        const heal = Math.max(1, Math.floor(updated.maxHp / 16));
+        updated.currentHp = Math.min(updated.maxHp, updated.currentHp + heal);
+        log.push({ turn: state.turn, message: `${updated.slot.pokemon.name} was healed by the Grassy Terrain!`, kind: "heal" });
+      }
     }
 
     // Ability: onEndOfTurn — Speed Boost (only if not already handled as Poison Heal)

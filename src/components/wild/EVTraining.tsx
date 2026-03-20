@@ -64,11 +64,11 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
     const info = STAT_INFO.find((s) => s.key === stat)!;
     let gain = info.evYield;
 
-    // Power item bonus
-    if (activePowerItem && activePowerItem.stat === stat) gain += 8;
-
-    // Macho Brace doubles
+    // Macho Brace doubles base yield only
     if (hasMachoBrace) gain *= 2;
+
+    // Power item flat bonus added after Macho Brace
+    if (activePowerItem && activePowerItem.stat === stat) gain += 8;
 
     return gain;
   }, [activePowerItem, hasMachoBrace]);

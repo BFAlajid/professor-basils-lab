@@ -47,6 +47,9 @@ export default memo(function PokemonCard({
         boxShadow: `0 0 20px ${glowColor}4D`,
         borderColor: `${glowColor}80`,
       }}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } }}
       className={`relative rounded-xl border bg-[#262b44] p-4 cursor-pointer transition-colors ${
         isExpanded ? "border-[#e8433f]" : "border-[#3a4466]"
       }`}

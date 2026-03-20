@@ -38,7 +38,7 @@ export default function PCBox({ box, teamSize, onMoveToTeam, onRemove, onSetNick
         <div role="grid" aria-label="PC Box storage" className="grid grid-cols-8 sm:grid-cols-10 gap-2 max-h-[350px] overflow-y-auto bg-[#1a1c2c] border border-[#3a4466] rounded-xl p-3">
           {box.map((pokemon, i) => (
             <PCBoxSlot
-              key={i}
+              key={`${pokemon.pokemon.id}-${pokemon.caughtDate}-${i}`}
               pokemon={pokemon}
               index={i}
               isSelected={selectedIndex === i}
@@ -97,7 +97,7 @@ export default function PCBox({ box, teamSize, onMoveToTeam, onRemove, onSetNick
                 </button>
               )}
               <button
-                onClick={() => { onRemove(selectedIndex); setSelectedIndex(null); }}
+                onClick={() => { if (window.confirm(`Release ${selected.nickname || selected.pokemon.name}? This cannot be undone.`)) { onRemove(selectedIndex); setSelectedIndex(null); } }}
                 aria-label="Release Pokemon"
                 className="px-4 py-2 bg-[#e8433f] hover:bg-[#c9342e] text-[#f0f0e8] text-xs font-pixel rounded-lg transition-colors"
               >
