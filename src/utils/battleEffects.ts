@@ -88,6 +88,26 @@ export function applyHazardsOnSwitchIn(
 // --- End of Turn Effects ---
 
 export function applyEndOfTurnEffects(state: BattleState, log: BattleLogEntry[]): BattleState {
+  // Wish resolution — decrement counter, heal when it reaches 0
+  for (const player of ["player1", "player2"] as const) {
+    const sideKey = player === "player1" ? "player1Side" : "player2Side";
+    const side = state.field[sideKey];
+    if (side.wishPending > 0) {
+      const newPending = side.wishPending - 1;
+      if (newPending === 0) {
+        const active = getActivePokemon(state[player]);
+        if (!active.isFainted && active.currentHp < active.maxHp) {
+          const newHp = Math.min(active.maxHp, active.currentHp + side.wishAmount);
+          state = updatePokemon(state, player, state[player].activePokemonIndex, { ...active, currentHp: newHp });
+          log.push({ turn: state.turn, message: `${active.slot.pokemon.name}'s wish came true!`, kind: "heal" });
+        }
+        state = { ...state, field: { ...state.field, [sideKey]: { ...state.field[sideKey], wishPending: 0, wishAmount: 0 } } };
+      } else {
+        state = { ...state, field: { ...state.field, [sideKey]: { ...state.field[sideKey], wishPending: newPending } } };
+      }
+    }
+  }
+
   for (const player of ["player1", "player2"] as const) {
     const active = getActivePokemon(state[player]);
     if (active.isFainted) continue;

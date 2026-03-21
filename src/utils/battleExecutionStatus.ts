@@ -19,6 +19,9 @@ import {
 
 const PROTECT_CONSECUTIVE_RATE = 1 / 3;
 
+// Weather-dependent recovery moves heal more in sun, less in rain/sand/hail
+const WEATHER_HEAL_MOVES = new Set(["moonlight", "morning-sun", "synthesis"]);
+
 function handleProtect(
   state: BattleState,
   attackerPlayer: "player1" | "player2",
@@ -361,7 +364,16 @@ function handleHeal(
 ): BattleState {
   const attackerTeam = state[attackerPlayer];
   const attacker = getActivePokemon(attackerTeam);
-  const healAmount = Math.floor(attacker.maxHp * healPercent / 100);
+
+  // Weather-dependent recovery: sun = 67%, neutral = 50%, rain/sand/hail = 25%
+  let effectivePercent = healPercent;
+  if (WEATHER_HEAL_MOVES.has(moveName)) {
+    const weather = state.field.weather;
+    if (weather === "sun") effectivePercent = 67;
+    else if (weather === "rain" || weather === "sandstorm" || weather === "hail") effectivePercent = 25;
+  }
+
+  const healAmount = Math.floor(attacker.maxHp * effectivePercent / 100);
   const newHp = Math.min(attacker.maxHp, attacker.currentHp + healAmount);
   let newAttacker = { ...attacker, currentHp: newHp };
 
@@ -452,6 +464,30 @@ function handleSubstitute(
   };
   state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, newAttacker);
   log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} made a substitute!`, kind: "status" });
+
+  return state;
+}
+
+function handleWish(
+  state: BattleState,
+  attackerPlayer: "player1" | "player2",
+  moveName: string,
+  log: BattleLogEntry[]
+): BattleState {
+  const attackerTeam = state[attackerPlayer];
+  const attacker = getActivePokemon(attackerTeam);
+  const sideKey = attackerPlayer === "player1" ? "player1Side" : "player2Side";
+  const side = state.field[sideKey];
+
+  if (side.wishPending > 0) {
+    log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+    return state;
+  }
+
+  const wishAmount = Math.floor(attacker.maxHp / 2);
+  const updatedSide = { ...side, wishPending: 2, wishAmount };
+  state = { ...state, field: { ...state.field, [sideKey]: updatedSide } };
+  log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} made a wish!`, kind: "status" });
 
   return state;
 }
@@ -589,6 +625,7 @@ export function applyStatusMoveEffect(
   log: BattleLogEntry[]
 ): BattleState {
   if (effect.protect) return handleProtect(state, attackerPlayer, moveName, log);
+  if (effect.wish) return handleWish(state, attackerPlayer, moveName, log);
   if (effect.substitute) return handleSubstitute(state, attackerPlayer, moveName, log);
   if (effect.resetStats) return handleResetStats(state, attackerPlayer, defenderPlayer, log);
   if (effect.forceSwitch) return handleForceSwitch(state, defenderPlayer, log);

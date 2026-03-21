@@ -91,7 +91,7 @@ export function getOriginalTypes(bp: BattlePokemon): TypeName[] {
 // --- Side Conditions ---
 
 export function initSideConditions(): SideConditions {
-  return { stealthRock: false, spikesLayers: 0, toxicSpikesLayers: 0, stickyWeb: false, reflect: 0, lightScreen: 0, tailwind: 0 };
+  return { stealthRock: false, spikesLayers: 0, toxicSpikesLayers: 0, stickyWeb: false, reflect: 0, lightScreen: 0, tailwind: 0, wishPending: 0, wishAmount: 0 };
 }
 
 // --- Field Effects ---

@@ -18,6 +18,7 @@ export interface StatusMoveEffect {
   forceSwitch?: boolean;
   healTeamStatus?: boolean;
   substitute?: boolean;
+  wish?: boolean;
 }
 
 export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
@@ -75,7 +76,7 @@ export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
   "moonlight": { healPercent: 50 },
   "morning-sun": { healPercent: 50 },
   "synthesis": { healPercent: 50 },
-  "wish": { healPercent: 50 },
+  "wish": { wish: true },
   "rest": { healPercent: 100, targetStatus: "sleep" },
 
   // Entry hazards

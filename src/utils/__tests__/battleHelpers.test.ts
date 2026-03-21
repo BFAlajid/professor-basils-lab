@@ -311,6 +311,8 @@ describe("initSideConditions", () => {
       reflect: 0,
       lightScreen: 0,
       tailwind: 0,
+      wishPending: 0,
+      wishAmount: 0,
     });
   });
 

@@ -123,6 +123,8 @@ export interface SideConditions {
   reflect: number;            // turns remaining (0 = inactive)
   lightScreen: number;        // turns remaining (0 = inactive)
   tailwind: number;           // turns remaining (0 = inactive)
+  wishPending: number;        // 0 = none, 2 = just used, 1 = resolves next turn end
+  wishAmount: number;         // HP to heal when wish resolves
 }
 
 export interface FieldState {

@@ -799,12 +799,24 @@ export function executeDamagingMove(
     }
   }
 
-  // Max Move effects, secondary status, flinch, pivot moves — skip when hitting substitute
+  // Max Move effects, secondary status, flinch — skip when hitting substitute
   if (!hitSubstitute) {
     state = applySecondaryEffects(
       state, attackerPlayer, defenderPlayer, attacker, defender,
       moveData, moveIndex, originalName, isDynamaxMove, totalDamage, newDefender, log
     );
+  } else {
+    // Pivot moves still trigger through substitute
+    const PIVOT_MOVES_SUB = ["u-turn", "volt-switch", "flip-turn"];
+    if (PIVOT_MOVES_SUB.includes(originalName) && totalDamage > 0) {
+      const currentAttacker = getActivePokemon(state[attackerPlayer]);
+      if (!currentAttacker.isFainted) {
+        const hasSwitch = state[attackerPlayer].pokemon.some((p, i) => i !== state[attackerPlayer].activePokemonIndex && !p.isFainted);
+        if (hasSwitch) {
+          state = { ...state, pendingPivotSwitch: attackerPlayer };
+        }
+      }
+    }
   }
 
   // Track last move used, reset consecutiveProtects, apply Choice lock
