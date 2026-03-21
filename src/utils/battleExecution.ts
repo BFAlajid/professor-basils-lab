@@ -108,13 +108,40 @@ export function executeMove(
   // TODO: Outrage/Thrash/Petal Dance cause confusion after 2-3 turns of locked use
 
   const moves = attacker.slot.selectedMoves ?? [];
+
+  // Check if all moves are out of PP — force Struggle
+  const allPPDepleted = attacker.movePP?.length > 0 && attacker.movePP.every((pp) => pp <= 0);
+  if (allPPDepleted) {
+    log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} has no moves left!`, kind: "info" });
+    log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} used struggle!`, kind: "info" });
+    return executeDamagingMove(state, attackerPlayer, defenderPlayer, "struggle", moveIndex, log);
+  }
+
   const moveName = moves[moveIndex];
   if (!moveName) {
     log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} has no move to use!`, kind: "info" });
     return state;
   }
 
+  // Check if the specific move has PP remaining
+  const currentPP = attacker.movePP?.[moveIndex] ?? 1;
+  if (currentPP <= 0) {
+    log.push({ turn: state.turn, message: `${moveName.replace(/-/g, " ")} has no PP left!`, kind: "info" });
+    return state;
+  }
+
   log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} used ${moveName.replace(/-/g, " ")}!`, kind: "info" });
+
+  // Decrement PP for the used move
+  const currentAttackerForPP = getActivePokemon(state[attackerPlayer]);
+  if (currentAttackerForPP.movePP && moveIndex < currentAttackerForPP.movePP.length) {
+    const newPP = [...currentAttackerForPP.movePP];
+    newPP[moveIndex] = Math.max(0, newPP[moveIndex] - 1);
+    state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, {
+      ...getActivePokemon(state[attackerPlayer]),
+      movePP: newPP,
+    });
+  }
 
   // Assault Vest: blocks status moves
   if (attacker.slot.heldItem === "assault-vest") {

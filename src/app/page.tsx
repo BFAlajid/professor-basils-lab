@@ -20,8 +20,10 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import TeamRoster from "@/components/TeamRoster";
 import TypeCoverage from "@/components/TypeCoverage";
 import TeamWeaknessPanel from "@/components/TeamWeaknessPanel";
+import TeamSuggestions from "@/components/TeamSuggestions";
 import TeamSummary from "@/components/TeamSummary";
 import AudioPlayer from "@/components/AudioPlayer";
+import TypeReference from "@/components/TypeReference";
 
 // Heavy — lazy load
 const StatRadar = dynamic(() => import("@/components/StatRadar"), {
@@ -56,6 +58,9 @@ const DamageMatrix = dynamic(() => import("@/components/DamageMatrix"), {
 });
 const TeamTemplates = dynamic(() => import("@/components/TeamTemplates"), {
   loading: () => <SkeletonLoader label="Loading templates..." lines={2} />,
+});
+const CoverageGrid = dynamic(() => import("@/components/CoverageGrid"), {
+  loading: () => <SkeletonLoader label="Loading coverage grid..." lines={2} />,
 });
 const MovePoolBrowser = dynamic(() => import("@/components/MovePoolBrowser"), {
   loading: () => <SkeletonLoader label="Loading move pool..." lines={3} />,
@@ -413,7 +418,11 @@ export default function Home() {
                 <ErrorBoundary fallbackLabel="Coverage analysis crashed">
                   <div className="space-y-6">
                     <TypeCoverage team={team} />
+                    {team.length >= 1 && <CoverageGrid team={team} />}
                     <TeamWeaknessPanel team={team} />
+                    {team.length < 6 && (
+                      <TeamSuggestions team={team} onAddPokemon={addPokemon} />
+                    )}
                   </div>
                 </ErrorBoundary>
               )}
@@ -487,6 +496,8 @@ export default function Home() {
           )}
         </AnimatePresence>
       </main>
+
+      <TypeReference />
     </div>
   );
 }

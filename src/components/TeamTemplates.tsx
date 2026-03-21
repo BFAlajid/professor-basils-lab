@@ -2,146 +2,157 @@
 
 import { useState, memo, useCallback } from "react";
 import { TOAST_DURATION } from "@/data/constants";
-import { motion, AnimatePresence } from "framer-motion";
-import { TEAM_PRESETS, TeamPreset } from "@/data/teamPresets";
+import { TEAM_TEMPLATES, TeamTemplate } from "@/data/teamTemplates";
 
 interface TeamTemplatesProps {
   onLoadTeam: (showdownPaste: string) => void;
 }
 
-const ARCHETYPE_ICONS: Record<string, { icon: string; color: string }> = {
-  "Sun Team": { icon: "\u2600", color: "#f7a838" },
-  "Rain Team": { icon: "\u2602", color: "#6390F0" },
-  "Trick Room": { icon: "\u29D6", color: "#7B62A1" },
-  "Hyper Offense": { icon: "\u2694", color: "#e8433f" },
-  Balanced: { icon: "\u2696", color: "#38b764" },
+const SPRITE_BASE = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
+
+const ARCHETYPE_STYLES: Record<string, { icon: string; color: string; bg: string }> = {
+  rain:           { icon: "\u2602", color: "#6390F0", bg: "rgba(99,144,240,0.15)" },
+  sun:            { icon: "\u2600", color: "#f7a838", bg: "rgba(247,168,56,0.15)" },
+  "trick-room":   { icon: "\u29D6", color: "#7B62A1", bg: "rgba(123,98,161,0.15)" },
+  "bulky-offense": { icon: "\uD83D\uDEE1", color: "#e8433f", bg: "rgba(232,67,63,0.15)" },
+  "hyper-offense": { icon: "\u2694", color: "#e8433f", bg: "rgba(232,67,63,0.15)" },
+  stall:          { icon: "\uD83E\uDDF1", color: "#8b9bb4", bg: "rgba(139,155,180,0.15)" },
+  sand:           { icon: "\u23F3", color: "#C6B88A", bg: "rgba(198,184,138,0.15)" },
+  balanced:       { icon: "\u2696", color: "#38b764", bg: "rgba(56,183,100,0.15)" },
 };
 
-function getArchetypeStyle(name: string) {
-  return ARCHETYPE_ICONS[name] ?? { icon: "\u25CF", color: "#8b9bb4" };
+function getStyle(archetype: string) {
+  return ARCHETYPE_STYLES[archetype] ?? { icon: "\u25CF", color: "#8b9bb4", bg: "rgba(139,155,180,0.15)" };
 }
 
-function extractPokemonNames(paste: string): string[] {
-  return paste
-    .split("\n")
-    .filter((line) => line.trim() && !line.startsWith(" ") && !line.startsWith("-"))
-    .map((line) => line.split("@")[0].split("(")[0].trim())
-    .filter(Boolean);
+function formatArchetype(archetype: string): string {
+  return archetype
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
-const PresetItem = memo(function PresetItem({
-  preset,
-  isExpanded,
-  isLoaded,
-  onToggle,
+const TemplateCard = memo(function TemplateCard({
+  template,
+  isLoading,
+  loadedName,
   onLoad,
 }: {
-  preset: TeamPreset;
-  isExpanded: boolean;
-  isLoaded: boolean;
-  onToggle: () => void;
+  template: TeamTemplate;
+  isLoading: boolean;
+  loadedName: string | null;
   onLoad: () => void;
 }) {
-  const style = getArchetypeStyle(preset.name);
-  const pokemonNames = extractPokemonNames(preset.showdownPaste);
+  const style = getStyle(template.archetype);
+  const isLoaded = loadedName === template.name;
 
   return (
-    <div>
-      <button
-        onClick={onToggle}
-        aria-label={`${preset.name} template`}
-        aria-expanded={isExpanded ? "true" : "false"}
-        className="w-full flex items-center gap-3 rounded-lg bg-[#1a1c2c] p-3 border border-[#3a4466] hover:border-[#4a5577] transition-colors text-left"
-      >
-        <span
-          className="text-lg flex-shrink-0"
-          style={{ color: style.color }}
-          aria-hidden="true"
-        >
-          {style.icon}
-        </span>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-pixel text-[#f0f0e8]">{preset.name}</p>
-          <p className="text-[9px] text-[#8b9bb4] truncate">
-            {preset.format} &mdash; {pokemonNames.slice(0, 3).join(", ")}
-            {pokemonNames.length > 3 && ` +${pokemonNames.length - 3}`}
-          </p>
+    <div
+      className="rounded-xl border border-[#3a4466] bg-[#1a1c2c] p-4 flex flex-col gap-3 hover:border-[#4a5577] transition-colors"
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h4 className="text-xs font-pixel text-[#f0f0e8] font-bold truncate">
+            {template.name}
+          </h4>
         </div>
-        <motion.span
-          animate={{ rotate: isExpanded ? 180 : 0 }}
-          className="text-[#8b9bb4] text-xs"
-          aria-hidden="true"
+        <span
+          className="flex-shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-pixel font-bold whitespace-nowrap"
+          style={{ backgroundColor: style.bg, color: style.color, border: `1px solid ${style.color}33` }}
         >
-          &#9660;
-        </motion.span>
-      </button>
+          <span aria-hidden="true">{style.icon} </span>
+          {formatArchetype(template.archetype)}
+        </span>
+      </div>
 
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
+      {/* Description */}
+      <p className="text-[10px] text-[#8b9bb4] leading-relaxed line-clamp-3">
+        {template.description}
+      </p>
+
+      {/* Pokemon sprites */}
+      <div className="flex items-center gap-1 justify-center">
+        {template.pokemon.map((p) => (
+          <div
+            key={p.pokemonId}
+            className="relative w-10 h-10 flex-shrink-0"
+            title={`${p.name} - ${p.ability}`}
           >
-            <div className="mt-1 rounded-lg bg-[#1a1c2c] border border-[#3a4466] p-3">
-              <p className="text-[10px] text-[#8b9bb4] mb-3">
-                {preset.description}
-              </p>
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {pokemonNames.map((name) => (
-                  <span
-                    key={name}
-                    className="rounded bg-[#262b44] px-2 py-0.5 text-[10px] font-pixel text-[#f0f0e8]"
-                  >
-                    {name}
-                  </span>
-                ))}
-              </div>
-              <button
-                onClick={onLoad}
-                aria-label={`Load ${preset.name} team`}
-                className="rounded-lg px-4 py-2 text-xs font-pixel transition-colors"
-                style={{
-                  backgroundColor: isLoaded ? "#38b764" : "#e8433f",
-                  color: "#f0f0e8",
-                }}
-              >
-                {isLoaded ? "Loaded!" : "Load Team"}
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`${SPRITE_BASE}/${p.pokemonId}.png`}
+              alt={p.name}
+              width={40}
+              height={40}
+              loading="lazy"
+              className="w-full h-full object-contain pixelated"
+              style={{ imageRendering: "pixelated" }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Pokemon names */}
+      <div className="flex flex-wrap gap-1 justify-center">
+        {template.pokemon.map((p) => (
+          <span
+            key={p.pokemonId}
+            className="rounded bg-[#262b44] px-1.5 py-0.5 text-[9px] font-pixel text-[#c0c8d8]"
+          >
+            {p.name}
+          </span>
+        ))}
+      </div>
+
+      {/* Load button */}
+      <button
+        onClick={onLoad}
+        disabled={isLoading}
+        aria-label={`Load ${template.name} team`}
+        className="mt-auto rounded-lg px-4 py-2 text-xs font-pixel font-bold transition-colors disabled:opacity-50"
+        style={{
+          backgroundColor: isLoaded ? "#38b764" : "#e8433f",
+          color: "#f0f0e8",
+        }}
+      >
+        {isLoading ? "Loading..." : isLoaded ? "Loaded!" : "Load Team"}
+      </button>
     </div>
   );
 });
 
 export default function TeamTemplates({ onLoadTeam }: TeamTemplatesProps) {
-  const [expanded, setExpanded] = useState<string | null>(null);
   const [loadedName, setLoadedName] = useState<string | null>(null);
+  const [loadingName, setLoadingName] = useState<string | null>(null);
 
-  const handleLoad = useCallback((preset: TeamPreset) => {
-    onLoadTeam(preset.showdownPaste);
-    setLoadedName(preset.name);
-    setTimeout(() => setLoadedName(null), TOAST_DURATION);
-  }, [onLoadTeam]);
+  const handleLoad = useCallback(
+    (template: TeamTemplate) => {
+      setLoadingName(template.name);
+      onLoadTeam(template.showdownPaste);
+      setLoadingName(null);
+      setLoadedName(template.name);
+      setTimeout(() => setLoadedName(null), TOAST_DURATION);
+    },
+    [onLoadTeam],
+  );
 
   return (
     <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
       <h3 className="mb-4 text-sm font-bold font-pixel text-[#f0f0e8] uppercase tracking-wider">
         Team Templates
       </h3>
-      <div className="space-y-2">
-        {TEAM_PRESETS.map((preset) => (
-          <PresetItem
-            key={preset.name}
-            preset={preset}
-            isExpanded={expanded === preset.name}
-            isLoaded={loadedName === preset.name}
-            onToggle={() => setExpanded((prev) => prev === preset.name ? null : preset.name)}
-            onLoad={() => handleLoad(preset)}
+      <p className="text-[10px] text-[#8b9bb4] mb-4">
+        Pre-built competitive archetypes to get you started. Load a template to replace your current team.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {TEAM_TEMPLATES.map((template) => (
+          <TemplateCard
+            key={template.name}
+            template={template}
+            isLoading={loadingName === template.name}
+            loadedName={loadedName}
+            onLoad={() => handleLoad(template)}
           />
         ))}
       </div>

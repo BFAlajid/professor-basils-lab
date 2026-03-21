@@ -31,6 +31,9 @@ export interface BattlePokemon {
   substituteHp: number;
   chargingMove: string | null;
   semiInvulnerable: "fly" | "dig" | "dive" | null;
+  // Move PP tracking
+  movePP: number[];
+  moveMaxPP: number[];
   // Generational mechanic state
   isMegaEvolved: boolean;
   isTerastallized: boolean;

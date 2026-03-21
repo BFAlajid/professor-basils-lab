@@ -140,14 +140,25 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
     return { type: "MOVE", moveIndex: 0 };
   }
 
-  // Easy: 30% chance to pick a random move
-  if (difficulty === "easy" && Math.random() < AI_DIFFICULTY.RANDOM_MOVE_CHANCE) {
-    const randomIdx = Math.floor(Math.random() * moves.length);
-    return { type: "MOVE", moveIndex: randomIdx };
+  // If all moves are out of PP, use Struggle (moveIndex 0 — executeMove handles it)
+  const allPPDepleted = aiActive.movePP?.length > 0 && aiActive.movePP.every((pp) => pp <= 0);
+  if (allPPDepleted) {
+    return { type: "MOVE", moveIndex: 0 };
   }
 
-  // Score each move
+  // Easy: 30% chance to pick a random move (only from moves with PP)
+  if (difficulty === "easy" && Math.random() < AI_DIFFICULTY.RANDOM_MOVE_CHANCE) {
+    const availableIndices = moves.map((_, i) => i).filter((i) => (aiActive.movePP?.[i] ?? 1) > 0);
+    if (availableIndices.length > 0) {
+      const randomIdx = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+      return { type: "MOVE", moveIndex: randomIdx };
+    }
+  }
+
+  // Score each move (set score to -Infinity for moves with 0 PP)
   const moveScores = moves.map((moveName, index) => {
+    const pp = aiActive.movePP?.[index] ?? 1;
+    if (pp <= 0) return { index, score: -Infinity };
     let score = scoreMoveAgainstTarget(aiActive, opponentActive, moveName);
 
     // Hard: penalize moves that hit into immunity abilities

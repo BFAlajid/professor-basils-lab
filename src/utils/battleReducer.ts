@@ -15,6 +15,7 @@ import {
 import { extractBaseStats } from "./damage";
 import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { isMegaStone } from "@/data/megaStones";
+import { getCachedMoves } from "./battleHelpers";
 import { getAbilityHooks } from "@/data/abilities";
 import {
   initStatStages,
@@ -50,6 +51,15 @@ export function initBattlePokemon(slot: TeamSlot, megaFormeCache?: Map<string, A
     ? Math.max(1, Math.floor(calc.hp * slot.startingHpPercent))
     : calc.hp;
 
+  // Initialize move PP from cached move data
+  const cachedMoves = getCachedMoves();
+  const selectedMoves = slot.selectedMoves ?? [];
+  const moveMaxPP = selectedMoves.map((moveName) => {
+    const cached = cachedMoves.get(moveName);
+    return cached?.pp ?? 15;
+  });
+  const movePP = [...moveMaxPP];
+
   return {
     slot,
     currentHp: startHp,
@@ -61,6 +71,8 @@ export function initBattlePokemon(slot: TeamSlot, megaFormeCache?: Map<string, A
     toxicCounter: 0,
     sleepTurns: 0,
     confusionTurns: 0,
+    movePP,
+    moveMaxPP,
     turnsOnField: 0,
     isProtected: false,
     lastMoveUsed: null,

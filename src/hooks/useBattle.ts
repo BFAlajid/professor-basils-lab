@@ -1,7 +1,7 @@
 "use client";
 
 import { useReducer, useCallback, useState, useEffect, useRef } from "react";
-import { BattleTurnAction, TeamSlot, BattleMode, GenerationalMechanic, AltFormeData, DifficultyLevel } from "@/types";
+import { BattleTurnAction, BattlePokemon, TeamSlot, BattleMode, GenerationalMechanic, AltFormeData, DifficultyLevel } from "@/types";
 import { isMegaStone, getMegaStone } from "@/data/megaStones";
 import { battleReducer, initialBattleState } from "@/utils/battle";
 import { fetchAndCacheMoves } from "@/utils/moveCache";

@@ -338,6 +338,27 @@ export default memo(function BattleArena({
     <div className="space-y-4">
       {/* Battle Field */}
       <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-6 relative">
+        {/* Weather/Terrain Turn Counter */}
+        {(state.field.weather || state.field.terrain) && (
+          <div className="flex justify-center gap-2 mb-3">
+            {state.field.weather && (
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-[#1a1c2c]/80 border border-[#3a4466] px-3 py-1">
+                <span className="text-[10px]">
+                  {state.field.weather === "sun" ? "\u2600" : state.field.weather === "rain" ? "\uD83C\uDF27" : state.field.weather === "sandstorm" ? "\uD83C\uDF2A" : "\u2744"}
+                </span>
+                <span className="text-[10px] font-pixel text-[#f0f0e8] capitalize">{state.field.weather}</span>
+                <span className="text-[10px] font-pixel text-[#8b9bb4]">{state.field.weatherTurnsLeft}t</span>
+              </div>
+            )}
+            {state.field.terrain && (
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-[#1a1c2c]/80 border border-[#3a4466] px-3 py-1">
+                <span className="text-[10px] font-pixel text-[#f0f0e8] capitalize">{state.field.terrain.replace("_", " ")} Terrain</span>
+                <span className="text-[10px] font-pixel text-[#8b9bb4]">{state.field.terrainTurnsLeft}t</span>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-8">
           <PokemonBattleSprite
             pokemon={p1Active}

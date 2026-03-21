@@ -154,6 +154,8 @@ export function createMockBattlePokemon(
     isFlinched: false,
     choiceLockedMove: null,
     focusEnergy: false,
+    movePP: (slot.selectedMoves ?? []).map(() => 15),
+    moveMaxPP: (slot.selectedMoves ?? []).map(() => 15),
     substituteHp: 0,
     chargingMove: null,
     semiInvulnerable: null,
