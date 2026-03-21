@@ -86,6 +86,9 @@ export default function TeamRoster({
     navigator.clipboard.writeText(showdownText).then(() => {
       setShowdownMessage("Copied!");
       setTimeout(() => setShowdownMessage(""), TOAST_DURATION);
+    }).catch(() => {
+      setShowdownMessage("Copy failed");
+      setTimeout(() => setShowdownMessage(""), TOAST_DURATION);
     });
   }, [showdownText]);
 
@@ -96,6 +99,10 @@ export default function TeamRoster({
       setClipboardCopied(true);
       incrementStat("showdownExports");
       setTimeout(() => setClipboardCopied(false), TOAST_DURATION);
+    }).catch(() => {
+      setClipboardCopied(false);
+      setShowdownMessage("Copy failed");
+      setTimeout(() => setShowdownMessage(""), TOAST_DURATION);
     });
   }, [team, incrementStat]);
 
@@ -131,20 +138,20 @@ export default function TeamRoster({
           <>
             <button
               onClick={handleExport}
-              className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors focus-visible:ring-2 focus-visible:ring-[#e8433f]"
             >
               Export Showdown
             </button>
             <button
               onClick={handleCopyToClipboard}
-              className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors focus-visible:ring-2 focus-visible:ring-[#e8433f]"
             >
               {clipboardCopied ? "Copied!" : "Copy Showdown"}
             </button>
             {features.enableSharing && (
               <button
                 onClick={() => setShowQR(true)}
-                className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors focus-visible:ring-2 focus-visible:ring-[#e8433f]"
               >
                 QR Code
               </button>
@@ -157,14 +164,14 @@ export default function TeamRoster({
             setShowShowdown(true);
             setShowdownMessage("");
           }}
-          className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
+          className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors focus-visible:ring-2 focus-visible:ring-[#e8433f]"
         >
           Import Showdown
         </button>
         {onSetTeam && (
           <button
             onClick={() => setShowPresets(!showPresets)}
-            className={`px-3 py-1.5 rounded-lg text-[#f0f0e8] text-xs font-pixel transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-[#f0f0e8] text-xs font-pixel transition-colors focus-visible:ring-2 focus-visible:ring-[#e8433f] ${
               showPresets ? "bg-[#e8433f] hover:bg-[#f05050]" : "bg-[#3a4466] hover:bg-[#4a5577]"
             }`}
           >
@@ -190,7 +197,7 @@ export default function TeamRoster({
                     key={preset.name}
                     onClick={() => handleLoadPreset(preset.showdownPaste)}
                     disabled={isImporting}
-                    className="text-left rounded-lg border border-[#3a4466] bg-[#1a1c2c] p-3 hover:border-[#e8433f] transition-colors disabled:opacity-50"
+                    className="text-left rounded-lg border border-[#3a4466] bg-[#1a1c2c] p-3 hover:border-[#e8433f] transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[#e8433f]"
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-pixel text-[#f0f0e8]">{preset.name}</span>

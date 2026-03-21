@@ -18,6 +18,7 @@ import { getAbilityHooks } from "@/data/abilities";
 import { getMaxMoveEffect } from "@/data/maxMoves";
 import { getStatLabel } from "./format";
 import { HIGH_CRIT_MOVES, CRIT_STAGE_RATES } from "@/data/constants";
+import { STATUS_MOVE_EFFECTS } from "@/data/statusMoves";
 
 // --- Initialization ---
 
@@ -38,7 +39,7 @@ export function getStatStageMultiplier(stage: number): number {
   return 2 / (2 - clamped);
 }
 
-export function getEffectiveSpeed(bp: BattlePokemon): number {
+export function getEffectiveSpeed(bp: BattlePokemon, sideConditions?: SideConditions): number {
   const baseStats = extractBaseStats(bp.slot.pokemon);
   const calc = calculateAllStats(
     baseStats,
@@ -49,6 +50,11 @@ export function getEffectiveSpeed(bp: BattlePokemon): number {
   let speed = Math.floor(calc.speed * getStatStageMultiplier(bp.statStages.speed));
 
   if (bp.status === "paralyze") speed = Math.floor(speed * 0.5);
+
+  // Tailwind doubles speed
+  if (sideConditions && sideConditions.tailwind > 0) {
+    speed = speed * 2;
+  }
 
   if (bp.slot.heldItem) {
     const item = getHeldItem(bp.slot.heldItem);
@@ -64,8 +70,18 @@ export function getEffectiveSpeed(bp: BattlePokemon): number {
 
 export function getEffectiveTypes(bp: BattlePokemon): TypeName[] {
   if (bp.isTerastallized && bp.teraType) return [bp.teraType];
-  if (bp.isMegaEvolved && bp.megaFormeData) return bp.megaFormeData.types.map(t => t.type.name as TypeName);
-  return bp.slot.pokemon.types.map(t => t.type.name);
+  let types: TypeName[];
+  if (bp.isMegaEvolved && bp.megaFormeData) {
+    types = bp.megaFormeData.types.map(t => t.type.name as TypeName);
+  } else {
+    types = bp.slot.pokemon.types.map(t => t.type.name as TypeName);
+  }
+  // Roost removes Flying type for the remainder of the turn; pure Flying becomes Normal
+  if (bp.roostActive) {
+    types = types.filter(t => t !== "flying");
+    if (types.length === 0) types = ["normal"];
+  }
+  return types;
 }
 
 export function getOriginalTypes(bp: BattlePokemon): TypeName[] {
@@ -75,7 +91,7 @@ export function getOriginalTypes(bp: BattlePokemon): TypeName[] {
 // --- Side Conditions ---
 
 export function initSideConditions(): SideConditions {
-  return { stealthRock: false, spikesLayers: 0, toxicSpikesLayers: 0, stickyWeb: false, reflect: 0, lightScreen: 0 };
+  return { stealthRock: false, spikesLayers: 0, toxicSpikesLayers: 0, stickyWeb: false, reflect: 0, lightScreen: 0, tailwind: 0 };
 }
 
 // --- Field Effects ---
@@ -160,11 +176,42 @@ export function getBattleMove(attacker: BattlePokemon, moveIndex: number): Move 
   };
 }
 
+// Drain moves for Triage priority check
+const TRIAGE_DRAIN_MOVES = new Set([
+  "giga-drain", "drain-punch", "horn-leech", "absorb", "mega-drain",
+  "leech-life", "parabolic-charge", "draining-kiss", "oblivion-wing", "bouncy-bubble",
+]);
+
 export function getMovePriority(pokemon: BattlePokemon, action: BattleTurnAction): number {
   const moveIndex = getMoveIndexFromAction(action);
   if (moveIndex === null) return 0;
   const moveData = getBattleMove(pokemon, moveIndex);
-  return moveData.priority ?? 0;
+  let priority = moveData.priority ?? 0;
+  const moveName = (pokemon.slot.selectedMoves ?? [])[moveIndex] ?? "";
+
+  const abilityKey = pokemon.slot.ability?.toLowerCase().replace(/\s+/g, "-") ?? "";
+
+  // Prankster: +1 priority to status moves
+  if (abilityKey === "prankster") {
+    const isStatus = moveData.damage_class.name === "status" || moveName in STATUS_MOVE_EFFECTS;
+    if (isStatus) priority += 1;
+  }
+
+  // Gale Wings: +1 priority to Flying-type moves at full HP
+  if (abilityKey === "gale-wings") {
+    if (moveData.type.name === "flying" && pokemon.currentHp === pokemon.maxHp) {
+      priority += 1;
+    }
+  }
+
+  // Triage: +3 priority to healing/drain moves
+  if (abilityKey === "triage") {
+    if (TRIAGE_DRAIN_MOVES.has(moveName) || (moveData.meta?.drain && moveData.meta.drain > 0)) {
+      priority += 3;
+    }
+  }
+
+  return priority;
 }
 
 export function getRelevantAtkStage(attacker: BattlePokemon, move: Move): number {

@@ -10,6 +10,7 @@ import {
   updatePokemon,
   getStatStageMultiplier,
   getCachedMoves,
+  getEffectiveTypes,
 } from "./battleHelpers";
 import { extractBaseStats } from "./damage";
 import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
@@ -157,6 +158,16 @@ export function executeMove(
   // Check if it's a status move with known effects
   const statusEffect = STATUS_MOVE_EFFECTS[moveName];
   if (statusEffect) {
+    // Prankster Dark-type immunity: Prankster-boosted status moves fail against Dark types
+    const attackerAbility = attacker.slot.ability?.toLowerCase().replace(/\s+/g, "-") ?? "";
+    if (attackerAbility === "prankster") {
+      const defenderTypes = getEffectiveTypes(defender);
+      const targetsOpponent = !!(statusEffect.targetStatChanges || statusEffect.targetConfusion || statusEffect.targetStatus || statusEffect.forceSwitch);
+      if (targetsOpponent && defenderTypes.includes("dark")) {
+        log.push({ turn: state.turn, message: `It doesn't affect ${defender.slot.pokemon.name}...`, kind: "info" });
+        return state;
+      }
+    }
     return applyStatusMoveEffect(state, attackerPlayer, defenderPlayer, statusEffect, moveName, log);
   }
 

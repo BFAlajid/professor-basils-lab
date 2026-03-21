@@ -310,6 +310,7 @@ describe("initSideConditions", () => {
       stickyWeb: false,
       reflect: 0,
       lightScreen: 0,
+      tailwind: 0,
     });
   });
 

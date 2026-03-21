@@ -94,6 +94,7 @@ export function initBattlePokemon(slot: TeamSlot, megaFormeCache?: Map<string, A
     hasMegaEvolved: false,
     hasTerastallized: false,
     hasDynamaxed: false,
+    roostActive: false,
   };
 }
 
@@ -114,6 +115,7 @@ const initialFieldState: FieldState = {
   weatherTurnsLeft: 0,
   terrain: null,
   terrainTurnsLeft: 0,
+  trickRoom: 0,
   player1Side: initSideConditions(),
   player2Side: initSideConditions(),
 };
@@ -145,7 +147,7 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         { turn: 1, message: `${action.player1Team[0].pokemon.name} was sent out!`, kind: "switch" },
         { turn: 1, message: `${action.player2Team[0].pokemon.name} was sent out!`, kind: "switch" },
       ];
-      return {
+      let newState: BattleState = {
         ...state,
         phase: "action_select",
         mode: action.mode,
@@ -160,6 +162,39 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         difficulty: action.difficulty ?? "normal",
         pendingPivotSwitch: null,
       };
+
+      // Trigger lead abilities (Intimidate, Drizzle, etc.) for both players
+      for (const player of ["player1", "player2"] as const) {
+        const oppPlayer = player === "player1" ? "player2" : "player1";
+        const switchedIn = getActivePokemon(newState[player]);
+        const opp = getActivePokemon(newState[oppPlayer]);
+        const abilityHooks = getAbilityHooks(switchedIn.slot.ability);
+        if (abilityHooks?.onSwitchIn && !opp.isFainted) {
+          const effect = abilityHooks.onSwitchIn({ pokemon: switchedIn, opponent: opp });
+          if (effect) {
+            if (effect.message) {
+              newState = { ...newState, log: [...newState.log, { turn: 1, message: effect.message, kind: "status" }] };
+            }
+            if (effect.type === "stat_drop" && effect.stat && effect.stages) {
+              const target = getActivePokemon(newState[oppPlayer]);
+              const statKey = effect.stat as keyof StatStages;
+              const oldStage = target.statStages[statKey] ?? 0;
+              const newStage = Math.max(-6, oldStage + effect.stages);
+              if (newStage !== oldStage) {
+                newState = updatePokemon(newState, oppPlayer, newState[oppPlayer].activePokemonIndex, {
+                  ...target, statStages: { ...target.statStages, [statKey]: newStage },
+                });
+              }
+            } else if (effect.type === "weather" && effect.weather) {
+              newState = { ...newState, field: { ...newState.field, weather: effect.weather, weatherTurnsLeft: effect.weatherTurns ?? 5 } };
+            } else if (effect.type === "terrain" && effect.terrain) {
+              newState = { ...newState, field: { ...newState.field, terrain: effect.terrain, terrainTurnsLeft: effect.terrainTurns ?? 5 } };
+            }
+          }
+        }
+      }
+
+      return newState;
     }
 
     case "EXECUTE_TURN": {
@@ -267,6 +302,7 @@ function executeTurn(
         ...active,
         isProtected: false,
         isFlinched: false,
+        roostActive: false,
         turnsOnField: (active.turnsOnField ?? 0) + 1,
       });
     }
@@ -292,8 +328,15 @@ function executeTurn(
   const p1Priority = getMovePriority(p1Active, p1Action);
   const p2Priority = getMovePriority(p2Active, p2Action);
 
-  const p1Speed = getEffectiveSpeed(p1Active);
-  const p2Speed = getEffectiveSpeed(p2Active);
+  let p1Speed = getEffectiveSpeed(p1Active, newState.field.player1Side);
+  let p2Speed = getEffectiveSpeed(p2Active, newState.field.player2Side);
+
+  // Trick Room reverses speed order
+  if (newState.field.trickRoom > 0) {
+    const temp = p1Speed;
+    p1Speed = p2Speed;
+    p2Speed = temp;
+  }
 
   if (p1Priority > p2Priority ||
       (p1Priority === p2Priority && (p1Speed > p2Speed || (p1Speed === p2Speed && Math.random() < 0.5)))) {
@@ -388,10 +431,48 @@ function performSwitch(
 ): BattleState {
   const team = state[player];
   const oldActive = getActivePokemon(team);
+
+  // Check trapping abilities — opponent's ability may prevent switching
+  const trapOpponentPlayer = player === "player1" ? "player2" : "player1";
+  const trapOpponent = getActivePokemon(state[trapOpponentPlayer]);
+  if (!trapOpponent.isFainted) {
+    const oppHooks = getAbilityHooks(trapOpponent.slot.ability);
+    if (oppHooks?.onTrapping) {
+      const trapped = oppHooks.onTrapping({ pokemon: trapOpponent, opponent: oldActive });
+      if (trapped) {
+        log.push({ turn: state.turn, message: `${oldActive.slot.pokemon.name} can't escape!`, kind: "status" });
+        return state;
+      }
+    }
+  }
+
   const newPokemon = [...team.pokemon];
 
+  // Apply onSwitchOut ability effects (Regenerator, Natural Cure) before deactivating
+  let switchOutPokemon = { ...oldActive };
+  if (!switchOutPokemon.isFainted) {
+    const switchOutHooks = getAbilityHooks(switchOutPokemon.slot.ability);
+    if (switchOutHooks?.onSwitchOut) {
+      const switchOutEffect = switchOutHooks.onSwitchOut({ pokemon: switchOutPokemon });
+      if (switchOutEffect) {
+        if (switchOutEffect.type === "heal" && switchOutEffect.healFraction) {
+          const healAmount = Math.max(1, Math.floor(switchOutPokemon.maxHp * switchOutEffect.healFraction));
+          switchOutPokemon = {
+            ...switchOutPokemon,
+            currentHp: Math.min(switchOutPokemon.maxHp, switchOutPokemon.currentHp + healAmount),
+          };
+        } else if (switchOutEffect.type === "cure_status") {
+          switchOutPokemon = { ...switchOutPokemon, status: null, toxicCounter: 0 };
+        }
+        if (switchOutEffect.message) {
+          log.push({ turn: state.turn, message: switchOutEffect.message, kind: "status" });
+        }
+      }
+    }
+  }
+
   newPokemon[team.activePokemonIndex] = {
-    ...oldActive,
+    ...switchOutPokemon,
     isActive: false,
     statStages: initStatStages(),
     choiceLockedMove: null,
@@ -491,22 +572,42 @@ function tickFieldEffects(state: BattleState, log: BattleLogEntry[]): BattleStat
     }
   }
 
+  // Trick Room countdown
+  if (field.trickRoom > 0) {
+    field.trickRoom--;
+    if (field.trickRoom <= 0) {
+      log.push({ turn: state.turn, message: `The twisted dimensions returned to normal!`, kind: "status" });
+    }
+  }
+
   for (const sideKey of ["player1Side", "player2Side"] as const) {
     const side = field[sideKey];
-    if (side.reflect > 0 || side.lightScreen > 0) {
-      const updatedSide = { ...side };
-      if (updatedSide.reflect > 0) {
-        updatedSide.reflect--;
-        if (updatedSide.reflect <= 0) {
-          log.push({ turn: state.turn, message: `${sideKey === "player1Side" ? "Player 1" : "Player 2"}'s Reflect wore off!`, kind: "status" });
-        }
+    const updatedSide = { ...side };
+    let changed = false;
+
+    if (updatedSide.reflect > 0) {
+      updatedSide.reflect--;
+      changed = true;
+      if (updatedSide.reflect <= 0) {
+        log.push({ turn: state.turn, message: `${sideKey === "player1Side" ? "Player 1" : "Player 2"}'s Reflect wore off!`, kind: "status" });
       }
-      if (updatedSide.lightScreen > 0) {
-        updatedSide.lightScreen--;
-        if (updatedSide.lightScreen <= 0) {
-          log.push({ turn: state.turn, message: `${sideKey === "player1Side" ? "Player 1" : "Player 2"}'s Light Screen wore off!`, kind: "status" });
-        }
+    }
+    if (updatedSide.lightScreen > 0) {
+      updatedSide.lightScreen--;
+      changed = true;
+      if (updatedSide.lightScreen <= 0) {
+        log.push({ turn: state.turn, message: `${sideKey === "player1Side" ? "Player 1" : "Player 2"}'s Light Screen wore off!`, kind: "status" });
       }
+    }
+    if (updatedSide.tailwind > 0) {
+      updatedSide.tailwind--;
+      changed = true;
+      if (updatedSide.tailwind <= 0) {
+        log.push({ turn: state.turn, message: `${sideKey === "player1Side" ? "Player 1" : "Player 2"}'s Tailwind petered out!`, kind: "status" });
+      }
+    }
+
+    if (changed) {
       field = { ...field, [sideKey]: updatedSide };
     }
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { Pokemon, TeamSlot, Nature, EVSpread, IVSpread, WeatherType } from "@/types";
@@ -95,6 +95,8 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
   const [defenderSearch, setDefenderSearch] = useState("");
   const [defenderLoading, setDefenderLoading] = useState(false);
   const [showDefenderDropdown, setShowDefenderDropdown] = useState(false);
+  const [highlightedDefIdx, setHighlightedDefIdx] = useState(-1);
+  const defBlurTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Attacker competitive options
   const [atkLevel, setAtkLevel] = useState(50);
@@ -558,18 +560,54 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
               onChange={(e) => {
                 setDefenderSearch(e.target.value);
                 setShowDefenderDropdown(true);
+                setHighlightedDefIdx(-1);
               }}
               onFocus={() => setShowDefenderDropdown(true)}
+              onBlur={() => {
+                defBlurTimer.current = setTimeout(() => setShowDefenderDropdown(false), 150);
+              }}
+              onKeyDown={(e) => {
+                if (!showDefenderDropdown || filteredDefenders.length === 0) return;
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setHighlightedDefIdx((prev) => Math.min(prev + 1, filteredDefenders.length - 1));
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setHighlightedDefIdx((prev) => Math.max(prev - 1, 0));
+                } else if (e.key === "Enter" && highlightedDefIdx >= 0) {
+                  e.preventDefault();
+                  handleDefenderSelect(filteredDefenders[highlightedDefIdx].name);
+                } else if (e.key === "Escape") {
+                  setShowDefenderDropdown(false);
+                }
+              }}
               placeholder="Search any Pokemon..."
               className={`${inputCls} py-2 placeholder-[#8b9bb4]`}
+              role="combobox"
+              aria-expanded={showDefenderDropdown && filteredDefenders.length > 0}
+              aria-controls="defender-listbox"
+              aria-activedescendant={highlightedDefIdx >= 0 ? `defender-option-${highlightedDefIdx}` : undefined}
             />
             {showDefenderDropdown && filteredDefenders.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full rounded-lg border border-[#3a4466] bg-[#262b44] shadow-lg max-h-48 overflow-y-auto">
-                {filteredDefenders.map((p) => (
+              <div
+                id="defender-listbox"
+                role="listbox"
+                aria-label="Defender search results"
+                className="absolute z-10 mt-1 w-full rounded-lg border border-[#3a4466] bg-[#262b44] shadow-lg max-h-48 overflow-y-auto"
+              >
+                {filteredDefenders.map((p, i) => (
                   <button
                     key={p.name}
+                    id={`defender-option-${i}`}
+                    role="option"
+                    aria-selected={highlightedDefIdx === i}
+                    onMouseDown={() => {
+                      if (defBlurTimer.current) clearTimeout(defBlurTimer.current);
+                    }}
                     onClick={() => handleDefenderSelect(p.name)}
-                    className="w-full px-3 py-2 text-left text-sm capitalize hover:bg-[#3a4466] transition-colors"
+                    className={`w-full px-3 py-2 text-left text-sm capitalize transition-colors ${
+                      highlightedDefIdx === i ? "bg-[#3a4466] text-[#f0f0e8]" : "hover:bg-[#3a4466]"
+                    }`}
                   >
                     {p.name}
                   </button>

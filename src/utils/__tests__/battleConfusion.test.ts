@@ -29,6 +29,7 @@ vi.mock("@/data/statusMoves", () => ({
 vi.mock("@/data/abilities", () => ({
   getAbilityHooks: vi.fn(() => null),
   getHighestStat: vi.fn(() => "attack"),
+  hasAbility: vi.fn(() => false),
 }));
 
 vi.mock("@/data/maxMoves", () => ({

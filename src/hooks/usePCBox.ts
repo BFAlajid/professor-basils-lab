@@ -108,13 +108,14 @@ export function usePCBox() {
   }, [box]);
 
   const useBall = useCallback((ball: BallType): boolean => {
-    if (ballInventory[ball] <= 0) return false;
-    setBallInventory((prev) => ({
-      ...prev,
-      [ball]: prev[ball] - 1,
-    }));
-    return true;
-  }, [ballInventory]);
+    let success = false;
+    setBallInventory((prev) => {
+      if ((prev[ball] ?? 0) <= 0) return prev;
+      success = true;
+      return { ...prev, [ball]: prev[ball] - 1 };
+    });
+    return success;
+  }, []);
 
   const isAlreadyCaught = useCallback((pokemonId: number): boolean => {
     return box.some((p) => p.pokemon.id === pokemonId);

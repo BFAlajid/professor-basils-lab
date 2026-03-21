@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { usePokemonList } from "@/hooks/usePokemonList";
 import { fetchPokemon } from "@/hooks/usePokemon";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { Pokemon, TypeName, PokemonListItem } from "@/types";
 import { TYPE_LIST } from "@/data/typeChart";
 import { fetchTypePokemonNames } from "@/utils/pokeApiClient";
@@ -48,6 +49,7 @@ export default function PokemonSearch({
   const [error, setError] = useState<string | null>(null);
   const [imgErrors, setImgErrors] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
+  const focusTrapRef = useFocusTrap(isOpen);
   const { data: pokemonList } = usePokemonList();
 
   // Filter state
@@ -222,6 +224,10 @@ export default function PokemonSearch({
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 pt-[10vh]"
           onClick={onClose}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Search Pokemon"
+          ref={focusTrapRef}
         >
           <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}

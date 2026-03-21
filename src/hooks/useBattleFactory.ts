@@ -183,6 +183,7 @@ const STORAGE_KEY = "pokemon-battle-factory-best";
 export function useBattleFactory() {
   const [factoryState, dispatch] = useReducer(factoryReducer, initialState);
   const [isLoading, setIsLoading] = useState(false);
+  const loadingRef = useRef(false);
   const hasLoadedBest = useRef(false);
 
   // Load best run from localStorage on mount
@@ -216,6 +217,8 @@ export function useBattleFactory() {
   // ── Start factory — generate rental pool of 6 Pokemon ──────────────
 
   const startFactory = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setIsLoading(true);
     try {
       // Generate 6 rental Pokemon (floor 5 = mid-tier difficulty)
@@ -237,6 +240,7 @@ export function useBattleFactory() {
       dispatch({ type: "GENERATE_POOL", pool: indexed });
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
   }, []);
 
@@ -259,6 +263,8 @@ export function useBattleFactory() {
   // ── Generate opponent — 3 Pokemon scaled to current win count ──────
 
   const generateOpponent = useCallback(async (): Promise<TeamSlot[]> => {
+    if (loadingRef.current) return [];
+    loadingRef.current = true;
     setIsLoading(true);
     try {
       // Scale difficulty: floor rises with wins
@@ -273,6 +279,7 @@ export function useBattleFactory() {
       return threeOpponents;
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
   }, [factoryState.wins]);
 

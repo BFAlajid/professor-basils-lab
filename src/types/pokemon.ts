@@ -122,6 +122,7 @@ export interface SideConditions {
   stickyWeb: boolean;
   reflect: number;            // turns remaining (0 = inactive)
   lightScreen: number;        // turns remaining (0 = inactive)
+  tailwind: number;           // turns remaining (0 = inactive)
 }
 
 export interface FieldState {
@@ -129,6 +130,7 @@ export interface FieldState {
   weatherTurnsLeft: number;
   terrain: TerrainType | null;
   terrainTurnsLeft: number;
+  trickRoom: number;          // turns remaining (0 = inactive)
   player1Side: SideConditions;
   player2Side: SideConditions;
 }

@@ -398,6 +398,7 @@ export default memo(function BattleArena({
               {team.pokemon.map((p, i) => (
                 <div
                   key={i}
+                  role="img"
                   className={`h-3 w-3 rounded-full ${
                     p.isFainted
                       ? "bg-[#e8433f]"
@@ -406,6 +407,7 @@ export default memo(function BattleArena({
                       : "bg-[#8b9bb4]"
                   }`}
                   title={`${p.slot.pokemon.name} - ${p.isFainted ? "Fainted" : `${Math.round((p.currentHp / p.maxHp) * 100)}% HP`}`}
+                  aria-label={`${p.slot.pokemon.name}: ${p.isFainted ? "fainted" : p.isActive ? "active" : "benched"}`}
                 />
               ))}
             </div>

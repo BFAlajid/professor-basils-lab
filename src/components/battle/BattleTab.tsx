@@ -292,9 +292,20 @@ export default function BattleTab({ team }: BattleTabProps) {
       );
     }
 
-    // Battle ended in factory mode — handled by useEffect below
+    // Battle ended in factory mode — handled by useEffect above
     if (fPhase === "battling" && state.phase === "ended") {
-      return null;
+      return (
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div
+              role="status"
+              aria-label="Loading next battle"
+              className="animate-spin rounded-full border-4 border-[#3a4466] border-t-[#e8433f] h-10 w-10"
+            />
+            <p className="text-sm font-pixel text-[#8b9bb4]">Preparing next battle...</p>
+          </div>
+        </div>
+      );
     }
 
     // All other factory phases (pick, swap, victory, defeat)

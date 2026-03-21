@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { TYPE_LIST, getEffectiveness } from "@/data/typeChart";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import type { TypeName } from "@/types";
 
 const ABBREV: Record<TypeName, string> = {
@@ -22,6 +23,7 @@ export default function TypeReference() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const overlayRef = useRef<HTMLDivElement>(null);
+  const focusTrapRef = useFocusTrap(open);
 
   const matchedType = TYPE_LIST.find(
     (t) => t.toLowerCase().startsWith(search.toLowerCase()) && search.length > 0
@@ -57,9 +59,17 @@ export default function TypeReference() {
       {/* Modal overlay */}
       {open && (
         <div
-          ref={overlayRef}
+          ref={(node) => {
+            // @ts-ignore — merge overlay ref and focus trap ref
+            overlayRef.current = node;
+            // @ts-ignore
+            (focusTrapRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+          }}
           onClick={handleOverlayClick}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Type effectiveness chart"
         >
           <div className="relative max-h-[90vh] max-w-[95vw] overflow-auto rounded-xl border border-[#3a4466] bg-[#1a1c2c] p-4 shadow-2xl">
             {/* Header */}

@@ -194,7 +194,7 @@ export function useBattleFacility() {
         dispatch({ type: "BATTLE_LOST" });
       }
     },
-    [battle.state, facilityState.mode, facilityState.streak, facilityState.bestStreak]
+    [battle.state, facilityState.mode, facilityState.streak, facilityState.bestStreak, facilityState.currentOpponentIndex, facilityState.badges]
   );
 
   // ── Next battle ───────────────────────────────────────────────────

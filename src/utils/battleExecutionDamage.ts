@@ -7,9 +7,9 @@ import {
   TypeName,
 } from "@/types";
 import { calculateDamage } from "./damage";
-import { STAT_STAGE_MAX, STAT_STAGE_MIN, SLEEP_TURN_MIN, SLEEP_TURN_RANGE } from "@/data/constants";
+import { STAT_STAGE_MAX, STAT_STAGE_MIN, SLEEP_TURN_MIN, SLEEP_TURN_RANGE, SELF_STAT_DROP_MOVES, CONTACT_MOVES } from "@/data/constants";
 import { convertToMaxMove, getMaxMoveEffect } from "@/data/maxMoves";
-import { getAbilityHooks, getHighestStat } from "@/data/abilities";
+import { getAbilityHooks, getHighestStat, hasAbility } from "@/data/abilities";
 import { getDefensiveMultiplier } from "@/data/typeChart";
 import {
   getActivePokemon,
@@ -30,6 +30,40 @@ const DAMAGE_ROLL_RANGE = 0.15;
 const MULTI_HIT_2 = 0.35;
 const MULTI_HIT_3 = 0.70;
 const MULTI_HIT_4 = 0.85;
+
+// Contact moves — used for Static, Flame Body, Tough Claws, etc.
+const CONTACT_MOVE_SET = new Set([
+  "tackle", "body-slam", "double-edge", "take-down", "headbutt",
+  "slam", "stomp", "mega-kick", "jump-kick", "hi-jump-kick",
+  "low-kick", "karate-chop", "submission", "seismic-toss",
+  "scratch", "slash", "fury-swipes", "cut", "x-scissor",
+  "aerial-ace", "wing-attack", "brave-bird", "drill-peck", "fly",
+  "peck", "acrobatics", "bounce", "sky-attack", "pluck",
+  "waterfall", "aqua-tail", "crabhammer", "liquidation", "dive",
+  "wave-crash", "flip-turn",
+  "thunder-punch", "ice-punch", "fire-punch", "drain-punch",
+  "mach-punch", "mega-punch", "focus-punch", "sky-uppercut",
+  "shadow-punch", "bullet-punch", "hammer-arm", "power-up-punch",
+  "close-combat", "superpower", "cross-chop",
+  "crunch", "bite", "fire-fang", "ice-fang", "thunder-fang",
+  "poison-fang", "psychic-fangs", "jaw-lock", "fishious-rend",
+  "wild-charge", "volt-tackle", "spark", "nuzzle",
+  "flare-blitz", "flame-charge", "blaze-kick", "fire-lash",
+  "iron-head", "iron-tail", "meteor-mash", "steel-wing", "smart-strike",
+  "zen-headbutt", "psycho-cut", "heart-stamp",
+  "poison-jab", "cross-poison", "gunk-shot",
+  "earthquake", "bulldoze", "drill-run", "stomping-tantrum",
+  "rock-slide", "stone-edge", "rock-tomb", "head-smash",
+  "shadow-claw", "shadow-sneak", "phantom-force",
+  "dragon-claw", "dragon-rush", "outrage", "dragon-tail",
+  "wood-hammer", "leaf-blade", "power-whip", "seed-bomb",
+  "u-turn", "leech-life", "bug-bite", "megahorn", "lunge",
+  "play-rough", "spirit-break",
+  "knock-off", "sucker-punch", "darkest-lariat", "throat-chop",
+  "icicle-crash", "ice-shard", "triple-axel",
+  "return", "frustration", "facade", "extreme-speed", "quick-attack",
+  "fake-out", "rapid-spin", "covet", "thief",
+]);
 
 type MoveData = ReturnType<typeof getBattleMove>;
 
@@ -156,6 +190,7 @@ function applyDamageLoop(
         attacker,
         moveType: moveData.type.name as TypeName,
         movePower: moveData.power ?? 0,
+        isPhysical: moveData.damage_class.name === "physical",
       });
       if (multiscaleResult && multiscaleResult.multiplier > 0 && multiscaleResult.multiplier < 1) {
         hitDamage = Math.max(1, Math.floor(hitDamage * multiscaleResult.multiplier));
@@ -249,8 +284,8 @@ function applyRecoilDrain(
   totalDamage: number,
   log: BattleLogEntry[]
 ): BattleState {
-  // Life Orb recoil
-  if (attacker.slot.heldItem === "life-orb" && totalDamage > 0) {
+  // Life Orb recoil — Sheer Force prevents Life Orb recoil (but keeps the damage boost)
+  if (attacker.slot.heldItem === "life-orb" && totalDamage > 0 && !hasAbility(attacker, "sheer-force")) {
     const recoil = Math.max(1, Math.floor(attacker.maxHp / 10));
     const attackerAfterRecoil = {
       ...getActivePokemon(state[attackerPlayer]),
@@ -330,6 +365,10 @@ function applySecondaryEffects(
   newDefender: BattlePokemon,
   log: BattleLogEntry[]
 ): BattleState {
+  const attackerHasSheerForce = hasAbility(attacker, "sheer-force");
+
+  // Sheer Force: skip ALL secondary effects (status, flinch, stat changes on target)
+  // but still allow Max Move effects and pivot moves
   // Apply Max Move field effects
   if (isDynamaxMove && totalDamage > 0) {
     const maxEffect = getMaxMoveEffect(moveData.name);
@@ -362,57 +401,110 @@ function applySecondaryEffects(
     }
   }
 
-  // Apply secondary status effects from damaging moves
-  const moveInfo = getBattleMove(attacker, moveIndex);
-  if (moveInfo.meta?.ailment?.name && moveInfo.meta.ailment.name !== "none" && !newDefender.isFainted) {
-    const chance = moveInfo.meta.ailment_chance ?? 0;
-    if (chance === 0 || Math.random() * 100 < chance) {
-      const statusName = moveInfo.meta.ailment.name as string;
-      const statusMap: Record<string, StatusCondition> = {
-        "burn": "burn",
-        "paralysis": "paralyze",
-        "poison": "poison",
-        "freeze": "freeze",
-        "sleep": "sleep",
-        "toxic": "toxic",
-      };
-      const newStatus = statusMap[statusName];
-      if (newStatus && !newDefender.status) {
-        const defAbilitySecondary = getAbilityHooks(newDefender.slot.ability);
-        const statusBlocked = defAbilitySecondary?.preventStatus && defAbilitySecondary.preventStatus({ pokemon: newDefender, status: newStatus });
-        if (!statusBlocked) {
-          newDefender = { ...newDefender, status: newStatus };
-          if (newStatus === "sleep") {
-            newDefender.sleepTurns = SLEEP_TURN_MIN + Math.floor(Math.random() * SLEEP_TURN_RANGE);
+  // Serene Grace doubles secondary effect chances
+  const attackerHasSereneGrace = hasAbility(attacker, "serene-grace");
+
+  // Apply secondary status effects from damaging moves (Sheer Force skips these)
+  if (!attackerHasSheerForce) {
+    const moveInfo = getBattleMove(attacker, moveIndex);
+    if (moveInfo.meta?.ailment?.name && moveInfo.meta.ailment.name !== "none" && !newDefender.isFainted) {
+      let chance = moveInfo.meta.ailment_chance ?? 0;
+      if (attackerHasSereneGrace && chance > 0) chance = Math.min(100, chance * 2);
+      if (chance === 0 || Math.random() * 100 < chance) {
+        const statusName = moveInfo.meta.ailment.name as string;
+        const statusMap: Record<string, StatusCondition> = {
+          "burn": "burn",
+          "paralysis": "paralyze",
+          "poison": "poison",
+          "freeze": "freeze",
+          "sleep": "sleep",
+          "toxic": "toxic",
+        };
+        const newStatus = statusMap[statusName];
+        if (newStatus && !newDefender.status) {
+          const defAbilitySecondary = getAbilityHooks(newDefender.slot.ability);
+          const statusBlocked = defAbilitySecondary?.preventStatus && defAbilitySecondary.preventStatus({ pokemon: newDefender, status: newStatus });
+          if (!statusBlocked) {
+            newDefender = { ...newDefender, status: newStatus };
+            if (newStatus === "sleep") {
+              newDefender.sleepTurns = SLEEP_TURN_MIN + Math.floor(Math.random() * SLEEP_TURN_RANGE);
+            }
+            log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} was ${getStatusText(newStatus)}!`, kind: "status" });
+            state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, newDefender);
           }
-          log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} was ${getStatusText(newStatus)}!`, kind: "status" });
-          state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, newDefender);
+        }
+      }
+    }
+
+    // Fake Out flinch
+    if (originalName === "fake-out" && !newDefender.isFainted) {
+      const latestDefender = getActivePokemon(state[defenderPlayer]);
+      state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...latestDefender, isFlinched: true });
+    }
+
+    // Flinch chance from damaging moves
+    const FLINCH_MOVES: Record<string, number> = {
+      "iron-head": 30, "rock-slide": 30, "air-slash": 30,
+      "zen-headbutt": 20, "bite": 30, "dark-pulse": 20,
+      "waterfall": 20, "headbutt": 30, "icicle-crash": 30,
+      "stomp": 30, "snore": 30, "dragon-rush": 20,
+      "astonish": 30, "extrasensory": 10, "heart-stamp": 30,
+      "twister": 20, "needle-arm": 30, "sky-attack": 30,
+    };
+    let flinchChance = FLINCH_MOVES[originalName] ?? 0;
+    if (attackerHasSereneGrace && flinchChance > 0) flinchChance = Math.min(100, flinchChance * 2);
+    if (flinchChance && totalDamage > 0 && !newDefender.isFainted) {
+      if (Math.random() * 100 < flinchChance) {
+        const latestDefender = getActivePokemon(state[defenderPlayer]);
+        if (!latestDefender.isFainted) {
+          state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...latestDefender, isFlinched: true });
         }
       }
     }
   }
 
-  // Fake Out flinch
-  if (originalName === "fake-out" && !newDefender.isFainted) {
-    const latestDefender = getActivePokemon(state[defenderPlayer]);
-    state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...latestDefender, isFlinched: true });
+  // Self-stat drops (Close Combat, Superpower, Overheat, etc.) — always applied even with Sheer Force
+  const selfDrops = SELF_STAT_DROP_MOVES[originalName];
+  if (selfDrops && selfDrops.length > 0 && totalDamage > 0) {
+    const currentAtk = getActivePokemon(state[attackerPlayer]);
+    if (!currentAtk.isFainted) {
+      let updatedStages = { ...currentAtk.statStages };
+      const dropMessages: string[] = [];
+      for (const drop of selfDrops) {
+        const statKey = drop.stat as keyof StatStages;
+        const oldStage = updatedStages[statKey] ?? 0;
+        const newStage = Math.max(STAT_STAGE_MIN, oldStage + drop.stages);
+        if (newStage !== oldStage) {
+          updatedStages = { ...updatedStages, [statKey]: newStage };
+          const statLabel = statKey === "spAtk" ? "Sp. Atk" : statKey === "spDef" ? "Sp. Def" : statKey.charAt(0).toUpperCase() + statKey.slice(1);
+          const verb = drop.stages <= -2 ? "harshly fell" : "fell";
+          dropMessages.push(`${currentAtk.slot.pokemon.name}'s ${statLabel} ${verb}!`);
+        }
+      }
+      if (dropMessages.length > 0) {
+        state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, { ...currentAtk, statStages: updatedStages });
+        for (const msg of dropMessages) {
+          log.push({ turn: state.turn, message: msg, kind: "status" });
+        }
+      }
+    }
   }
 
-  // Flinch chance from damaging moves
-  const FLINCH_MOVES: Record<string, number> = {
-    "iron-head": 30, "rock-slide": 30, "air-slash": 30,
-    "zen-headbutt": 20, "bite": 30, "dark-pulse": 20,
-    "waterfall": 20, "headbutt": 30, "icicle-crash": 30,
-    "stomp": 30, "snore": 30, "dragon-rush": 20,
-    "astonish": 30, "extrasensory": 10, "heart-stamp": 30,
-    "twister": 20, "needle-arm": 30, "sky-attack": 30,
-  };
-  const flinchChance = FLINCH_MOVES[originalName];
-  if (flinchChance && totalDamage > 0 && !newDefender.isFainted) {
-    if (Math.random() * 100 < flinchChance) {
-      const latestDefender = getActivePokemon(state[defenderPlayer]);
-      if (!latestDefender.isFainted) {
-        state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...latestDefender, isFlinched: true });
+  // Rocky Helmet contact recoil
+  if (totalDamage > 0 && CONTACT_MOVES.has(originalName)) {
+    const latestDef = getActivePokemon(state[defenderPlayer]);
+    if (!latestDef.isFainted && latestDef.slot.heldItem === "rocky-helmet") {
+      const currentAtk = getActivePokemon(state[attackerPlayer]);
+      if (!currentAtk.isFainted) {
+        const helmetDmg = Math.max(1, Math.floor(currentAtk.maxHp / 6));
+        const newAtkHp = Math.max(0, currentAtk.currentHp - helmetDmg);
+        let helmetAttacker = { ...currentAtk, currentHp: newAtkHp };
+        log.push({ turn: state.turn, message: `${currentAtk.slot.pokemon.name} was hurt by Rocky Helmet!`, kind: "damage" });
+        if (newAtkHp <= 0) {
+          helmetAttacker = { ...helmetAttacker, currentHp: 0, isFainted: true, isActive: false };
+          log.push({ turn: state.turn, message: `${currentAtk.slot.pokemon.name} fainted!`, kind: "faint" });
+        }
+        state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, helmetAttacker);
       }
     }
   }
@@ -609,6 +701,7 @@ export function executeDamagingMove(
       attacker,
       moveType: moveData.type.name as TypeName,
       movePower: moveData.power ?? 0,
+      isPhysical: moveData.damage_class.name === "physical",
     });
     if (abilityResult) {
       if (abilityResult.multiplier === 0) {
@@ -677,6 +770,34 @@ export function executeDamagingMove(
 
   // Life Orb recoil, recoil moves, drain moves
   state = applyRecoilDrain(state, attackerPlayer, attacker, originalName, totalDamage, log);
+
+  // Contact ability retaliation (Static, Flame Body)
+  if (totalDamage > 0 && !hitSubstitute && !newDefender.isFainted) {
+    const defAbilityContact = getAbilityHooks(newDefender.slot.ability);
+    if (defAbilityContact?.onContact && CONTACT_MOVE_SET.has(originalName)) {
+      const contactResult = defAbilityContact.onContact({ attacker, defender: newDefender });
+      if (contactResult && Math.random() < contactResult.chance) {
+        const currentAtk = getActivePokemon(state[attackerPlayer]);
+        if (!currentAtk.isFainted && !currentAtk.status) {
+          // Check type-based status immunities
+          const atkTypes = currentAtk.slot.pokemon.types.map((t) => t.type.name);
+          const typeImmune =
+            (contactResult.status === "burn" && atkTypes.includes("fire")) ||
+            (contactResult.status === "paralyze" && atkTypes.includes("electric")) ||
+            ((contactResult.status === "poison" || contactResult.status === "toxic") && (atkTypes.includes("poison") || atkTypes.includes("steel"))) ||
+            (contactResult.status === "freeze" && atkTypes.includes("ice"));
+          if (!typeImmune) {
+            state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, {
+              ...currentAtk, status: contactResult.status,
+            });
+            if (contactResult.message) {
+              log.push({ turn: state.turn, message: contactResult.message, kind: "status" });
+            }
+          }
+        }
+      }
+    }
+  }
 
   // Max Move effects, secondary status, flinch, pivot moves — skip when hitting substitute
   if (!hitSubstitute) {

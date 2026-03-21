@@ -216,10 +216,9 @@ export function useAchievements() {
   }, []);
 
   const spendMoney = useCallback((amount: number): boolean => {
-    if (stats.money < amount) return false;
     dispatchStats({ type: "SPEND_MONEY", amount });
     return true;
-  }, [stats.money]);
+  }, []);
 
   const updateElo = useCallback((won: boolean, opponentRating?: number) => {
     dispatchStats({ type: "UPDATE_ELO", won, opponentRating });

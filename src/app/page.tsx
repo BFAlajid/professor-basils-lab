@@ -319,7 +319,9 @@ export default function Home() {
                   </button>
                 )}
                 <button
-                  onClick={clearTeam}
+                  onClick={() => {
+                    if (window.confirm("Clear your entire team?")) clearTeam();
+                  }}
                   aria-label="Clear all team members"
                   className="rounded-lg bg-[#3a4466] px-4 py-2 text-base text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
                 >

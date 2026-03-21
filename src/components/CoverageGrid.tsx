@@ -13,14 +13,18 @@ interface CoverageGridProps {
 const TYPE_ABBR: Record<TypeName, string> = {
   normal: "NOR", fire: "FIR", water: "WAT", electric: "ELE", grass: "GRA",
   ice: "ICE", fighting: "FIG", poison: "POI", ground: "GRO", flying: "FLY",
-  psychic: "PSY", bug: "BUG", rock: "ROK", ghost: "GHO", dragon: "DRA",
-  dark: "DRK", steel: "STL", fairy: "FAI",
+  psychic: "PSY", bug: "BUG", rock: "ROC", ghost: "GHO", dragon: "DRA",
+  dark: "DAR", steel: "STE", fairy: "FAI",
 };
 
 type Effectiveness = "se" | "ne" | "re" | "im";
 
 function getLabel(eff: Effectiveness): string {
   switch (eff) { case "se": return "SE"; case "ne": return "—"; case "re": return "R"; case "im": return "X"; }
+}
+
+function getEffLabel(eff: Effectiveness): string {
+  switch (eff) { case "se": return "super effective"; case "ne": return "neutral"; case "re": return "not very effective"; case "im": return "immune"; }
 }
 
 function getCellStyle(eff: Effectiveness): { bg: string; text: string } {
@@ -145,9 +149,10 @@ export default function CoverageGrid({ team }: CoverageGridProps) {
                       key={TYPE_LIST[i]}
                       className="px-1 py-1 text-center font-bold"
                       title={`${row.name} vs ${TYPE_LIST[i]}: ${getLabel(eff)}`}
+                      aria-label={`${row.name} vs ${TYPE_LIST[i]}: ${getEffLabel(eff)}`}
                     >
                       <div
-                        className="mx-auto flex h-5 w-7 items-center justify-center rounded-sm text-[9px]"
+                        className="mx-auto flex h-5 w-7 items-center justify-center rounded-sm text-[10px]"
                         style={{ backgroundColor: style.bg, color: style.text }}
                       >
                         {getLabel(eff)}

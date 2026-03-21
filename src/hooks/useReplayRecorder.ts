@@ -69,6 +69,11 @@ export function useReplayRecorder() {
     }
   }, []);
 
+  const clearRecording = useCallback(() => {
+    snapshotsRef.current = [];
+    isRecordingRef.current = false;
+  }, []);
+
   const deleteReplay = useCallback((id: string) => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -83,6 +88,7 @@ export function useReplayRecorder() {
   return {
     startRecording,
     recordSnapshot,
+    clearRecording,
     saveReplay,
     loadReplays,
     deleteReplay,

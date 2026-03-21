@@ -46,6 +46,7 @@ export interface BattlePokemon {
   hasMegaEvolved: boolean;
   hasTerastallized: boolean;
   hasDynamaxed: boolean;
+  roostActive: boolean;
 }
 
 export interface BattleTeam {

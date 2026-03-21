@@ -12,6 +12,7 @@ import {
   getActivePokemon,
   updatePokemon,
   getStatusText,
+  initStatStages,
   initSideConditions,
   triggerOnStatDrop,
 } from "./battleHelpers";
@@ -365,10 +366,15 @@ function handleHeal(
   let newAttacker = { ...attacker, currentHp: newHp };
 
   if (moveName === "rest" && targetStatus === "sleep") {
-    newAttacker = { ...newAttacker, status: "sleep", sleepTurns: 2, currentHp: attacker.maxHp };
+    newAttacker = { ...newAttacker, status: "sleep", sleepTurns: 3, currentHp: attacker.maxHp };
     log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} went to sleep and restored HP!`, kind: "heal" });
   } else {
     log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} restored HP!`, kind: "heal" });
+  }
+
+  // Roost removes Flying type for the remainder of the turn
+  if (moveName === "roost") {
+    newAttacker = { ...newAttacker, roostActive: true };
   }
 
   state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, newAttacker);
@@ -450,6 +456,130 @@ function handleSubstitute(
   return state;
 }
 
+function handleResetStats(
+  state: BattleState,
+  attackerPlayer: "player1" | "player2",
+  defenderPlayer: "player1" | "player2",
+  log: BattleLogEntry[]
+): BattleState {
+  for (const player of [attackerPlayer, defenderPlayer] as const) {
+    const pokemon = getActivePokemon(state[player]);
+    if (!pokemon.isFainted) {
+      state = updatePokemon(state, player, state[player].activePokemonIndex, {
+        ...pokemon,
+        statStages: initStatStages(),
+      });
+    }
+  }
+  log.push({ turn: state.turn, message: `All stat changes were eliminated!`, kind: "status" });
+  return state;
+}
+
+function handleForceSwitch(
+  state: BattleState,
+  defenderPlayer: "player1" | "player2",
+  log: BattleLogEntry[]
+): BattleState {
+  const defenderTeam = state[defenderPlayer];
+  const defender = getActivePokemon(defenderTeam);
+
+  const validTargets = defenderTeam.pokemon
+    .map((p, i) => ({ pokemon: p, index: i }))
+    .filter((entry) => entry.index !== defenderTeam.activePokemonIndex && !entry.pokemon.isFainted);
+
+  if (validTargets.length === 0) {
+    log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+    return state;
+  }
+
+  const target = validTargets[Math.floor(Math.random() * validTargets.length)];
+  const newPokemon = [...defenderTeam.pokemon];
+
+  newPokemon[defenderTeam.activePokemonIndex] = {
+    ...defender,
+    isActive: false,
+    statStages: initStatStages(),
+    confusionTurns: 0,
+    toxicCounter: 0,
+    focusEnergy: false,
+    substituteHp: 0,
+    chargingMove: null,
+    semiInvulnerable: null,
+  };
+  newPokemon[target.index] = {
+    ...newPokemon[target.index],
+    isActive: true,
+    turnsOnField: 0,
+  };
+
+  log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} was blown away!`, kind: "switch" });
+  log.push({ turn: state.turn, message: `${newPokemon[target.index].slot.pokemon.name} was dragged out!`, kind: "switch" });
+
+  state = {
+    ...state,
+    [defenderPlayer]: { ...defenderTeam, pokemon: newPokemon, activePokemonIndex: target.index },
+  };
+
+  return state;
+}
+
+function handleHealTeamStatus(
+  state: BattleState,
+  attackerPlayer: "player1" | "player2",
+  moveName: string,
+  log: BattleLogEntry[]
+): BattleState {
+  const team = state[attackerPlayer];
+  let healed = false;
+  const newPokemon = team.pokemon.map((p) => {
+    if (p.status) {
+      healed = true;
+      return { ...p, status: null as StatusCondition };
+    }
+    return p;
+  });
+
+  if (healed) {
+    state = { ...state, [attackerPlayer]: { ...team, pokemon: newPokemon } };
+    const moveLabel = moveName === "aromatherapy" ? "A soothing aroma" : "A bell chimed";
+    log.push({ turn: state.turn, message: `${moveLabel} and cured the team's status problems!`, kind: "heal" });
+  } else {
+    log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+  }
+
+  return state;
+}
+
+function handleTrickRoom(
+  state: BattleState,
+  log: BattleLogEntry[]
+): BattleState {
+  if (state.field.trickRoom > 0) {
+    log.push({ turn: state.turn, message: `The twisted dimensions returned to normal!`, kind: "status" });
+    return { ...state, field: { ...state.field, trickRoom: 0 } };
+  }
+  log.push({ turn: state.turn, message: `The dimensions were twisted!`, kind: "status" });
+  return { ...state, field: { ...state.field, trickRoom: 5 } };
+}
+
+function handleTailwind(
+  state: BattleState,
+  attackerPlayer: "player1" | "player2",
+  log: BattleLogEntry[]
+): BattleState {
+  const sideKey = attackerPlayer === "player1" ? "player1Side" : "player2Side";
+  const side = state.field[sideKey];
+
+  if (side.tailwind > 0) {
+    log.push({ turn: state.turn, message: `Tailwind is already blowing!`, kind: "info" });
+    return state;
+  }
+
+  const updatedSide = { ...side, tailwind: 4 };
+  log.push({ turn: state.turn, message: `The Tailwind blew from behind the team!`, kind: "status" });
+  return { ...state, field: { ...state.field, [sideKey]: updatedSide } };
+}
+
 export function applyStatusMoveEffect(
   state: BattleState,
   attackerPlayer: "player1" | "player2",
@@ -460,6 +590,11 @@ export function applyStatusMoveEffect(
 ): BattleState {
   if (effect.protect) return handleProtect(state, attackerPlayer, moveName, log);
   if (effect.substitute) return handleSubstitute(state, attackerPlayer, moveName, log);
+  if (effect.resetStats) return handleResetStats(state, attackerPlayer, defenderPlayer, log);
+  if (effect.forceSwitch) return handleForceSwitch(state, defenderPlayer, log);
+  if (effect.healTeamStatus) return handleHealTeamStatus(state, attackerPlayer, moveName, log);
+  if (effect.fieldEffect === "trickRoom") return handleTrickRoom(state, log);
+  if (effect.sideEffect === "tailwind") return handleTailwind(state, attackerPlayer, log);
 
   // Self-targeting effects always work (even if the user has a substitute)
   if (effect.selfStatChanges) {

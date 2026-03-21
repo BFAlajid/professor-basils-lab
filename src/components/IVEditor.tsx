@@ -58,6 +58,7 @@ export default function IVEditor({ ivs, onChange }: IVEditorProps) {
               max={MAX_IV}
               value={ivs[key]}
               onChange={(e) => handleChange(key, parseInt(e.target.value) || 0)}
+              aria-label={`${label} IV`}
               className="w-full rounded border border-[#3a4466] bg-[#1a1c2c] px-2 py-1 text-xs text-[#f0f0e8] text-right outline-none focus:border-[#e8433f]"
             />
           </div>

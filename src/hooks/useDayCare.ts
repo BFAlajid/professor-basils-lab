@@ -52,6 +52,8 @@ export function useDayCare(box: PCBoxPokemon[]) {
   const [state, dispatch] = useReducer(dayCareReducer, initialState);
   const [isCheckingCompat, setIsCheckingCompat] = useState(false);
   const initialized = useRef(false);
+  const boxRef = useRef(box);
+  boxRef.current = box;
   const stepInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load from localStorage on mount
@@ -133,8 +135,9 @@ export function useDayCare(box: PCBoxPokemon[]) {
 
   const collectEgg = useCallback(async () => {
     if (!state.currentPair || !compatState.compatible) return;
-    const p1 = box[state.currentPair.parent1Index];
-    const p2 = box[state.currentPair.parent2Index];
+    const currentBox = boxRef.current;
+    const p1 = currentBox[state.currentPair.parent1Index];
+    const p2 = currentBox[state.currentPair.parent2Index];
     if (!p1 || !p2) return;
 
     const speciesId = await getOffspringSpeciesId(p1, p2);
@@ -149,7 +152,7 @@ export function useDayCare(box: PCBoxPokemon[]) {
 
     const egg = createEgg(p1, p2, speciesId, speciesName);
     dispatch({ type: "CREATE_EGG", egg });
-  }, [state.currentPair, compatState.compatible, box]);
+  }, [state.currentPair, compatState.compatible]);
 
   const hatchEgg = useCallback(async (index: number) => {
     const egg = state.eggs[index];

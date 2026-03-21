@@ -21,6 +21,7 @@ vi.mock("@/data/statusMoves", () => ({
 vi.mock("@/data/abilities", () => ({
   getAbilityHooks: vi.fn(() => null),
   getHighestStat: vi.fn(() => "attack"),
+  hasAbility: vi.fn(() => false),
 }));
 
 vi.mock("@/data/maxMoves", () => ({
@@ -54,7 +55,7 @@ function buildState(
   p2Overrides?: Partial<BattlePokemon>,
   fieldOverrides?: Partial<BattleState["field"]>,
 ): BattleState {
-  return createMockBattleState({ p1Overrides, p2Overrides, ...fieldOverrides ? { field: { weather: null, weatherTurnsLeft: 0, terrain: null, terrainTurnsLeft: 0, player1Side: { stealthRock: false, spikesLayers: 0, toxicSpikesLayers: 0, stickyWeb: false, reflect: 0, lightScreen: 0 }, player2Side: { stealthRock: false, spikesLayers: 0, toxicSpikesLayers: 0, stickyWeb: false, reflect: 0, lightScreen: 0 }, ...fieldOverrides } } : {} });
+  return createMockBattleState({ p1Overrides, p2Overrides, ...fieldOverrides ? { field: { weather: null, weatherTurnsLeft: 0, terrain: null, terrainTurnsLeft: 0, trickRoom: 0, player1Side: { stealthRock: false, spikesLayers: 0, toxicSpikesLayers: 0, stickyWeb: false, reflect: 0, lightScreen: 0, tailwind: 0 }, player2Side: { stealthRock: false, spikesLayers: 0, toxicSpikesLayers: 0, stickyWeb: false, reflect: 0, lightScreen: 0, tailwind: 0 }, ...fieldOverrides } } : {} });
 }
 
 // Pre-populate move cache for tests
@@ -651,7 +652,7 @@ describe("executeMove", () => {
       const result = executeMove(state, "player1", 0, log);
       expect(result.player1.pokemon[0].currentHp).toBe(300);
       expect(result.player1.pokemon[0].status).toBe("sleep");
-      expect(result.player1.pokemon[0].sleepTurns).toBe(2);
+      expect(result.player1.pokemon[0].sleepTurns).toBe(3);
     });
   });
 });

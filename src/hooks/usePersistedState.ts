@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 
 export function usePersistedState<T>(
@@ -25,7 +25,13 @@ export function usePersistedState<T>(
     }
   });
 
+  const initialized = useRef(false);
+
   useEffect(() => {
+    if (!initialized.current) {
+      initialized.current = true;
+      return;
+    }
     try {
       localStorage.setItem(key, JSON.stringify(state));
     } catch (error) {

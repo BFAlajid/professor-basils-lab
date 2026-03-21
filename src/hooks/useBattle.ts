@@ -159,8 +159,9 @@ export function useBattle() {
   }, []);
 
   const resetBattle = useCallback(() => {
+    recorder.clearRecording();
     dispatch({ type: "RESET_BATTLE" });
-  }, []);
+  }, [recorder]);
 
   // Audio track triggers
   useEffect(() => {

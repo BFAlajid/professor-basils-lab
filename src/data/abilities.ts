@@ -15,6 +15,7 @@ export interface AbilityHooks {
     attacker: BattlePokemon;
     moveType: TypeName;
     movePower: number;
+    isPhysical?: boolean;
   }) => IncomingDamageResult | null;
 
   /** Modify the attack stat during damage calc */
@@ -63,6 +64,11 @@ export interface AbilityHooks {
     stages: number;
   }) => StatBoostResult | null;
 
+  /** Triggered when this Pokemon switches out */
+  onSwitchOut?: (context: {
+    pokemon: BattlePokemon;
+  }) => SwitchOutResult | null;
+
   /** Check if this ability traps the opponent (Arena Trap, Shadow Tag, Magnet Pull) */
   onTrapping?: (context: {
     pokemon: BattlePokemon;
@@ -71,9 +77,21 @@ export interface AbilityHooks {
 
   /** Modify critical hit damage multiplier (Sniper: 1.5x → 2.25x) */
   modifyCritDamage?: number; // multiplier applied to crit damage (e.g. 2.25 for Sniper)
+
+  /** Triggered when this Pokemon is hit by a contact move */
+  onContact?: (context: {
+    attacker: BattlePokemon;
+    defender: BattlePokemon;
+  }) => ContactResult | null;
 }
 
 // --- Result Types ---
+
+export interface ContactResult {
+  status: StatusCondition;
+  chance: number; // 0-1 probability
+  message?: string;
+}
 
 export interface SwitchInResult {
   type: "stat_drop" | "weather" | "terrain";
@@ -117,6 +135,12 @@ export interface EndOfTurnResult {
 
 export interface SurvivalResult {
   surviveWithHp: number; // 1 = Sturdy (survive at 1 HP)
+  message?: string;
+}
+
+export interface SwitchOutResult {
+  type: "heal" | "cure_status";
+  healFraction?: number; // e.g. 1/3 for Regenerator
   message?: string;
 }
 
@@ -470,8 +494,8 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
   // === Damage modifier abilities (modifyAttackStat as power proxy) ===
 
   "sheer-force": {
-    // 1.3x power on moves with secondary effects; secondary effect removal
-    // is handled in battleExecutionDamage.ts applySecondaryEffects (TODO: consumer must check this flag)
+    // 1.3x power on moves with secondary effects; secondary effect removal + Life Orb recoil skip
+    // handled in battleExecutionDamage.ts applySecondaryEffects and applyRecoilDrain
     modifyAttackStat: ({ moveName }) => {
       const SECONDARY_EFFECT_MOVES = [
         "flamethrower", "ice-beam", "thunderbolt", "psychic", "shadow-ball",
@@ -627,11 +651,9 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
   },
 
   "fur-coat": {
-    // Doubles Defense — approximated via modifyIncomingDamage for physical moves
-    modifyIncomingDamage: ({ defender, movePower }) => {
-      // Only halve physical damage; movePower > 0 filters out status moves
-      // TODO: Ideally needs isPhysical from the move's damage_class
-      if (movePower > 0) {
+    // Doubles Defense — only halves physical damage
+    modifyIncomingDamage: ({ defender, isPhysical }) => {
+      if (isPhysical === true) {
         return { multiplier: 0.5, message: `${defender.slot.pokemon.name}'s Fur Coat softened the blow!` };
       }
       return null;
@@ -639,10 +661,9 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
   },
 
   "ice-scales": {
-    // Doubles Special Defense — approximated via modifyIncomingDamage
-    // TODO: Ideally needs isSpecial from the move's damage_class to only halve special damage
-    modifyIncomingDamage: ({ defender, movePower }) => {
-      if (movePower > 0) {
+    // Doubles Special Defense — only halves special damage
+    modifyIncomingDamage: ({ defender, isPhysical }) => {
+      if (isPhysical === false) {
         return { multiplier: 0.5, message: `${defender.slot.pokemon.name}'s Ice Scales weakened the attack!` };
       }
       return null;
@@ -687,10 +708,27 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
     }),
   },
 
+  // === onContact abilities ===
+
+  static: {
+    onContact: ({ defender }) => ({
+      status: "paralyze",
+      chance: 0.3,
+      message: `${defender.slot.pokemon.name}'s Static paralyzed the attacker!`,
+    }),
+  },
+
+  "flame-body": {
+    onContact: ({ defender }) => ({
+      status: "burn",
+      chance: 0.3,
+      message: `${defender.slot.pokemon.name}'s Flame Body burned the attacker!`,
+    }),
+  },
+
   // === Status/Utility abilities ===
 
-  // Prankster: +1 priority to status moves
-  // TODO: Consumer in battleReducer.ts executeTurn needs to check this and boost priority
+  // Prankster: +1 priority to status moves (implemented in battleHelpers.ts getMovePriority)
   prankster: {},
 
   // Gale Wings: +1 priority to Flying moves at full HP
@@ -701,9 +739,7 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
   // TODO: Consumer in battleReducer.ts executeTurn needs to check this and boost priority
   triage: {},
 
-  // Serene Grace: doubles secondary effect chance
-  // TODO: Consumer in battleExecutionDamage.ts applySecondaryEffects needs to check this
-  // and multiply ailment_chance and flinch chance by 2
+  // Serene Grace: doubles secondary effect chance — handled in battleExecutionDamage.ts applySecondaryEffects
   "serene-grace": {},
 
   // Mold Breaker: ignores opponent's defensive abilities
@@ -712,15 +748,26 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
   "mold-breaker": {},
 
   // === Switch-out abilities ===
-  // TODO: Consumer in battleReducer.ts performSwitch needs onSwitchOut hook support
 
-  // Regenerator: heals 33% HP on switch out
-  // When switch-out hooks are added: onSwitchOut should heal 1/3 maxHp
-  regenerator: {},
+  regenerator: {
+    onSwitchOut: ({ pokemon }) => ({
+      type: "heal",
+      healFraction: 1 / 3,
+      message: `${pokemon.slot.pokemon.name}'s Regenerator restored its HP!`,
+    }),
+  },
 
-  // Natural Cure: cures status on switch out
-  // When switch-out hooks are added: onSwitchOut should clear status
-  "natural-cure": {},
+  "natural-cure": {
+    onSwitchOut: ({ pokemon }) => {
+      if (pokemon.status) {
+        return {
+          type: "cure_status",
+          message: `${pokemon.slot.pokemon.name}'s Natural Cure cured its status!`,
+        };
+      }
+      return null;
+    },
+  },
 };
 
 // --- Public API ---

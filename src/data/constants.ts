@@ -53,5 +53,52 @@ export const LEADERBOARD_MAX_ELO = 9999;
 export const LEADERBOARD_MAX_STREAK = 999;
 export const LEADERBOARD_RATE_LIMIT_PER_HOUR = 5;
 
+// Self-stat drop moves — applied to the attacker after dealing damage
+export const SELF_STAT_DROP_MOVES: Record<string, { stat: string; stages: number }[]> = {
+  "close-combat": [{ stat: "defense", stages: -1 }, { stat: "spDef", stages: -1 }],
+  "superpower": [{ stat: "attack", stages: -1 }, { stat: "defense", stages: -1 }],
+  "overheat": [{ stat: "spAtk", stages: -2 }],
+  "draco-meteor": [{ stat: "spAtk", stages: -2 }],
+  "leaf-storm": [{ stat: "spAtk", stages: -2 }],
+  "psycho-boost": [{ stat: "spAtk", stages: -2 }],
+  "hammer-arm": [{ stat: "speed", stages: -1 }],
+  "v-create": [{ stat: "defense", stages: -1 }, { stat: "spDef", stages: -1 }, { stat: "speed", stages: -1 }],
+};
+
+// Contact moves — used for Rocky Helmet, Tough Claws, etc.
+export const CONTACT_MOVES = new Set([
+  "tackle", "body-slam", "double-edge", "take-down", "headbutt",
+  "slam", "stomp", "mega-kick", "jump-kick", "hi-jump-kick",
+  "low-kick", "karate-chop", "submission", "seismic-toss",
+  "scratch", "slash", "fury-swipes", "cut", "x-scissor",
+  "aerial-ace", "wing-attack", "brave-bird", "drill-peck", "fly",
+  "peck", "acrobatics", "bounce", "sky-attack", "pluck",
+  "waterfall", "aqua-tail", "crabhammer", "liquidation", "dive",
+  "wave-crash", "flip-turn",
+  "thunder-punch", "ice-punch", "fire-punch", "drain-punch",
+  "mach-punch", "mega-punch", "focus-punch", "sky-uppercut",
+  "shadow-punch", "bullet-punch", "hammer-arm", "power-up-punch",
+  "close-combat", "superpower", "cross-chop",
+  "crunch", "bite", "fire-fang", "ice-fang", "thunder-fang",
+  "poison-fang", "psychic-fangs", "jaw-lock", "fishious-rend",
+  "wild-charge", "volt-tackle", "spark", "nuzzle",
+  "flare-blitz", "flame-charge", "blaze-kick", "fire-lash",
+  "iron-head", "iron-tail", "meteor-mash", "steel-wing", "smart-strike",
+  "zen-headbutt", "psycho-cut", "heart-stamp",
+  "poison-jab", "cross-poison", "gunk-shot",
+  "earthquake", "bulldoze", "drill-run", "stomping-tantrum",
+  "rock-slide", "stone-edge", "rock-tomb", "head-smash",
+  "shadow-claw", "shadow-sneak", "phantom-force",
+  "dragon-claw", "dragon-rush", "outrage", "dragon-tail",
+  "wood-hammer", "leaf-blade", "power-whip", "seed-bomb",
+  "u-turn", "leech-life", "bug-bite", "megahorn", "lunge",
+  "play-rough", "spirit-break",
+  "knock-off", "sucker-punch", "darkest-lariat", "throat-chop",
+  "icicle-crash", "ice-shard", "triple-axel",
+  "return", "frustration", "facade", "extreme-speed", "quick-attack",
+  "fake-out", "rapid-spin", "covet", "thief",
+  "v-create",
+]);
+
 // Rate limiting
 export const SHARE_RATE_LIMIT_PER_HOUR = 10;
