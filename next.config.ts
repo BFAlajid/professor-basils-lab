@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
   async headers() {
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' raw.githubusercontent.com *.public.blob.vercel-storage.com data:",
       "connect-src 'self' pokeapi.co *.pokeapi.co 0.peerjs.com *.public.blob.vercel-storage.com",
