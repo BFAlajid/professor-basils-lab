@@ -185,6 +185,7 @@ export function useTypeQuiz() {
   const [state, dispatch] = useReducer(quizReducer, initialState);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const answerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const answeredRef = useRef(false);
 
   // Load best score from localStorage on mount
   useEffect(() => {
@@ -242,7 +243,9 @@ export function useTypeQuiz() {
 
   const answer = useCallback(
     (choice: string) => {
+      if (answeredRef.current) return;
       if (state.lastAnswerCorrect !== null) return; // Already answered
+      answeredRef.current = true;
       dispatch({ type: "ANSWER", choice });
 
       // In timed mode, auto-advance after brief delay
@@ -250,6 +253,7 @@ export function useTypeQuiz() {
         if (answerTimerRef.current) clearTimeout(answerTimerRef.current);
         answerTimerRef.current = setTimeout(() => {
           answerTimerRef.current = null;
+          answeredRef.current = false;
           dispatch({ type: "NEXT_QUESTION" });
         }, 400);
       }
@@ -258,6 +262,7 @@ export function useTypeQuiz() {
   );
 
   const nextQuestion = useCallback(() => {
+    answeredRef.current = false;
     dispatch({ type: "NEXT_QUESTION" });
   }, []);
 

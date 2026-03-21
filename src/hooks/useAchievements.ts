@@ -81,6 +81,8 @@ export function useAchievements() {
   const [recentUnlock, setRecentUnlock] = useState<Achievement | null>(null);
   const initialized = useRef(false);
   const recentTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const statsRef = useRef(stats);
+  statsRef.current = stats;
 
   // Load persisted data and achievement definitions on mount
   useEffect(() => {
@@ -216,6 +218,7 @@ export function useAchievements() {
   }, []);
 
   const spendMoney = useCallback((amount: number): boolean => {
+    if (statsRef.current.money < amount) return false;
     dispatchStats({ type: "SPEND_MONEY", amount });
     return true;
   }, []);

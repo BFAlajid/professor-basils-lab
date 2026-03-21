@@ -26,6 +26,35 @@ export function usePersistedState<T>(
   });
 
   const initialized = useRef(false);
+  const prevKeyRef = useRef(key);
+
+  // Reset state from localStorage when key changes
+  useEffect(() => {
+    if (prevKeyRef.current === key && initialized.current) return;
+    prevKeyRef.current = key;
+    initialized.current = false;
+
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (validate) {
+          const validated = validate(parsed);
+          setState(validated !== null ? validated : defaultValue);
+        } else {
+          setState(parsed);
+        }
+      } else {
+        setState(defaultValue);
+      }
+    } catch (e) {
+      silentWarn(`usePersistedState: failed to read key "${key}"`, e);
+      setState(defaultValue);
+    }
+
+    initialized.current = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   useEffect(() => {
     if (!initialized.current) {

@@ -58,6 +58,7 @@ function wonderTradeReducer(
 export function useWonderTrade() {
   const [state, dispatch] = useReducer(wonderTradeReducer, initialState);
   const initialized = useRef(false);
+  const tradeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load history from localStorage
   useEffect(() => {
@@ -86,6 +87,13 @@ export function useWonderTrade() {
       silentWarn("saveWonderTradeHistory", e);
     }
   }, [state.history]);
+
+  // Clean up trade timer on unmount
+  useEffect(() => {
+    return () => {
+      if (tradeTimerRef.current) clearTimeout(tradeTimerRef.current);
+    };
+  }, []);
 
   const selectPokemon = useCallback((index: number) => {
     dispatch({ type: "SELECT_POKEMON", index });
@@ -157,9 +165,12 @@ export function useWonderTrade() {
         };
 
         // Simulate searching delay (2-3 seconds)
-        await new Promise((r) =>
-          setTimeout(r, 2000 + Math.random() * 1000)
-        );
+        await new Promise<void>((r) => {
+          tradeTimerRef.current = setTimeout(() => {
+            tradeTimerRef.current = null;
+            r();
+          }, 2000 + Math.random() * 1000);
+        });
 
         const record: WonderTradeRecord = {
           id: `wt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

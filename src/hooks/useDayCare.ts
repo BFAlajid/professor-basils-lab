@@ -96,11 +96,12 @@ export function useDayCare(box: PCBoxPokemon[]) {
     };
   }, [hasUnhatchedEggs]);
 
-  // Check compatibility when pair changes
+  // Check compatibility when pair changes (use boxRef to avoid re-running on every box mutation)
   useEffect(() => {
     if (!state.currentPair) return;
-    const p1 = box[state.currentPair.parent1Index];
-    const p2 = box[state.currentPair.parent2Index];
+    const currentBox = boxRef.current;
+    const p1 = currentBox[state.currentPair.parent1Index];
+    const p2 = currentBox[state.currentPair.parent2Index];
     if (!p1 || !p2) return;
 
     setIsCheckingCompat(true);
@@ -111,13 +112,11 @@ export function useDayCare(box: PCBoxPokemon[]) {
       const isDitto1 = p1.pokemon.name === "ditto";
       const isDitto2 = p2.pokemon.name === "ditto";
       const result = checkCompatibility(groups1, groups2, isDitto1, isDitto2);
-      // Mutate state directly through a fresh SET_PAIR won't help, so we use a small hack:
-      // We just update the compatibility fields based on the check
       dispatch({ type: "SET_PAIR", pair: state.currentPair! });
-      // We store compatibility in local state since it's derived
       setCompatState(result);
     }).finally(() => setIsCheckingCompat(false));
-  }, [state.currentPair, box]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.currentPair]);
 
   const [compatState, setCompatState] = useState<{ compatible: boolean; message: string }>({
     compatible: false,

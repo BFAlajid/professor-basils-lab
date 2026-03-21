@@ -33,6 +33,9 @@ export function useBattleAchievements({
   const prevLogLen = useRef(0);
   const facilityRecorded = useRef(false);
 
+  const tournamentReportWin = tournament.reportWin;
+  const tournamentReportLoss = tournament.reportLoss;
+
   // Record battle result exactly once when battle ends (non-facility)
   useEffect(() => {
     if (isFacilityMode) return;
@@ -42,20 +45,20 @@ export function useBattleAchievements({
         recordBattleWin();
         updateElo(true);
         if (activeBattleMode === "tournament") {
-          tournament.reportWin();
+          tournamentReportWin();
         }
       } else {
         recordBattleLoss();
         updateElo(false);
         if (activeBattleMode === "tournament") {
-          tournament.reportLoss();
+          tournamentReportLoss();
         }
       }
     }
     if (state.phase === "setup") {
       hasRecorded.current = false;
     }
-  }, [state.phase, state.winner, recordBattleWin, recordBattleLoss, updateElo, activeBattleMode, tournament, isFacilityMode]);
+  }, [state.phase, state.winner, recordBattleWin, recordBattleLoss, updateElo, activeBattleMode, tournamentReportWin, tournamentReportLoss, isFacilityMode]);
 
   // Record facility battle result when facility battle ends
   useEffect(() => {

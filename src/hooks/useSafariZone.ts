@@ -282,9 +282,13 @@ export function useSafariZone() {
     dispatch({ type: "ENTER_SAFARI", region });
   }, []);
 
+  const searchingRef = useRef(false);
+
   const search = useCallback(async () => {
+    if (searchingRef.current) return;
     const s = stateRef.current;
     if (s.phase !== "walking") return;
+    searchingRef.current = true;
     setIsSearching(true);
 
     const stepCost = 15 + Math.floor(Math.random() * 11); // 15-25
@@ -293,6 +297,7 @@ export function useSafariZone() {
     if (s.stepsRemaining - stepCost <= 0) {
       dispatch({ type: "EXIT_SAFARI" });
       setIsSearching(false);
+      searchingRef.current = false;
       return;
     }
 
@@ -332,6 +337,7 @@ export function useSafariZone() {
     }
 
     setIsSearching(false);
+    searchingRef.current = false;
   }, []);
 
   const throwBall = useCallback(() => {

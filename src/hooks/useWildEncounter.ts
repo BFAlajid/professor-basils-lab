@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useCallback, useRef, useEffect } from "react";
+import { useReducer, useCallback, useRef, useEffect, useState } from "react";
 import { SHINY_RATE } from "@/data/constants";
 import {
   WildEncounterState,
@@ -145,6 +145,7 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
   const wildBpRef = useRef<BattlePokemon | null>(null);
   const playerBpRef = useRef<BattlePokemon | null>(null);
   const battleLogRef = useRef<string[]>([]);
+  const [battleLogState, setBattleLogState] = useState<string[]>([]);
   const wildFledTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clean up fled timer on unmount
@@ -189,6 +190,7 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
     wildBpRef.current = wildBp;
     playerBpRef.current = playerBp;
     battleLogRef.current = [];
+    setBattleLogState([]);
 
     dispatch({
       type: "START_ENCOUNTER",
@@ -227,6 +229,7 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
 
     const result = executeWildTurn(playerBpRef.current, wildBpRef.current, moveIndex);
     battleLogRef.current = [...battleLogRef.current, ...result.log];
+    setBattleLogState(battleLogRef.current);
 
     if (result.playerFainted) {
       dispatch({ type: "PLAYER_FAINTED" });
@@ -302,6 +305,7 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
     wildBpRef.current = null;
     playerBpRef.current = null;
     battleLogRef.current = [];
+    setBattleLogState([]);
   }, []);
 
   const continueAfterCatch = useCallback(() => {
@@ -328,7 +332,7 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
 
   return {
     state,
-    battleLog: battleLogRef.current,
+    battleLog: battleLogState,
     selectArea,
     startEncounter,
     enterBattle,
