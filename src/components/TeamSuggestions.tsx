@@ -3,7 +3,7 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot, Pokemon, TypeName } from "@/types";
-import { suggestTeamFillers, ScoredCandidate } from "@/utils/teamSuggestion";
+import { suggestTeamFillers, ScoredCandidate } from "@/utils/teamSuggestionWasm";
 import { fetchPokemonData } from "@/utils/pokeApiClient";
 import { capitalize } from "@/utils/format";
 import { typeColors } from "@/data/typeColors";
