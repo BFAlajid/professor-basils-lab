@@ -47,6 +47,9 @@ const AchievementPanel = dynamic(() => import("@/components/AchievementPanel"), 
 const SpeedTierChart = dynamic(() => import("@/components/SpeedTierChart"), {
   loading: () => <SkeletonLoader label="Loading speed chart..." lines={2} />,
 });
+const SpeedOptimizer = dynamic(() => import("@/components/SpeedOptimizer"), {
+  loading: () => <SkeletonLoader label="Loading speed optimizer..." lines={2} />,
+});
 const PokemonComparison = dynamic(() => import("@/components/PokemonComparison"), {
   loading: () => <SkeletonLoader label="Loading comparison..." lines={3} />,
 });
@@ -433,6 +436,7 @@ export default function Home() {
                   <div className="space-y-6">
                     <StatRadar team={team} />
                     <SpeedTierChart team={team} />
+                    <SpeedOptimizer team={team} />
                     <PokemonComparison team={team} />
                     <TeamSummary team={teamPokemon} />
                     {team.length > 0 && (
