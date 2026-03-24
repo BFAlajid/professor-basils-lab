@@ -31,6 +31,27 @@ export function getActivePokemon(team: BattleTeam): BattlePokemon {
   return team.pokemon[idx];
 }
 
+// Get active Pokemon by doubles slot (0 = primary, 1 = secondary)
+export function getActivePokemonBySlot(team: BattleTeam, slot: 0 | 1): BattlePokemon | null {
+  if (slot === 0) return getActivePokemon(team);
+  if (slot === 1 && team.activePokemonIndex2 !== null) {
+    return team.pokemon[team.activePokemonIndex2] ?? null;
+  }
+  return null;
+}
+
+// Get both active Pokemon in doubles (filters out null/fainted)
+export function getActiveDoublesSlots(team: BattleTeam): { slot: 0 | 1; pokemon: BattlePokemon; index: number }[] {
+  const result: { slot: 0 | 1; pokemon: BattlePokemon; index: number }[] = [];
+  const p0 = getActivePokemon(team);
+  if (p0 && !p0.isFainted) result.push({ slot: 0, pokemon: p0, index: team.activePokemonIndex });
+  if (team.activePokemonIndex2 !== null) {
+    const p1 = team.pokemon[team.activePokemonIndex2];
+    if (p1 && !p1.isFainted) result.push({ slot: 1, pokemon: p1, index: team.activePokemonIndex2 });
+  }
+  return result;
+}
+
 // --- Stat Stage Multiplier ---
 
 export function getStatStageMultiplier(stage: number): number {

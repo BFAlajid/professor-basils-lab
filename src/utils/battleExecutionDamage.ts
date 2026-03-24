@@ -665,6 +665,11 @@ export function executeDamagingMove(
     }
   );
 
+  // Doubles spread damage modifier (0.75x)
+  if ((state as any).__spreadDamageModifier) {
+    result.max = Math.max(1, Math.floor(result.max * (state as any).__spreadDamageModifier));
+  }
+
   // Accuracy check
   if (!resolveAccuracy(state, attacker, defender, moveData, originalMoveName, isDynamaxMove, log)) {
     return state;

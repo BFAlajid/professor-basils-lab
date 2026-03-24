@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { motion } from "framer-motion";
-import { BattleState, BattleTurnAction, ActiveAnimation, SpriteAnimationState } from "@/types";
+import { BattleState, BattleTurnAction, ActiveAnimation, SpriteAnimationState, DoublesTarget } from "@/types";
+import { SPREAD_MOVES } from "@/utils/battle";
 import { getActivePokemon } from "@/utils/battle";
 import { getAttackerSide, buildAnimationConfig, isCriticalEntry, isSuperEffectiveEntry, isFaintEntry } from "@/utils/moveAnimations";
 import PokemonBattleSprite from "./PokemonBattleSprite";
@@ -48,6 +49,11 @@ export default memo(function BattleArena({
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [onlineError, setOnlineError] = useState<string | null>(null);
 
+  // Doubles-specific state
+  const [doublesSlot, setDoublesSlot] = useState<0 | 1>(0); // which active slot the player is selecting for
+  const [pendingMoveIndex, setPendingMoveIndex] = useState<number | null>(null); // waiting for target selection
+  const [doublesSlot0Action, setDoublesSlot0Action] = useState<BattleTurnAction | null>(null);
+
   // Move animation state
   const [activeAnimation, setActiveAnimation] = useState<ActiveAnimation | null>(null);
   const [p1SpriteAnim, setP1SpriteAnim] = useState<SpriteAnimationState>("idle");
@@ -63,8 +69,13 @@ export default memo(function BattleArena({
     return id;
   }, []);
 
+  const isDoubles = state.format === "doubles";
   const p1Active = getActivePokemon(state.player1);
   const p2Active = getActivePokemon(state.player2);
+  const p1Active2 = isDoubles && state.player1.activePokemonIndex2 !== null
+    ? state.player1.pokemon[state.player1.activePokemonIndex2] ?? null : null;
+  const p2Active2 = isDoubles && state.player2.activePokemonIndex2 !== null
+    ? state.player2.pokemon[state.player2.activePokemonIndex2] ?? null : null;
 
   const isForceSwitch = state.phase === "force_switch";
   const isActionSelect = state.phase === "action_select";
@@ -77,9 +88,12 @@ export default memo(function BattleArena({
     }
   }, [isForceSwitch, state.waitingForSwitch, state.mode, onAutoAISwitch]);
 
-  // Reset mechanic toggle when phase or turn changes
+  // Reset mechanic toggle and doubles state when phase or turn changes
   useEffect(() => {
     setMechanicActivated(false);
+    setDoublesSlot(0);
+    setPendingMoveIndex(null);
+    setDoublesSlot0Action(null);
   }, [state.phase, state.turn]);
 
   // Process new log entries for animations
@@ -275,18 +289,65 @@ export default memo(function BattleArena({
   });
   const canActivateMechanic = canUseMechanic && !mechanicUsedThisBattle;
 
-  const handleMoveSelect = (moveIndex: number) => {
-    let action: BattleTurnAction;
-
+  const buildAction = (moveIndex: number, target?: DoublesTarget): BattleTurnAction => {
     if (mechanicActivated && canActivateMechanic) {
-      if (teamMechanic === "mega") action = { type: "MEGA_EVOLVE", moveIndex };
-      else if (teamMechanic === "tera") action = { type: "TERASTALLIZE", moveIndex };
-      else if (teamMechanic === "dynamax") action = { type: "DYNAMAX", moveIndex };
-      else action = { type: "MOVE", moveIndex };
       setMechanicActivated(false);
-    } else {
-      action = { type: "MOVE", moveIndex };
+      if (teamMechanic === "mega") return { type: "MEGA_EVOLVE", moveIndex, target, slot: isDoubles ? doublesSlot : undefined };
+      if (teamMechanic === "tera") return { type: "TERASTALLIZE", moveIndex, target, slot: isDoubles ? doublesSlot : undefined };
+      if (teamMechanic === "dynamax") return { type: "DYNAMAX", moveIndex, target, slot: isDoubles ? doublesSlot : undefined };
     }
+    return { type: "MOVE", moveIndex, target, slot: isDoubles ? doublesSlot : undefined };
+  };
+
+  const submitDoublesAction = (action: BattleTurnAction) => {
+    if (doublesSlot === 0) {
+      // Buffer first slot's action, move to slot 1
+      setDoublesSlot0Action(action);
+      setDoublesSlot(1);
+      setShowSwitch(false);
+      setPendingMoveIndex(null);
+    } else {
+      // Both actions ready — submit
+      // The hook expects 2 calls; first call buffers, second dispatches
+      if (doublesSlot0Action) {
+        onSubmitAction(doublesSlot0Action);
+      }
+      onSubmitAction(action);
+      setDoublesSlot(0);
+      setDoublesSlot0Action(null);
+      setShowSwitch(false);
+      setPendingMoveIndex(null);
+    }
+  };
+
+  const handleDoublesTargetSelect = (target: DoublesTarget) => {
+    if (pendingMoveIndex === null) return;
+    const action = buildAction(pendingMoveIndex, target);
+    setPendingMoveIndex(null);
+    submitDoublesAction(action);
+  };
+
+  const handleMoveSelect = (moveIndex: number) => {
+    if (isDoubles) {
+      // Check if this move needs target selection
+      const currentSlotPkmn = doublesSlot === 0 ? currentActive : (p1Active2 ?? currentActive);
+      const moveName = (currentSlotPkmn?.slot.selectedMoves ?? [])[moveIndex] ?? "";
+      const isSpread = SPREAD_MOVES.has(moveName);
+
+      if (isSpread) {
+        // Spread moves auto-target both opponents
+        const action = buildAction(moveIndex, "spread");
+        submitDoublesAction(action);
+        return;
+      }
+
+      // Single-target: show target selector
+      setPendingMoveIndex(moveIndex);
+      return;
+    }
+
+    // Singles path (unchanged)
+    const action = buildAction(moveIndex);
 
     if (isOnline) {
       submitOnlineAction(action);
@@ -310,10 +371,13 @@ export default memo(function BattleArena({
   const handleSwitch = (pokemonIndex: number) => {
     if (isForceSwitch) {
       if (isOnline && onSubmitOnlineForceSwitch) {
-        const action: BattleTurnAction = { type: "SWITCH", pokemonIndex };
+        const action: BattleTurnAction = { type: "SWITCH", pokemonIndex, slot: state.waitingForSwitchSlot ?? 0 };
         onSubmitOnlineForceSwitch(action);
       }
       onForceSwitch(state.waitingForSwitch!, pokemonIndex);
+    } else if (isDoubles) {
+      const action: BattleTurnAction = { type: "SWITCH", pokemonIndex, slot: doublesSlot };
+      submitDoublesAction(action);
     } else if (isOnline) {
       submitOnlineAction({ type: "SWITCH", pokemonIndex });
       setShowSwitch(false);
@@ -360,12 +424,22 @@ export default memo(function BattleArena({
         )}
 
         <div className="flex items-center justify-between gap-8">
-          <PokemonBattleSprite
-            pokemon={p1Active}
-            side="left"
-            label={isOnline ? (isHost ? "Your Pokemon" : "Opponent") : state.mode === "ai" ? "Your Pokemon" : "Player 1"}
-            animationState={p1SpriteAnim}
-          />
+          <div className={isDoubles ? "flex flex-col gap-2" : ""}>
+            <PokemonBattleSprite
+              pokemon={p1Active}
+              side="left"
+              label={isOnline ? (isHost ? "Your Pokemon" : "Opponent") : state.mode === "ai" ? "Your Pokemon" : "Player 1"}
+              animationState={p1SpriteAnim}
+            />
+            {isDoubles && p1Active2 && !p1Active2.isFainted && (
+              <PokemonBattleSprite
+                pokemon={p1Active2}
+                side="left"
+                label={state.mode === "ai" ? "Your Pokemon (2)" : "Player 1 (2)"}
+                animationState="idle"
+              />
+            )}
+          </div>
 
           <motion.div
             className="text-2xl font-bold text-[#3a4466] font-pixel"
@@ -375,12 +449,22 @@ export default memo(function BattleArena({
             VS
           </motion.div>
 
-          <PokemonBattleSprite
-            pokemon={p2Active}
-            side="right"
-            label={isOnline ? (isHost ? "Opponent" : "Your Pokemon") : state.mode === "ai" ? "Opponent" : "Player 2"}
-            animationState={p2SpriteAnim}
-          />
+          <div className={isDoubles ? "flex flex-col gap-2" : ""}>
+            <PokemonBattleSprite
+              pokemon={p2Active}
+              side="right"
+              label={isOnline ? (isHost ? "Opponent" : "Your Pokemon") : state.mode === "ai" ? "Opponent" : "Player 2"}
+              animationState={p2SpriteAnim}
+            />
+            {isDoubles && p2Active2 && !p2Active2.isFainted && (
+              <PokemonBattleSprite
+                pokemon={p2Active2}
+                side="right"
+                label={state.mode === "ai" ? "Opponent (2)" : "Player 2 (2)"}
+                animationState="idle"
+              />
+            )}
+          </div>
         </div>
 
         {/* Move animation overlay */}
@@ -451,11 +535,47 @@ export default memo(function BattleArena({
           )}
 
           {!(isOnline && waitingForOpponent) && (
-            !showSwitch ? (
+            pendingMoveIndex !== null && isDoubles ? (
+              /* Doubles target selection */
               <div>
+                <h4 className="text-sm font-bold font-pixel mb-3">Select target</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {p2Active && !p2Active.isFainted && (
+                    <button
+                      onClick={() => handleDoublesTargetSelect("opp0")}
+                      className="rounded-lg bg-[#3a4466] px-3 py-2 text-xs text-[#f0f0e8] hover:bg-[#4a5577] transition-colors font-pixel"
+                    >
+                      {p2Active.slot.pokemon.name}
+                    </button>
+                  )}
+                  {p2Active2 && !p2Active2.isFainted && (
+                    <button
+                      onClick={() => handleDoublesTargetSelect("opp1")}
+                      className="rounded-lg bg-[#3a4466] px-3 py-2 text-xs text-[#f0f0e8] hover:bg-[#4a5577] transition-colors font-pixel"
+                    >
+                      {p2Active2.slot.pokemon.name}
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => setPendingMoveIndex(null)}
+                  className="mt-2 rounded-lg bg-[#262b44] border border-[#3a4466] px-3 py-1.5 text-xs text-[#8b9bb4] hover:text-[#f0f0e8] transition-colors w-full"
+                >
+                  Back
+                </button>
+              </div>
+            ) : !showSwitch ? (
+              <div>
+                {/* Doubles slot indicator */}
+                {isDoubles && (
+                  <div className="mb-2 text-xs font-pixel text-[#8b9bb4]">
+                    Selecting for slot {doublesSlot + 1} of 2
+                    {doublesSlot0Action && " (slot 1 action locked in)"}
+                  </div>
+                )}
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-bold font-pixel">
-                    What will {currentActive.slot.pokemon.name} do?
+                    What will {(isDoubles && doublesSlot === 1 && p1Active2) ? p1Active2.slot.pokemon.name : currentActive.slot.pokemon.name} do?
                   </h4>
                   <button
                     onClick={() => setShowSwitch(true)}
@@ -482,10 +602,10 @@ export default memo(function BattleArena({
                   </button>
                 )}
                 <MovePanel
-                  pokemon={currentActive}
+                  pokemon={isDoubles && doublesSlot === 1 && p1Active2 ? p1Active2 : currentActive}
                   onSelectMove={handleMoveSelect}
                   disabled={false}
-                  isDynamaxed={currentActive.isDynamaxed}
+                  isDynamaxed={(isDoubles && doublesSlot === 1 && p1Active2) ? p1Active2.isDynamaxed : currentActive.isDynamaxed}
                 />
               </div>
             ) : (

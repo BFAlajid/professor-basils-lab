@@ -125,10 +125,11 @@ export default function BattleTab({ team }: BattleTabProps) {
     mode: BattleMode,
     playerMechanic?: GenerationalMechanic,
     aiMechanic?: GenerationalMechanic,
-    difficulty?: DifficultyLevel
+    difficulty?: DifficultyLevel,
+    format?: "singles" | "doubles"
   ) => {
     setActiveBattleMode(mode);
-    startBattle(player1Team, player2Team, mode, playerMechanic, aiMechanic, difficulty);
+    startBattle(player1Team, player2Team, mode, playerMechanic, aiMechanic, difficulty, format);
   }, [startBattle]);
 
   // Handle entering factory mode
