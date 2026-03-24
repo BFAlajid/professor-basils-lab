@@ -104,9 +104,10 @@ export function useWonderTrade() {
   }, []);
 
   const executeTrade = useCallback(
-    async (box: PCBoxPokemon[]): Promise<PCBoxPokemon | null> => {
-      if (state.selectedBoxIndex === null) return null;
-      const offeredPokemon = box[state.selectedBoxIndex];
+    async (box: PCBoxPokemon[], selectedIndex?: number): Promise<PCBoxPokemon | null> => {
+      const idx = selectedIndex ?? state.selectedBoxIndex;
+      if (idx === null) return null;
+      const offeredPokemon = box[idx];
       if (!offeredPokemon) return null;
 
       dispatch({ type: "START_TRADE" });

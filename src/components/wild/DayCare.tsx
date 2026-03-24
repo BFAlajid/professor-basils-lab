@@ -14,9 +14,11 @@ export default function DayCare({ box }: DayCareProps) {
   const { state, isCheckingCompat, setPair, clearPair, collectEgg, hatchEgg, removeEgg } = useDayCare(box);
   const [selectedSlot, setSelectedSlot] = useState<1 | 2>(1);
   const [showSelector, setShowSelector] = useState(false);
+  const [pendingParent1, setPendingParent1] = useState<number>(-1);
+  const [pendingParent2, setPendingParent2] = useState<number>(-1);
 
-  const parent1 = state.currentPair ? box[state.currentPair.parent1Index] : null;
-  const parent2 = state.currentPair ? box[state.currentPair.parent2Index] : null;
+  const parent1 = state.currentPair ? box[state.currentPair.parent1Index] : (pendingParent1 >= 0 ? box[pendingParent1] : null);
+  const parent2 = state.currentPair ? box[state.currentPair.parent2Index] : (pendingParent2 >= 0 ? box[pendingParent2] : null);
 
   const readyToHatch = useMemo(
     () => state.eggs.filter((e) => !e.isHatched && e.stepsCompleted >= e.stepsRequired),
@@ -25,20 +27,22 @@ export default function DayCare({ box }: DayCareProps) {
 
   const handleSelectParent = (boxIndex: number) => {
     if (selectedSlot === 1) {
-      const otherIndex = state.currentPair?.parent2Index ?? -1;
+      const otherIndex = state.currentPair?.parent2Index ?? pendingParent2;
       if (boxIndex === otherIndex) return;
-      const pair = { parent1Index: boxIndex, parent2Index: otherIndex >= 0 ? otherIndex : -1 };
-      // Only dispatch when both parents are selected
-      if (pair.parent1Index >= 0 && pair.parent2Index >= 0) {
-        setPair(pair);
+      setPendingParent1(boxIndex);
+      if (otherIndex >= 0) {
+        setPair({ parent1Index: boxIndex, parent2Index: otherIndex });
+        setPendingParent1(-1);
+        setPendingParent2(-1);
       }
     } else {
-      const otherIndex = state.currentPair?.parent1Index ?? -1;
+      const otherIndex = state.currentPair?.parent1Index ?? pendingParent1;
       if (boxIndex === otherIndex) return;
-      const pair = { parent1Index: otherIndex >= 0 ? otherIndex : -1, parent2Index: boxIndex };
-      // Only dispatch when both parents are selected
-      if (pair.parent1Index >= 0 && pair.parent2Index >= 0) {
-        setPair(pair);
+      setPendingParent2(boxIndex);
+      if (otherIndex >= 0) {
+        setPair({ parent1Index: otherIndex, parent2Index: boxIndex });
+        setPendingParent1(-1);
+        setPendingParent2(-1);
       }
     }
     setShowSelector(false);

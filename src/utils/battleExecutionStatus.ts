@@ -492,6 +492,31 @@ function handleWish(
   return state;
 }
 
+function handleYawn(
+  state: BattleState,
+  defenderPlayer: "player1" | "player2",
+  log: BattleLogEntry[]
+): BattleState {
+  const defenderTeam = state[defenderPlayer];
+  const defender = getActivePokemon(defenderTeam);
+
+  if (defender.yawnTurns > 0) {
+    log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+    return state;
+  }
+
+  if (defender.status) {
+    log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+    return state;
+  }
+
+  const newDefender = { ...defender, yawnTurns: 2 };
+  state = updatePokemon(state, defenderPlayer, defenderTeam.activePokemonIndex, newDefender);
+  log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} grew drowsy!`, kind: "status" });
+
+  return state;
+}
+
 function handleResetStats(
   state: BattleState,
   attackerPlayer: "player1" | "player2",
@@ -541,6 +566,7 @@ function handleForceSwitch(
     substituteHp: 0,
     chargingMove: null,
     semiInvulnerable: null,
+    yawnTurns: 0,
   };
   newPokemon[target.index] = {
     ...newPokemon[target.index],
@@ -625,6 +651,7 @@ export function applyStatusMoveEffect(
   log: BattleLogEntry[]
 ): BattleState {
   if (effect.protect) return handleProtect(state, attackerPlayer, moveName, log);
+  if (effect.yawn) return handleYawn(state, defenderPlayer, log);
   if (effect.wish) return handleWish(state, attackerPlayer, moveName, log);
   if (effect.substitute) return handleSubstitute(state, attackerPlayer, moveName, log);
   if (effect.resetStats) return handleResetStats(state, attackerPlayer, defenderPlayer, log);

@@ -108,6 +108,26 @@ export function applyEndOfTurnEffects(state: BattleState, log: BattleLogEntry[])
     }
   }
 
+  // Yawn countdown — apply sleep when yawnTurns reaches 0
+  for (const player of ["player1", "player2"] as const) {
+    const yawnPoke = getActivePokemon(state[player]);
+    if (yawnPoke.isFainted || yawnPoke.yawnTurns <= 0) continue;
+
+    const newYawnTurns = yawnPoke.yawnTurns - 1;
+    if (newYawnTurns === 0) {
+      if (!yawnPoke.status) {
+        state = updatePokemon(state, player, state[player].activePokemonIndex, {
+          ...yawnPoke, yawnTurns: 0, status: "sleep", sleepTurns: 2 + Math.floor(Math.random() * 2),
+        });
+        log.push({ turn: state.turn, message: `${yawnPoke.slot.pokemon.name} fell asleep!`, kind: "status" });
+      } else {
+        state = updatePokemon(state, player, state[player].activePokemonIndex, { ...yawnPoke, yawnTurns: 0 });
+      }
+    } else {
+      state = updatePokemon(state, player, state[player].activePokemonIndex, { ...yawnPoke, yawnTurns: newYawnTurns });
+    }
+  }
+
   for (const player of ["player1", "player2"] as const) {
     const active = getActivePokemon(state[player]);
     if (active.isFainted) continue;

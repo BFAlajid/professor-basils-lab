@@ -19,6 +19,7 @@ export interface StatusMoveEffect {
   healTeamStatus?: boolean;
   substitute?: boolean;
   wish?: boolean;
+  yawn?: boolean;
 }
 
 export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
@@ -56,7 +57,7 @@ export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
   "hypnosis": { targetStatus: "sleep" },
   "sing": { targetStatus: "sleep" },
   "dark-void": { targetStatus: "sleep" },
-  "yawn": { targetStatus: "sleep" },
+  "yawn": { yawn: true },
   "glare": { targetStatus: "paralyze" },
   "stun-spore": { targetStatus: "paralyze" },
 

@@ -731,12 +731,10 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
   // Prankster: +1 priority to status moves (implemented in battleHelpers.ts getMovePriority)
   prankster: {},
 
-  // Gale Wings: +1 priority to Flying moves at full HP
-  // TODO: Consumer in battleReducer.ts executeTurn needs to check this and boost priority
+  // Gale Wings: +1 priority to Flying moves at full HP (implemented in battleHelpers.ts getMovePriority)
   "gale-wings": {},
 
-  // Triage: +3 priority to healing moves
-  // TODO: Consumer in battleReducer.ts executeTurn needs to check this and boost priority
+  // Triage: +3 priority to healing moves (implemented in battleHelpers.ts getMovePriority)
   triage: {},
 
   // Serene Grace: doubles secondary effect chance — handled in battleExecutionDamage.ts applySecondaryEffects

@@ -24,6 +24,7 @@ interface DamageCalculatorProps {
   team: TeamSlot[];
 }
 
+type CalcMode = "offensive" | "defensive";
 type TerrainType = "electric" | "grassy" | "misty" | "psychic";
 
 const WEATHER_OPTIONS: { value: WeatherType | ""; label: string }[] = [
@@ -88,33 +89,36 @@ function NumInput({
 }
 
 export default function DamageCalculator({ team }: DamageCalculatorProps) {
+  // Mode toggle
+  const [mode, setMode] = useState<CalcMode>("offensive");
+
   // Core selection
-  const [attackerSlotIdx, setAttackerSlotIdx] = useState<number | null>(null);
-  const [defender, setDefender] = useState<Pokemon | null>(null);
+  const [teamSlotIdx, setTeamSlotIdx] = useState<number | null>(null);
+  const [searchedPokemon, setSearchedPokemon] = useState<Pokemon | null>(null);
   const [selectedMove, setSelectedMove] = useState<string | null>(null);
-  const [defenderSearch, setDefenderSearch] = useState("");
-  const [defenderLoading, setDefenderLoading] = useState(false);
-  const [showDefenderDropdown, setShowDefenderDropdown] = useState(false);
-  const [highlightedDefIdx, setHighlightedDefIdx] = useState(-1);
-  const defBlurTimer = useRef<NodeJS.Timeout | null>(null);
+  const [searchText, setSearchText] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [highlightedIdx, setHighlightedIdx] = useState(-1);
+  const blurTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Attacker competitive options
-  const [atkLevel, setAtkLevel] = useState(50);
-  const [atkNature, setAtkNature] = useState<Nature | null>(null);
-  const [atkEvs, setAtkEvs] = useState<EVSpread>({ ...DEFAULT_EVS });
-  const [atkIvs, setAtkIvs] = useState<IVSpread>({ ...DEFAULT_IVS });
-  const [atkItem, setAtkItem] = useState("");
-  const [atkAbility, setAtkAbility] = useState("");
-  const [atkStatStage, setAtkStatStage] = useState(0);
+  // Team-side competitive options (attacker in offensive, defender in defensive)
+  const [teamLevel, setTeamLevel] = useState(50);
+  const [teamNature, setTeamNature] = useState<Nature | null>(null);
+  const [teamEvs, setTeamEvs] = useState<EVSpread>({ ...DEFAULT_EVS });
+  const [teamIvs, setTeamIvs] = useState<IVSpread>({ ...DEFAULT_IVS });
+  const [teamItem, setTeamItem] = useState("");
+  const [teamAbility, setTeamAbility] = useState("");
+  const [teamStatStage, setTeamStatStage] = useState(0);
 
-  // Defender competitive options
-  const [defLevel, setDefLevel] = useState(50);
-  const [defNature, setDefNature] = useState<Nature | null>(null);
-  const [defEvs, setDefEvs] = useState<EVSpread>({ ...DEFAULT_EVS });
-  const [defIvs, setDefIvs] = useState<IVSpread>({ ...DEFAULT_IVS });
-  const [defItem, setDefItem] = useState("");
-  const [defAbility, setDefAbility] = useState("");
-  const [defStatStage, setDefStatStage] = useState(0);
+  // Search-side competitive options (defender in offensive, attacker in defensive)
+  const [searchLevel, setSearchLevel] = useState(50);
+  const [searchNature, setSearchNature] = useState<Nature | null>(null);
+  const [searchEvs, setSearchEvs] = useState<EVSpread>({ ...DEFAULT_EVS });
+  const [searchIvs, setSearchIvs] = useState<IVSpread>({ ...DEFAULT_IVS });
+  const [searchItem, setSearchItem] = useState("");
+  const [searchAbility, setSearchAbility] = useState("");
+  const [searchStatStage, setSearchStatStage] = useState(0);
 
   // Field conditions
   const [weather, setWeather] = useState<WeatherType | "">("");
@@ -129,80 +133,104 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
   const { data: pokemonList } = usePokemonList();
   const { data: moveData, isLoading: moveLoading } = useMove(selectedMove);
 
-  const attacker =
-    attackerSlotIdx !== null
-      ? team[attackerSlotIdx]?.pokemon ?? null
-      : null;
+  const teamPokemon =
+    teamSlotIdx !== null ? team[teamSlotIdx]?.pokemon ?? null : null;
 
-  const filteredDefenders = useMemo(() => {
-    if (!pokemonList || !defenderSearch) return [];
+  const isOffensive = mode === "offensive";
+  // In offensive mode: attacker = team, defender = searched
+  // In defensive mode: attacker = searched, defender = team
+  const attacker = isOffensive ? teamPokemon : searchedPokemon;
+  const defender = isOffensive ? searchedPokemon : teamPokemon;
+
+  const filteredResults = useMemo(() => {
+    if (!pokemonList || !searchText) return [];
     return pokemonList
-      .filter((p) => p.name.includes(defenderSearch.toLowerCase()))
+      .filter((p) => p.name.includes(searchText.toLowerCase()))
       .slice(0, 8);
-  }, [pokemonList, defenderSearch]);
+  }, [pokemonList, searchText]);
 
-  const handleAttackerSelect = useCallback(
+  const handleTeamSelect = useCallback(
     (idx: number) => {
-      setAttackerSlotIdx(idx);
+      setTeamSlotIdx(idx);
       setSelectedMove(null);
       const slot = team[idx];
       if (slot) {
-        setAtkNature(slot.nature ?? null);
-        setAtkEvs(slot.evs ?? { ...DEFAULT_EVS });
-        setAtkIvs(slot.ivs ?? { ...DEFAULT_IVS });
-        setAtkItem(slot.heldItem ?? "");
-        setAtkAbility(slot.ability ?? "");
-        setAtkLevel(50);
-        setAtkStatStage(0);
+        setTeamNature(slot.nature ?? null);
+        setTeamEvs(slot.evs ?? { ...DEFAULT_EVS });
+        setTeamIvs(slot.ivs ?? { ...DEFAULT_IVS });
+        setTeamItem(slot.heldItem ?? "");
+        setTeamAbility(slot.ability ?? "");
+        setTeamLevel(50);
+        setTeamStatStage(0);
       }
     },
     [team]
   );
 
-  const handleDefenderSelect = async (name: string) => {
-    setDefenderLoading(true);
-    setShowDefenderDropdown(false);
-    setDefenderSearch(name);
+  const handleSearchSelect = async (name: string) => {
+    setSearchLoading(true);
+    setShowDropdown(false);
+    setSearchText(name);
     try {
       const pokemon = await fetchPokemon(name);
-      setDefender(pokemon);
+      setSearchedPokemon(pokemon);
       setSelectedMove(null);
-      setDefNature(null);
-      setDefEvs({ ...DEFAULT_EVS });
-      setDefIvs({ ...DEFAULT_IVS });
-      setDefItem("");
-      setDefAbility("");
-      setDefLevel(50);
-      setDefStatStage(0);
+      setSearchNature(null);
+      setSearchEvs({ ...DEFAULT_EVS });
+      setSearchIvs({ ...DEFAULT_IVS });
+      setSearchItem("");
+      setSearchAbility("");
+      setSearchLevel(50);
+      setSearchStatStage(0);
     } catch {
       // not found
     } finally {
-      setDefenderLoading(false);
+      setSearchLoading(false);
     }
   };
 
+  // In offensive mode, moves come from the team Pokemon (attacker)
+  // In defensive mode, moves come from the searched Pokemon (attacker)
+  const moveSource = isOffensive ? teamPokemon : searchedPokemon;
   const attackerMoves = useMemo(() => {
-    if (!attacker) return [];
-    return attacker.moves.slice(0, 50).map((m) => m.move.name);
-  }, [attacker]);
+    if (!moveSource) return [];
+    return moveSource.moves.slice(0, 50).map((m) => m.move.name);
+  }, [moveSource]);
 
   const damageResult = useMemo(() => {
     if (!attacker || !defender || !moveData) return null;
+
+    const atkLevel = isOffensive ? teamLevel : searchLevel;
+    const atkEvs = isOffensive ? teamEvs : searchEvs;
+    const atkIvs = isOffensive ? teamIvs : searchIvs;
+    const atkNature = isOffensive ? teamNature : searchNature;
+    const atkItem = isOffensive ? teamItem : searchItem;
+    const atkAbility = isOffensive ? teamAbility : searchAbility;
+    const atkStage = isOffensive ? teamStatStage : searchStatStage;
+
+    const defLvl = isOffensive ? searchLevel : teamLevel;
+    const defEv = isOffensive ? searchEvs : teamEvs;
+    const defIv = isOffensive ? searchIvs : teamIvs;
+    const defNat = isOffensive ? searchNature : teamNature;
+    const defItm = isOffensive ? searchItem : teamItem;
+    const defAbl = isOffensive ? searchAbility : teamAbility;
+    const defStg = isOffensive ? searchStatStage : teamStatStage;
+
     const options: DamageCalcOptions = {
       attackerLevel: atkLevel,
-      defenderLevel: defLevel,
+      defenderLevel: defLvl,
       attackerEvs: atkEvs,
       attackerIvs: atkIvs,
       attackerNature: atkNature,
       attackerItem: atkItem || null,
       attackerAbility: atkAbility || null,
-      attackerStatStage: atkStatStage,
-      defenderEvs: defEvs,
-      defenderIvs: defIvs,
-      defenderNature: defNature,
-      defenderItem: defItem || null,
-      defenderAbility: defAbility || null,
-      defenderStatStage: defStatStage,
+      attackerStatStage: atkStage,
+      defenderEvs: defEv,
+      defenderIvs: defIv,
+      defenderNature: defNat,
+      defenderItem: defItm || null,
+      defenderAbility: defAbl || null,
+      defenderStatStage: defStg,
       isCritical: criticalHit,
       fieldWeather: weather || null,
       fieldTerrain: terrain || null,
@@ -211,23 +239,31 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
     };
     return calculateDamage(attacker, defender, moveData, options);
   }, [
-    attacker, defender, moveData,
-    atkLevel, atkEvs, atkIvs, atkNature, atkItem, atkAbility, atkStatStage,
-    defLevel, defEvs, defIvs, defNature, defItem, defAbility, defStatStage,
+    attacker, defender, moveData, isOffensive,
+    teamLevel, teamEvs, teamIvs, teamNature, teamItem, teamAbility, teamStatStage,
+    searchLevel, searchEvs, searchIvs, searchNature, searchItem, searchAbility, searchStatStage,
     criticalHit, weather, terrain, reflect, lightScreen,
   ]);
 
   const koResult = useMemo(() => {
     if (!damageResult || !defender || damageResult.max === 0) return null;
+    const defLvl = isOffensive ? searchLevel : teamLevel;
+    const defEv = isOffensive ? searchEvs : teamEvs;
+    const defIv = isOffensive ? searchIvs : teamIvs;
     const baseStats = extractBaseStats(defender);
     const defenderMaxHP = calculateHP(
       baseStats.hp,
-      defIvs.hp,
-      defEvs.hp,
-      defLevel
+      defIv.hp,
+      defEv.hp,
+      defLvl
     );
     return calculateKO(damageResult.min, damageResult.max, defenderMaxHP);
-  }, [damageResult, defender, defIvs.hp, defEvs.hp, defLevel]);
+  }, [damageResult, defender, isOffensive, searchLevel, searchEvs.hp, searchIvs.hp, teamLevel, teamEvs.hp, teamIvs.hp]);
+
+  const handleModeToggle = useCallback(() => {
+    setMode((prev) => (prev === "offensive" ? "defensive" : "offensive"));
+    setSelectedMove(null);
+  }, []);
 
   if (team.length === 0) {
     return (
@@ -237,24 +273,271 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
     );
   }
 
+  const teamLabel = isOffensive ? "Attacker" : "Defender";
+  const searchLabel = isOffensive ? "Defender" : "Attacker";
+  const searchPlaceholder = isOffensive
+    ? "Search any Pokemon..."
+    : "Search attacking Pokemon...";
+
+  // Build team-side stat panel based on mode
+  const teamStatPanel = (
+    <div className="space-y-2 rounded-lg border border-[#3a4466] bg-[#1a1c2c] p-3">
+      <div className="grid grid-cols-2 gap-2">
+        <NumInput
+          label="Level"
+          value={teamLevel}
+          min={1}
+          max={100}
+          onChange={setTeamLevel}
+          ariaLabel={`${teamLabel} level`}
+        />
+        <div>
+          <label className={lblCls}>Nature</label>
+          <select
+            value={teamNature?.name ?? ""}
+            onChange={(e) => {
+              const nature = NATURES.find((n) => n.name === e.target.value);
+              setTeamNature(nature ?? null);
+            }}
+            className={selectCls}
+            aria-label={`${teamLabel} nature`}
+          >
+            <option value="">None</option>
+            {NATURES.map((n) => (
+              <option key={n.name} value={n.name}>
+                {getNatureLabel(n)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {isOffensive ? (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <NumInput label="Atk EVs" value={teamEvs.attack} min={0} max={252}
+              onChange={(v) => setTeamEvs((prev) => ({ ...prev, attack: v }))}
+              ariaLabel={`${teamLabel} attack EVs`} />
+            <NumInput label="SpA EVs" value={teamEvs.spAtk} min={0} max={252}
+              onChange={(v) => setTeamEvs((prev) => ({ ...prev, spAtk: v }))}
+              ariaLabel={`${teamLabel} special attack EVs`} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <NumInput label="Atk IVs" value={teamIvs.attack} min={0} max={31}
+              onChange={(v) => setTeamIvs((prev) => ({ ...prev, attack: v }))}
+              ariaLabel={`${teamLabel} attack IVs`} />
+            <NumInput label="SpA IVs" value={teamIvs.spAtk} min={0} max={31}
+              onChange={(v) => setTeamIvs((prev) => ({ ...prev, spAtk: v }))}
+              ariaLabel={`${teamLabel} special attack IVs`} />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <NumInput label="HP EVs" value={teamEvs.hp} min={0} max={252}
+              onChange={(v) => setTeamEvs((prev) => ({ ...prev, hp: v }))}
+              ariaLabel={`${teamLabel} HP EVs`} />
+            <NumInput label="Def EVs" value={teamEvs.defense} min={0} max={252}
+              onChange={(v) => setTeamEvs((prev) => ({ ...prev, defense: v }))}
+              ariaLabel={`${teamLabel} defense EVs`} />
+            <NumInput label="SpD EVs" value={teamEvs.spDef} min={0} max={252}
+              onChange={(v) => setTeamEvs((prev) => ({ ...prev, spDef: v }))}
+              ariaLabel={`${teamLabel} special defense EVs`} />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <NumInput label="HP IVs" value={teamIvs.hp} min={0} max={31}
+              onChange={(v) => setTeamIvs((prev) => ({ ...prev, hp: v }))}
+              ariaLabel={`${teamLabel} HP IVs`} />
+            <NumInput label="Def IVs" value={teamIvs.defense} min={0} max={31}
+              onChange={(v) => setTeamIvs((prev) => ({ ...prev, defense: v }))}
+              ariaLabel={`${teamLabel} defense IVs`} />
+            <NumInput label="SpD IVs" value={teamIvs.spDef} min={0} max={31}
+              onChange={(v) => setTeamIvs((prev) => ({ ...prev, spDef: v }))}
+              ariaLabel={`${teamLabel} special defense IVs`} />
+          </div>
+        </>
+      )}
+
+      <div>
+        <label className={lblCls}>Held Item</label>
+        <select
+          value={teamItem}
+          onChange={(e) => setTeamItem(e.target.value)}
+          className={selectCls}
+          aria-label={`${teamLabel} held item`}
+        >
+          <option value="">None</option>
+          {HELD_ITEMS.map((item) => (
+            <option key={item.name} value={item.name}>
+              {item.displayName}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className={lblCls}>Ability</label>
+        <input
+          type="text"
+          value={teamAbility}
+          onChange={(e) => setTeamAbility(e.target.value)}
+          placeholder={isOffensive ? "e.g. huge-power" : "e.g. multiscale"}
+          className={inputCls}
+          aria-label={`${teamLabel} ability`}
+        />
+      </div>
+    </div>
+  );
+
+  // Build search-side stat panel
+  const searchStatPanel = searchedPokemon && (
+    <div className="space-y-2 rounded-lg border border-[#3a4466] bg-[#1a1c2c] p-3">
+      <div className="grid grid-cols-2 gap-2">
+        <NumInput
+          label="Level"
+          value={searchLevel}
+          min={1}
+          max={100}
+          onChange={setSearchLevel}
+          ariaLabel={`${searchLabel} level`}
+        />
+        <div>
+          <label className={lblCls}>Nature</label>
+          <select
+            value={searchNature?.name ?? ""}
+            onChange={(e) => {
+              const nature = NATURES.find((n) => n.name === e.target.value);
+              setSearchNature(nature ?? null);
+            }}
+            className={selectCls}
+            aria-label={`${searchLabel} nature`}
+          >
+            <option value="">None</option>
+            {NATURES.map((n) => (
+              <option key={n.name} value={n.name}>
+                {getNatureLabel(n)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {isOffensive ? (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <NumInput label="HP EVs" value={searchEvs.hp} min={0} max={252}
+              onChange={(v) => setSearchEvs((prev) => ({ ...prev, hp: v }))}
+              ariaLabel={`${searchLabel} HP EVs`} />
+            <NumInput label="Def EVs" value={searchEvs.defense} min={0} max={252}
+              onChange={(v) => setSearchEvs((prev) => ({ ...prev, defense: v }))}
+              ariaLabel={`${searchLabel} defense EVs`} />
+            <NumInput label="SpD EVs" value={searchEvs.spDef} min={0} max={252}
+              onChange={(v) => setSearchEvs((prev) => ({ ...prev, spDef: v }))}
+              ariaLabel={`${searchLabel} special defense EVs`} />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <NumInput label="HP IVs" value={searchIvs.hp} min={0} max={31}
+              onChange={(v) => setSearchIvs((prev) => ({ ...prev, hp: v }))}
+              ariaLabel={`${searchLabel} HP IVs`} />
+            <NumInput label="Def IVs" value={searchIvs.defense} min={0} max={31}
+              onChange={(v) => setSearchIvs((prev) => ({ ...prev, defense: v }))}
+              ariaLabel={`${searchLabel} defense IVs`} />
+            <NumInput label="SpD IVs" value={searchIvs.spDef} min={0} max={31}
+              onChange={(v) => setSearchIvs((prev) => ({ ...prev, spDef: v }))}
+              ariaLabel={`${searchLabel} special defense IVs`} />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <NumInput label="Atk EVs" value={searchEvs.attack} min={0} max={252}
+              onChange={(v) => setSearchEvs((prev) => ({ ...prev, attack: v }))}
+              ariaLabel={`${searchLabel} attack EVs`} />
+            <NumInput label="SpA EVs" value={searchEvs.spAtk} min={0} max={252}
+              onChange={(v) => setSearchEvs((prev) => ({ ...prev, spAtk: v }))}
+              ariaLabel={`${searchLabel} special attack EVs`} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <NumInput label="Atk IVs" value={searchIvs.attack} min={0} max={31}
+              onChange={(v) => setSearchIvs((prev) => ({ ...prev, attack: v }))}
+              ariaLabel={`${searchLabel} attack IVs`} />
+            <NumInput label="SpA IVs" value={searchIvs.spAtk} min={0} max={31}
+              onChange={(v) => setSearchIvs((prev) => ({ ...prev, spAtk: v }))}
+              ariaLabel={`${searchLabel} special attack IVs`} />
+          </div>
+        </>
+      )}
+
+      <div>
+        <label className={lblCls}>Held Item</label>
+        <select
+          value={searchItem}
+          onChange={(e) => setSearchItem(e.target.value)}
+          className={selectCls}
+          aria-label={`${searchLabel} held item`}
+        >
+          <option value="">None</option>
+          {HELD_ITEMS.map((item) => (
+            <option key={item.name} value={item.name}>
+              {item.displayName}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className={lblCls}>Ability</label>
+        <input
+          type="text"
+          value={searchAbility}
+          onChange={(e) => setSearchAbility(e.target.value)}
+          placeholder={isOffensive ? "e.g. multiscale" : "e.g. huge-power"}
+          className={inputCls}
+          aria-label={`${searchLabel} ability`}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4 sm:p-6">
-      <h3 className="mb-4 text-lg font-bold font-pixel">Damage Calculator</h3>
+      {/* Header with mode toggle */}
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <h3 className="text-lg font-bold font-pixel">Damage Calculator</h3>
+        <button
+          onClick={handleModeToggle}
+          className="flex items-center gap-2 rounded-lg border border-[#3a4466] bg-[#1a1c2c] px-3 py-1.5 text-xs font-pixel transition-colors hover:border-[#e8433f]"
+          aria-label={`Switch to ${isOffensive ? "defensive" : "offensive"} mode`}
+        >
+          <span className={isOffensive ? "text-[#e8433f] font-bold" : "text-[#8b9bb4]"}>
+            Offensive
+          </span>
+          <span className="text-[#8b9bb4]">{"\u2194"}</span>
+          <span className={!isOffensive ? "text-[#6390F0] font-bold" : "text-[#8b9bb4]"}>
+            Defensive
+          </span>
+        </button>
+      </div>
+
+      {!isOffensive && (
+        <p className="mb-4 text-[10px] text-[#8b9bb4]">
+          Select your Pokemon as the defender, then search for the attacking Pokemon and move to see how much damage you take.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Attacker Panel */}
+        {/* Team Pokemon Panel */}
         <div className="space-y-3">
           <label className="block text-sm font-medium text-[#8b9bb4]">
-            Attacker
+            {teamLabel}
+            <span className="ml-1 text-[10px] font-normal">(Your Team)</span>
           </label>
           <div className="space-y-1">
             {team.map((slot, idx) => (
               <button
                 key={slot.pokemon.id}
-                onClick={() => handleAttackerSelect(idx)}
+                onClick={() => handleTeamSelect(idx)}
                 className={`flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm transition-colors ${
-                  attackerSlotIdx === idx
-                    ? "bg-[#e8433f] text-[#f0f0e8]"
+                  teamSlotIdx === idx
+                    ? isOffensive ? "bg-[#e8433f] text-[#f0f0e8]" : "bg-[#6390F0] text-[#f0f0e8]"
                     : "bg-[#1a1c2c] hover:bg-[#3a4466]"
                 }`}
               >
@@ -272,112 +555,7 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
             ))}
           </div>
 
-          {attacker && (
-            <div className="space-y-2 rounded-lg border border-[#3a4466] bg-[#1a1c2c] p-3">
-              <div className="grid grid-cols-2 gap-2">
-                <NumInput
-                  label="Level"
-                  value={atkLevel}
-                  min={1}
-                  max={100}
-                  onChange={setAtkLevel}
-                  ariaLabel="Attacker level"
-                />
-                <div>
-                  <label className={lblCls}>Nature</label>
-                  <select
-                    value={atkNature?.name ?? ""}
-                    onChange={(e) => {
-                      const nature = NATURES.find(
-                        (n) => n.name === e.target.value
-                      );
-                      setAtkNature(nature ?? null);
-                    }}
-                    className={selectCls}
-                    aria-label="Attacker nature"
-                  >
-                    <option value="">None</option>
-                    {NATURES.map((n) => (
-                      <option key={n.name} value={n.name}>
-                        {getNatureLabel(n)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <NumInput
-                  label="Atk EVs"
-                  value={atkEvs.attack}
-                  min={0}
-                  max={252}
-                  onChange={(v) =>
-                    setAtkEvs((prev) => ({ ...prev, attack: v }))
-                  }
-                  ariaLabel="Attacker attack EVs"
-                />
-                <NumInput
-                  label="SpA EVs"
-                  value={atkEvs.spAtk}
-                  min={0}
-                  max={252}
-                  onChange={(v) =>
-                    setAtkEvs((prev) => ({ ...prev, spAtk: v }))
-                  }
-                  ariaLabel="Attacker special attack EVs"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <NumInput
-                  label="Atk IVs"
-                  value={atkIvs.attack}
-                  min={0}
-                  max={31}
-                  onChange={(v) =>
-                    setAtkIvs((prev) => ({ ...prev, attack: v }))
-                  }
-                  ariaLabel="Attacker attack IVs"
-                />
-                <NumInput
-                  label="SpA IVs"
-                  value={atkIvs.spAtk}
-                  min={0}
-                  max={31}
-                  onChange={(v) =>
-                    setAtkIvs((prev) => ({ ...prev, spAtk: v }))
-                  }
-                  ariaLabel="Attacker special attack IVs"
-                />
-              </div>
-              <div>
-                <label className={lblCls}>Held Item</label>
-                <select
-                  value={atkItem}
-                  onChange={(e) => setAtkItem(e.target.value)}
-                  className={selectCls}
-                  aria-label="Attacker held item"
-                >
-                  <option value="">None</option>
-                  {HELD_ITEMS.map((item) => (
-                    <option key={item.name} value={item.name}>
-                      {item.displayName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={lblCls}>Ability</label>
-                <input
-                  type="text"
-                  value={atkAbility}
-                  onChange={(e) => setAtkAbility(e.target.value)}
-                  placeholder="e.g. huge-power"
-                  className={inputCls}
-                  aria-label="Attacker ability"
-                />
-              </div>
-            </div>
-          )}
+          {teamPokemon && teamStatPanel}
         </div>
 
         {/* Move + Advanced Panel */}
@@ -385,7 +563,7 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
           <label className="block text-sm font-medium text-[#8b9bb4]">
             Move
           </label>
-          {attacker ? (
+          {moveSource ? (
             <select
               value={selectedMove ?? ""}
               onChange={(e) => setSelectedMove(e.target.value || null)}
@@ -400,7 +578,9 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
               ))}
             </select>
           ) : (
-            <p className="text-sm text-[#8b9bb4]">Select an attacker first</p>
+            <p className="text-sm text-[#8b9bb4]">
+              {isOffensive ? "Select an attacker first" : "Search an attacking Pokemon first"}
+            </p>
           )}
 
           {moveData && (
@@ -443,9 +623,11 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
                     <div>
                       <label className={lblCls}>Atk Stage</label>
                       <select
-                        value={atkStatStage}
+                        value={isOffensive ? teamStatStage : searchStatStage}
                         onChange={(e) =>
-                          setAtkStatStage(parseInt(e.target.value))
+                          isOffensive
+                            ? setTeamStatStage(parseInt(e.target.value))
+                            : setSearchStatStage(parseInt(e.target.value))
                         }
                         className={selectCls}
                         aria-label="Attacker stat stage"
@@ -460,9 +642,11 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
                     <div>
                       <label className={lblCls}>Def Stage</label>
                       <select
-                        value={defStatStage}
+                        value={isOffensive ? searchStatStage : teamStatStage}
                         onChange={(e) =>
-                          setDefStatStage(parseInt(e.target.value))
+                          isOffensive
+                            ? setSearchStatStage(parseInt(e.target.value))
+                            : setTeamStatStage(parseInt(e.target.value))
                         }
                         className={selectCls}
                         aria-label="Defender stat stage"
@@ -548,65 +732,65 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
           </AnimatePresence>
         </div>
 
-        {/* Defender Panel */}
+        {/* Search Pokemon Panel */}
         <div className="space-y-3">
           <label className="block text-sm font-medium text-[#8b9bb4]">
-            Defender
+            {searchLabel}
           </label>
           <div className="relative">
             <input
               type="text"
-              value={defenderSearch}
+              value={searchText}
               onChange={(e) => {
-                setDefenderSearch(e.target.value);
-                setShowDefenderDropdown(true);
-                setHighlightedDefIdx(-1);
+                setSearchText(e.target.value);
+                setShowDropdown(true);
+                setHighlightedIdx(-1);
               }}
-              onFocus={() => setShowDefenderDropdown(true)}
+              onFocus={() => setShowDropdown(true)}
               onBlur={() => {
-                defBlurTimer.current = setTimeout(() => setShowDefenderDropdown(false), 150);
+                blurTimer.current = setTimeout(() => setShowDropdown(false), 150);
               }}
               onKeyDown={(e) => {
-                if (!showDefenderDropdown || filteredDefenders.length === 0) return;
+                if (!showDropdown || filteredResults.length === 0) return;
                 if (e.key === "ArrowDown") {
                   e.preventDefault();
-                  setHighlightedDefIdx((prev) => Math.min(prev + 1, filteredDefenders.length - 1));
+                  setHighlightedIdx((prev) => Math.min(prev + 1, filteredResults.length - 1));
                 } else if (e.key === "ArrowUp") {
                   e.preventDefault();
-                  setHighlightedDefIdx((prev) => Math.max(prev - 1, 0));
-                } else if (e.key === "Enter" && highlightedDefIdx >= 0) {
+                  setHighlightedIdx((prev) => Math.max(prev - 1, 0));
+                } else if (e.key === "Enter" && highlightedIdx >= 0) {
                   e.preventDefault();
-                  handleDefenderSelect(filteredDefenders[highlightedDefIdx].name);
+                  handleSearchSelect(filteredResults[highlightedIdx].name);
                 } else if (e.key === "Escape") {
-                  setShowDefenderDropdown(false);
+                  setShowDropdown(false);
                 }
               }}
-              placeholder="Search any Pokemon..."
+              placeholder={searchPlaceholder}
               className={`${inputCls} py-2 placeholder-[#8b9bb4]`}
               role="combobox"
-              aria-expanded={showDefenderDropdown && filteredDefenders.length > 0}
-              aria-controls="defender-listbox"
-              aria-activedescendant={highlightedDefIdx >= 0 ? `defender-option-${highlightedDefIdx}` : undefined}
+              aria-expanded={showDropdown && filteredResults.length > 0}
+              aria-controls="search-listbox"
+              aria-activedescendant={highlightedIdx >= 0 ? `search-option-${highlightedIdx}` : undefined}
             />
-            {showDefenderDropdown && filteredDefenders.length > 0 && (
+            {showDropdown && filteredResults.length > 0 && (
               <div
-                id="defender-listbox"
+                id="search-listbox"
                 role="listbox"
-                aria-label="Defender search results"
+                aria-label={`${searchLabel} search results`}
                 className="absolute z-10 mt-1 w-full rounded-lg border border-[#3a4466] bg-[#262b44] shadow-lg max-h-48 overflow-y-auto"
               >
-                {filteredDefenders.map((p, i) => (
+                {filteredResults.map((p, i) => (
                   <button
                     key={p.name}
-                    id={`defender-option-${i}`}
+                    id={`search-option-${i}`}
                     role="option"
-                    aria-selected={highlightedDefIdx === i}
+                    aria-selected={highlightedIdx === i}
                     onMouseDown={() => {
-                      if (defBlurTimer.current) clearTimeout(defBlurTimer.current);
+                      if (blurTimer.current) clearTimeout(blurTimer.current);
                     }}
-                    onClick={() => handleDefenderSelect(p.name)}
+                    onClick={() => handleSearchSelect(p.name)}
                     className={`w-full px-3 py-2 text-left text-sm capitalize transition-colors ${
-                      highlightedDefIdx === i ? "bg-[#3a4466] text-[#f0f0e8]" : "hover:bg-[#3a4466]"
+                      highlightedIdx === i ? "bg-[#3a4466] text-[#f0f0e8]" : "hover:bg-[#3a4466]"
                     }`}
                   >
                     {p.name}
@@ -615,27 +799,27 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
               </div>
             )}
           </div>
-          {defenderLoading && (
+          {searchLoading && (
             <div className="mt-2">
               <LoadingSpinner size={20} />
             </div>
           )}
-          {defender && (
+          {searchedPokemon && (
             <>
               <div className="flex items-center gap-2">
-                {defender.sprites.front_default && (
+                {searchedPokemon.sprites.front_default && (
                   <Image
-                    src={defender.sprites.front_default}
-                    alt={defender.name}
+                    src={searchedPokemon.sprites.front_default}
+                    alt={searchedPokemon.name}
                     width={48}
                     height={48}
                     unoptimized
                   />
                 )}
                 <div>
-                  <p className="capitalize font-medium">{defender.name}</p>
+                  <p className="capitalize font-medium">{searchedPokemon.name}</p>
                   <div className="flex gap-1">
-                    {defender.types.map((t) => (
+                    {searchedPokemon.types.map((t) => (
                       <TypeBadge
                         key={t.type.name}
                         type={t.type.name}
@@ -646,130 +830,7 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
                 </div>
               </div>
 
-              <div className="space-y-2 rounded-lg border border-[#3a4466] bg-[#1a1c2c] p-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <NumInput
-                    label="Level"
-                    value={defLevel}
-                    min={1}
-                    max={100}
-                    onChange={setDefLevel}
-                    ariaLabel="Defender level"
-                  />
-                  <div>
-                    <label className={lblCls}>Nature</label>
-                    <select
-                      value={defNature?.name ?? ""}
-                      onChange={(e) => {
-                        const nature = NATURES.find(
-                          (n) => n.name === e.target.value
-                        );
-                        setDefNature(nature ?? null);
-                      }}
-                      className={selectCls}
-                      aria-label="Defender nature"
-                    >
-                      <option value="">None</option>
-                      {NATURES.map((n) => (
-                        <option key={n.name} value={n.name}>
-                          {getNatureLabel(n)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <NumInput
-                    label="HP EVs"
-                    value={defEvs.hp}
-                    min={0}
-                    max={252}
-                    onChange={(v) =>
-                      setDefEvs((prev) => ({ ...prev, hp: v }))
-                    }
-                    ariaLabel="Defender HP EVs"
-                  />
-                  <NumInput
-                    label="Def EVs"
-                    value={defEvs.defense}
-                    min={0}
-                    max={252}
-                    onChange={(v) =>
-                      setDefEvs((prev) => ({ ...prev, defense: v }))
-                    }
-                    ariaLabel="Defender defense EVs"
-                  />
-                  <NumInput
-                    label="SpD EVs"
-                    value={defEvs.spDef}
-                    min={0}
-                    max={252}
-                    onChange={(v) =>
-                      setDefEvs((prev) => ({ ...prev, spDef: v }))
-                    }
-                    ariaLabel="Defender special defense EVs"
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <NumInput
-                    label="HP IVs"
-                    value={defIvs.hp}
-                    min={0}
-                    max={31}
-                    onChange={(v) =>
-                      setDefIvs((prev) => ({ ...prev, hp: v }))
-                    }
-                    ariaLabel="Defender HP IVs"
-                  />
-                  <NumInput
-                    label="Def IVs"
-                    value={defIvs.defense}
-                    min={0}
-                    max={31}
-                    onChange={(v) =>
-                      setDefIvs((prev) => ({ ...prev, defense: v }))
-                    }
-                    ariaLabel="Defender defense IVs"
-                  />
-                  <NumInput
-                    label="SpD IVs"
-                    value={defIvs.spDef}
-                    min={0}
-                    max={31}
-                    onChange={(v) =>
-                      setDefIvs((prev) => ({ ...prev, spDef: v }))
-                    }
-                    ariaLabel="Defender special defense IVs"
-                  />
-                </div>
-                <div>
-                  <label className={lblCls}>Held Item</label>
-                  <select
-                    value={defItem}
-                    onChange={(e) => setDefItem(e.target.value)}
-                    className={selectCls}
-                    aria-label="Defender held item"
-                  >
-                    <option value="">None</option>
-                    {HELD_ITEMS.map((item) => (
-                      <option key={item.name} value={item.name}>
-                        {item.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={lblCls}>Ability</label>
-                  <input
-                    type="text"
-                    value={defAbility}
-                    onChange={(e) => setDefAbility(e.target.value)}
-                    placeholder="e.g. multiscale"
-                    className={inputCls}
-                    aria-label="Defender ability"
-                  />
-                </div>
-              </div>
+              {searchStatPanel}
             </>
           )}
         </div>
@@ -790,7 +851,7 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
                   ? "Status moves don't deal direct damage."
                   : `${getEffectivenessText(damageResult.effectiveness)}`}
               </p>
-            ) : (
+            ) : isOffensive ? (
               <>
                 <p className="text-sm">
                   <span className="capitalize font-semibold text-[#f0f0e8]">
@@ -834,6 +895,57 @@ export default function DamageCalculator({ team }: DamageCalculatorProps) {
                   <div className="mt-2 text-sm">
                     <span className="text-[#8b9bb4]">
                       ({koResult.hpPercent.min}% - {koResult.hpPercent.max}%)
+                    </span>
+                    <span className="ml-2 font-semibold text-[#f7a838]">
+                      {koResult.koText}
+                    </span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-sm">
+                  <span className="capitalize font-semibold text-[#f0f0e8]">
+                    {defender.name}
+                  </span>{" "}
+                  takes{" "}
+                  <span className="font-bold text-[#6390F0]">
+                    {damageResult.min}-{damageResult.max}
+                  </span>{" "}
+                  damage from{" "}
+                  <span className="capitalize font-semibold text-[#f0f0e8]">
+                    {attacker.name}
+                  </span>
+                  &apos;s{" "}
+                  <span className="capitalize font-semibold text-[#f0f0e8]">
+                    {moveData.name.replace(/-/g, " ")}
+                  </span>{" "}
+                  <span
+                    className={`font-semibold ${
+                      damageResult.effectiveness > 1
+                        ? "text-[#e8433f]"
+                        : damageResult.effectiveness < 1
+                        ? "text-[#38b764]"
+                        : "text-[#8b9bb4]"
+                    }`}
+                  >
+                    ({getEffectivenessText(damageResult.effectiveness)})
+                  </span>
+                  {damageResult.stab && (
+                    <span className="ml-1 text-xs text-[#f7a838]">
+                      [STAB]
+                    </span>
+                  )}
+                  {damageResult.isCritical && (
+                    <span className="ml-1 text-xs text-[#f7a838]">
+                      [CRIT]
+                    </span>
+                  )}
+                </p>
+                {koResult && (
+                  <div className="mt-2 text-sm">
+                    <span className="font-bold" style={{ color: koResult.hpPercent.max >= 100 ? "#e8433f" : koResult.hpPercent.max >= 50 ? "#f7a838" : "#38b764" }}>
+                      {koResult.hpPercent.min}% - {koResult.hpPercent.max}% HP
                     </span>
                     <span className="ml-2 font-semibold text-[#f7a838]">
                       {koResult.koText}

@@ -47,6 +47,7 @@ export interface BattlePokemon {
   hasTerastallized: boolean;
   hasDynamaxed: boolean;
   roostActive: boolean;
+  yawnTurns: number;
 }
 
 export interface BattleTeam {

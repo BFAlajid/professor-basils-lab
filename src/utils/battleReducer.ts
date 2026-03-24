@@ -95,6 +95,7 @@ export function initBattlePokemon(slot: TeamSlot, megaFormeCache?: Map<string, A
     hasTerastallized: false,
     hasDynamaxed: false,
     roostActive: false,
+    yawnTurns: 0,
   };
 }
 
@@ -482,6 +483,7 @@ function performSwitch(
     substituteHp: 0,
     chargingMove: null,
     semiInvulnerable: null,
+    yawnTurns: 0,
   };
   newPokemon[pokemonIndex] = {
     ...newPokemon[pokemonIndex],

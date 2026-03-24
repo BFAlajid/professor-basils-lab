@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import SVGRadar from "@/components/charts/SVGRadar";
 import { TeamSlot } from "@/types";
 import { extractBaseStats } from "@/utils/damageWasm";
@@ -20,6 +20,17 @@ export default function StatRadar({ team }: StatRadarProps) {
     });
     return init;
   });
+
+  // Sync visible state when team changes
+  useEffect(() => {
+    setVisible((prev) => {
+      const next: Record<number, boolean> = {};
+      team.forEach((_, i) => {
+        next[i] = prev[i] !== undefined ? prev[i] : true;
+      });
+      return next;
+    });
+  }, [team.length]);
 
   const datasets = useMemo(() => {
     return team.map((slot, i) => {
