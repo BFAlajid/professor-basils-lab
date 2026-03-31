@@ -188,7 +188,7 @@ function SuggestionRow({
             loading="lazy"
           />
         ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded bg-[#3a4466] text-[8px] text-[#8b9bb4]">
+          <div className="flex h-10 w-10 items-center justify-center rounded bg-[#3a4466] text-[10px] text-[#8b9bb4]">
             ?
           </div>
         )}

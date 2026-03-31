@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot } from "@/types";
-import { WildTabProvider, useWildTabContext } from "@/contexts/WildTabContext";
+import { WildTabProvider, useWildEncounterContext, useWildInventoryContext, useWildUIContext } from "@/contexts/WildTabContext";
 import RegionMap from "./RegionMap";
 import AreaDetail from "./AreaDetail";
 import NuzlockeGraveyard from "./NuzlockeGraveyard";
@@ -37,40 +37,20 @@ export default function WildTab({ team, onAddToTeam, onSetEvs, onSetMoves }: Wil
 
 function WildTabContent() {
   const {
-    encounter,
-    battleLog,
-    selectArea,
-    playerAttack,
-    playerRun,
-    returnToMap,
-    continueAfterCatch,
-    nuzlocke,
-    disableNuzlocke,
-    resetNuzlocke,
-    isAreaEncountered,
-    activePanel,
-    setActivePanel,
-    togglePanel,
-    linkView,
-    setLinkView,
-    evolvingPokemon,
-    setEvolvingPokemon,
-    isSearching,
-    showCatchFailure,
-    setShowCatchFailure,
-    fossilInventory,
-    ownedItems,
-    box,
-    removeFromBox,
-    addToBox,
-    ballInventory,
-    stats,
+    encounter, battleLog, selectArea, playerAttack, playerRun,
+    returnToMap, continueAfterCatch, handleStartEncounter, handleThrowBall, handleAddToBox,
+  } = useWildEncounterContext();
+
+  const {
+    box, removeFromBox, addToBox, ballInventory, fossilInventory, ownedItems, stats,
+  } = useWildInventoryContext();
+
+  const {
+    nuzlocke, disableNuzlocke, resetNuzlocke, isAreaEncountered, enableNuzlocke,
+    activePanel, setActivePanel, togglePanel, linkView, setLinkView,
+    evolvingPokemon, setEvolvingPokemon, isSearching, showCatchFailure, setShowCatchFailure,
     team,
-    handleStartEncounter,
-    handleThrowBall,
-    handleAddToBox,
-    enableNuzlocke,
-  } = useWildTabContext();
+  } = useWildUIContext();
 
   if (nuzlocke.enabled && nuzlocke.isGameOver)
     return <NuzlockeGameOver graveyard={nuzlocke.graveyard} onReset={resetNuzlocke} onDisable={disableNuzlocke} />;

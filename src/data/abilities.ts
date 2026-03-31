@@ -1,4 +1,5 @@
 import { BattlePokemon, TypeName, WeatherType, TerrainType, StatusCondition } from "@/types";
+import { CONTACT_MOVES } from "@/data/constants";
 
 // --- Ability Hook Types ---
 
@@ -528,40 +529,7 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
 
   "tough-claws": {
     modifyAttackStat: ({ moveName }) => {
-      // Contact moves — comprehensive list of common physical contact moves
-      const CONTACT_MOVES = [
-        "tackle", "body-slam", "double-edge", "take-down", "headbutt",
-        "slam", "stomp", "mega-kick", "jump-kick", "hi-jump-kick",
-        "low-kick", "karate-chop", "submission", "seismic-toss",
-        "scratch", "slash", "fury-swipes", "cut", "x-scissor",
-        "aerial-ace", "wing-attack", "brave-bird", "drill-peck", "fly",
-        "peck", "acrobatics", "bounce", "sky-attack", "pluck",
-        "waterfall", "aqua-tail", "crabhammer", "liquidation", "dive",
-        "wave-crash", "flip-turn",
-        "thunder-punch", "ice-punch", "fire-punch", "drain-punch",
-        "mach-punch", "mega-punch", "focus-punch", "sky-uppercut",
-        "shadow-punch", "bullet-punch", "hammer-arm", "power-up-punch",
-        "close-combat", "superpower", "cross-chop",
-        "crunch", "bite", "fire-fang", "ice-fang", "thunder-fang",
-        "poison-fang", "psychic-fangs", "jaw-lock", "fishious-rend",
-        "wild-charge", "volt-tackle", "spark", "nuzzle",
-        "flare-blitz", "flame-charge", "blaze-kick", "fire-lash",
-        "iron-head", "iron-tail", "meteor-mash", "steel-wing", "smart-strike",
-        "zen-headbutt", "psycho-cut", "heart-stamp",
-        "poison-jab", "cross-poison", "gunk-shot",
-        "earthquake", "bulldoze", "drill-run", "stomping-tantrum",
-        "rock-slide", "stone-edge", "rock-tomb", "head-smash",
-        "shadow-claw", "shadow-sneak", "phantom-force",
-        "dragon-claw", "dragon-rush", "outrage", "dragon-tail",
-        "wood-hammer", "leaf-blade", "power-whip", "seed-bomb",
-        "u-turn", "leech-life", "bug-bite", "megahorn", "lunge",
-        "play-rough", "spirit-break",
-        "knock-off", "sucker-punch", "darkest-lariat", "throat-chop",
-        "icicle-crash", "ice-shard", "triple-axel",
-        "return", "frustration", "facade", "extreme-speed", "quick-attack",
-        "fake-out", "rapid-spin", "covet", "thief",
-      ];
-      if (moveName && CONTACT_MOVES.includes(moveName)) return 1.33;
+      if (moveName && CONTACT_MOVES.has(moveName)) return 1.33;
       return 1;
     },
   },

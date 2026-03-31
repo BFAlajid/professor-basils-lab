@@ -50,11 +50,11 @@ function PrizeShop({
                   <span className="text-[10px] font-pixel text-[#f0f0e8]">
                     {prize.name}
                   </span>
-                  <span className="text-[8px] text-[#8b9bb4]">
+                  <span className="text-[10px] text-[#8b9bb4]">
                     Lv.{prize.level}
                   </span>
                 </div>
-                <p className="text-[8px] text-[#8b9bb4] truncate">
+                <p className="text-[10px] text-[#8b9bb4] truncate">
                   {prize.description}
                 </p>
               </div>

@@ -49,7 +49,7 @@ export default memo(function PokedexEntry({ id, isCaught, isSeen, name, spriteUr
       <span className="text-[9px] text-[#8b9bb4] font-pixel">
         {formatDexNumber(id)}
       </span>
-      <span className="text-[8px] text-center text-[#f0f0e8] font-pixel capitalize truncate w-full">
+      <span className="text-[10px] text-center text-[#f0f0e8] font-pixel capitalize truncate w-full">
         {isSeen && name ? (
           <Link href={`/pokemon/${name}`} className="hover:text-[#63c5da] transition-colors">
             {name}

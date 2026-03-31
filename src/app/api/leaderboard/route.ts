@@ -145,7 +145,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (err) {
-    console.error("Leaderboard GET failed:", err);
+    console.error("Leaderboard GET failed:", err instanceof Error ? err.message : "Unknown error");
     return NextResponse.json(
       { error: "Failed to fetch leaderboard" },
       { status: 500 }
@@ -202,7 +202,7 @@ export async function POST(request: Request) {
     const { rank } = await submitScore(b.type, validation.cleaned);
     return NextResponse.json({ rank }, { status: 201 });
   } catch (err) {
-    console.error("Leaderboard POST failed:", err);
+    console.error("Leaderboard POST failed:", err instanceof Error ? err.message : "Unknown error");
     return NextResponse.json(
       { error: "Failed to submit score" },
       { status: 500 }

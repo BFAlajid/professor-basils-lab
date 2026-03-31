@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useAudio } from "@/hooks/useAudio";
 import { AudioTrack } from "@/utils/audioManager";
 
@@ -17,6 +17,36 @@ const TRACK_LABELS: Record<AudioTrack, string> = {
   pokemonCenter: "PC",
   catchSuccess: "Catch",
 };
+
+function UploadDropdown({ onUpload }: { onUpload: (track: AudioTrack) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-label="Upload custom music"
+        className="text-[10px] text-[#8b9bb4] hover:text-[#f0f0e8] transition-colors px-1"
+        title="Upload custom music"
+      >
+        ♪+
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 bg-[#262b44] border border-[#3a4466] rounded-lg py-1 z-50 min-w-[100px]">
+          {(Object.keys(TRACK_LABELS) as AudioTrack[]).map((track) => (
+            <button
+              key={track}
+              onClick={() => { onUpload(track); setOpen(false); }}
+              className="block w-full text-left px-3 py-1 text-[10px] text-[#8b9bb4] hover:text-[#f0f0e8] hover:bg-[#3a4466] transition-colors"
+            >
+              {TRACK_LABELS[track]}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AudioPlayer() {
   const {
@@ -113,25 +143,7 @@ export default function AudioPlayer() {
       </button>
 
       {/* Upload dropdown */}
-      <div className="relative group">
-        <button
-          className="text-[10px] text-[#8b9bb4] hover:text-[#f0f0e8] transition-colors px-1"
-          title="Upload custom music"
-        >
-          ♪+
-        </button>
-        <div className="absolute right-0 top-full mt-1 bg-[#262b44] border border-[#3a4466] rounded-lg py-1 hidden group-hover:block z-50 min-w-[100px]">
-          {(Object.keys(TRACK_LABELS) as AudioTrack[]).map((track) => (
-            <button
-              key={track}
-              onClick={() => handleUpload(track)}
-              className="block w-full text-left px-3 py-1 text-[10px] text-[#8b9bb4] hover:text-[#f0f0e8] hover:bg-[#3a4466] transition-colors"
-            >
-              {TRACK_LABELS[track]}
-            </button>
-          ))}
-        </div>
-      </div>
+      <UploadDropdown onUpload={handleUpload} />
 
       <input
         ref={fileInputRef}

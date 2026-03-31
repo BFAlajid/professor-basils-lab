@@ -14,7 +14,7 @@ import {
   calculateKO,
   DamageCalcOptions,
 } from "@/utils/damageWasm";
-import { calculateHP, DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
+import { calculateHP, DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
 import { NATURES, getNatureLabel } from "@/data/natures";
 import { HELD_ITEMS } from "@/data/heldItems";
 import LoadingSpinner from "./LoadingSpinner";

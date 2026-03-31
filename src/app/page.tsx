@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { motion, AnimatePresence, useReducedMotion, MotionConfig } from "framer-motion";
 import { useTeam, encodeTeam, decodeTeam, type DecodedTeamData } from "@/hooks/useTeam";
 import { fetchPokemon } from "@/hooks/usePokemon";
 import { usePokedexContext } from "@/contexts/PokedexContext";
@@ -234,10 +234,16 @@ export default function Home() {
 
   const [selectedTeamPokemonIdx, setSelectedTeamPokemonIdx] = useState(0);
 
-  const visibleTabs = tabs.filter((tab) => {
+  useEffect(() => {
+    if (selectedTeamPokemonIdx >= team.length && team.length > 0) {
+      setSelectedTeamPokemonIdx(team.length - 1);
+    }
+  }, [team.length, selectedTeamPokemonIdx]);
+
+  const visibleTabs = useMemo(() => tabs.filter((tab) => {
     if (tab.id === "emulator" && !features.enableEmulator) return false;
     return true;
-  });
+  }), [features.enableEmulator]);
 
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent, tabId: Tab) => {
@@ -258,7 +264,7 @@ export default function Home() {
     [visibleTabs]
   );
 
-  const teamPokemon = team.map((s) => s.pokemon);
+  const teamPokemon = useMemo(() => team.map((s) => s.pokemon), [team]);
   const motionDuration = shouldReduceMotion ? 0 : 0.2;
 
   if (features.maintenanceMode) {
@@ -277,6 +283,7 @@ export default function Home() {
   }
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen bg-[#1a1c2c]">
       {/* Announcement Banner */}
       {announcement.banner && (
@@ -505,5 +512,6 @@ export default function Home() {
 
       <TypeReference />
     </div>
+    </MotionConfig>
   );
 }

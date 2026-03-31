@@ -31,39 +31,7 @@ const MULTI_HIT_2 = 0.35;
 const MULTI_HIT_3 = 0.70;
 const MULTI_HIT_4 = 0.85;
 
-// Contact moves — used for Static, Flame Body, Tough Claws, etc.
-const CONTACT_MOVE_SET = new Set([
-  "tackle", "body-slam", "double-edge", "take-down", "headbutt",
-  "slam", "stomp", "mega-kick", "jump-kick", "hi-jump-kick",
-  "low-kick", "karate-chop", "submission", "seismic-toss",
-  "scratch", "slash", "fury-swipes", "cut", "x-scissor",
-  "aerial-ace", "wing-attack", "brave-bird", "drill-peck", "fly",
-  "peck", "acrobatics", "bounce", "sky-attack", "pluck",
-  "waterfall", "aqua-tail", "crabhammer", "liquidation", "dive",
-  "wave-crash", "flip-turn",
-  "thunder-punch", "ice-punch", "fire-punch", "drain-punch",
-  "mach-punch", "mega-punch", "focus-punch", "sky-uppercut",
-  "shadow-punch", "bullet-punch", "hammer-arm", "power-up-punch",
-  "close-combat", "superpower", "cross-chop",
-  "crunch", "bite", "fire-fang", "ice-fang", "thunder-fang",
-  "poison-fang", "psychic-fangs", "jaw-lock", "fishious-rend",
-  "wild-charge", "volt-tackle", "spark", "nuzzle",
-  "flare-blitz", "flame-charge", "blaze-kick", "fire-lash",
-  "iron-head", "iron-tail", "meteor-mash", "steel-wing", "smart-strike",
-  "zen-headbutt", "psycho-cut", "heart-stamp",
-  "poison-jab", "cross-poison", "gunk-shot",
-  "earthquake", "bulldoze", "drill-run", "stomping-tantrum",
-  "rock-slide", "stone-edge", "rock-tomb", "head-smash",
-  "shadow-claw", "shadow-sneak", "phantom-force",
-  "dragon-claw", "dragon-rush", "outrage", "dragon-tail",
-  "wood-hammer", "leaf-blade", "power-whip", "seed-bomb",
-  "u-turn", "leech-life", "bug-bite", "megahorn", "lunge",
-  "play-rough", "spirit-break",
-  "knock-off", "sucker-punch", "darkest-lariat", "throat-chop",
-  "icicle-crash", "ice-shard", "triple-axel",
-  "return", "frustration", "facade", "extreme-speed", "quick-attack",
-  "fake-out", "rapid-spin", "covet", "thief",
-]);
+// Contact moves — re-use canonical set from constants (avoid duplication)
 
 type MoveData = ReturnType<typeof getBattleMove>;
 
@@ -666,8 +634,8 @@ export function executeDamagingMove(
   );
 
   // Doubles spread damage modifier (0.75x)
-  if ((state as any).__spreadDamageModifier) {
-    result.max = Math.max(1, Math.floor(result.max * (state as any).__spreadDamageModifier));
+  if (state.spreadDamageModifier) {
+    result.max = Math.max(1, Math.floor(result.max * state.spreadDamageModifier));
   }
 
   // Accuracy check
@@ -779,7 +747,7 @@ export function executeDamagingMove(
   // Contact ability retaliation (Static, Flame Body)
   if (totalDamage > 0 && !hitSubstitute && !newDefender.isFainted) {
     const defAbilityContact = getAbilityHooks(newDefender.slot.ability);
-    if (defAbilityContact?.onContact && CONTACT_MOVE_SET.has(originalName)) {
+    if (defAbilityContact?.onContact && CONTACT_MOVES.has(originalName)) {
       const contactResult = defAbilityContact.onContact({ attacker, defender: newDefender });
       if (contactResult && Math.random() < contactResult.chance) {
         const currentAtk = getActivePokemon(state[attackerPlayer]);

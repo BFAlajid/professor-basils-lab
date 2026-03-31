@@ -85,7 +85,7 @@ export default memo(function BattleFactoryCard({
         {slot.pokemon.types.map((t) => (
           <span
             key={t.type.name}
-            className="rounded-full px-1.5 py-0.5 text-[8px] font-medium uppercase"
+            className="rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase"
             style={{
               backgroundColor: typeColors[t.type.name] + "33",
               color: typeColors[t.type.name],

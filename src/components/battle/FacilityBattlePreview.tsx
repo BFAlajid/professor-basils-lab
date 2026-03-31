@@ -113,7 +113,7 @@ export default function FacilityBattlePreview({
                       }}
                     />
                   </div>
-                  <span className="text-[8px] text-[#8b9bb4] capitalize truncate block">
+                  <span className="text-[10px] text-[#8b9bb4] capitalize truncate block">
                     {slot.pokemon.name.slice(0, 8)}
                   </span>
                 </div>

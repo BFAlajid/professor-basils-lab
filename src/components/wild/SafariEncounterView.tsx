@@ -60,22 +60,22 @@ export default function SafariEncounterView({
         {/* Modifier badges */}
         <div className="flex gap-1.5 flex-wrap justify-center">
           {pokemon.catchModifier > 1 && (
-            <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#38b764]/20 text-[#38b764] font-pixel">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#38b764]/20 text-[#38b764] font-pixel">
               Catch &uarr;
             </span>
           )}
           {pokemon.catchModifier < 1 && (
-            <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#e8433f]/20 text-[#e8433f] font-pixel">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#e8433f]/20 text-[#e8433f] font-pixel">
               Catch &darr;
             </span>
           )}
           {pokemon.fleeModifier > 1 && (
-            <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#e8433f]/20 text-[#e8433f] font-pixel">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#e8433f]/20 text-[#e8433f] font-pixel">
               Flee &uarr;
             </span>
           )}
           {pokemon.fleeModifier < 1 && (
-            <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#38b764]/20 text-[#38b764] font-pixel">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#38b764]/20 text-[#38b764] font-pixel">
               Flee &darr;
             </span>
           )}
@@ -103,7 +103,7 @@ export default function SafariEncounterView({
           className="px-3 py-2.5 bg-[#38b764] hover:bg-[#45c972] text-[#f0f0e8] text-[10px] font-pixel rounded-lg transition-colors disabled:opacity-40 space-y-0.5"
         >
           <div>Safari Ball</div>
-          <div className="text-[8px] opacity-70">
+          <div className="text-[10px] opacity-70">
             {state.ballsRemaining} left
           </div>
         </button>
@@ -112,7 +112,7 @@ export default function SafariEncounterView({
           className="px-3 py-2.5 bg-[#d97b2a] hover:bg-[#e68a35] text-[#f0f0e8] text-[10px] font-pixel rounded-lg transition-colors space-y-0.5"
         >
           <div>Throw Rock</div>
-          <div className="text-[8px] opacity-70">
+          <div className="text-[10px] opacity-70">
             Easier catch, may flee!
           </div>
         </button>
@@ -121,7 +121,7 @@ export default function SafariEncounterView({
           className="px-3 py-2.5 bg-[#4a90d9] hover:bg-[#5a9ee5] text-[#f0f0e8] text-[10px] font-pixel rounded-lg transition-colors space-y-0.5"
         >
           <div>Throw Bait</div>
-          <div className="text-[8px] opacity-70">
+          <div className="text-[10px] opacity-70">
             Less likely to flee
           </div>
         </button>

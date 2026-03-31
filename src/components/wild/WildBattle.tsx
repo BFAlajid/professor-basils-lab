@@ -39,14 +39,14 @@ function HealthBar({ current, max, label, level, status }: {
         <span className="text-[10px] font-pixel text-[#f0f0e8]">{label}</span>
         <div className="flex items-center gap-1">
           {status && (
-            <span className="text-[7px] font-pixel px-1 py-0.5 rounded" style={{
+            <span className="text-[10px] font-pixel px-1 py-0.5 rounded" style={{
               backgroundColor: status === "burn" ? "#e8433f" : status === "poison" || status === "toxic" ? "#a855f7" : status === "paralyze" ? "#f59e0b" : status === "sleep" ? "#8b9bb4" : status === "freeze" ? "#06b6d4" : "#3a4466",
               color: "#f0f0e8",
             }}>
               {({ burn: "BRN", paralyze: "PAR", poison: "PSN", toxic: "TOX", sleep: "SLP", freeze: "FRZ" } as Record<string, string>)[status] ?? status.toUpperCase().slice(0, 3)}
             </span>
           )}
-          {level && <span className="text-[8px] text-[#8b9bb4]">Lv.{level}</span>}
+          {level && <span className="text-[10px] text-[#8b9bb4]">Lv.{level}</span>}
         </div>
       </div>
       <div className="w-full h-2 bg-[#1a1c2c] rounded-full overflow-hidden border border-[#3a4466]">
@@ -58,7 +58,7 @@ function HealthBar({ current, max, label, level, status }: {
           transition={{ duration: 0.3 }}
         />
       </div>
-      <p className="text-[8px] text-[#8b9bb4] text-right">
+      <p className="text-[10px] text-[#8b9bb4] text-right">
         {current}/{max}
       </p>
     </div>
@@ -153,7 +153,7 @@ export default function WildBattle({
 
       {/* Battle log */}
       {battleLog.length > 0 && (
-        <div className="bg-[#262b44] border border-[#3a4466] rounded-xl p-2 max-h-[100px] overflow-y-auto">
+        <div role="log" aria-label="Battle log" aria-live="polite" className="bg-[#262b44] border border-[#3a4466] rounded-xl p-2 max-h-[100px] overflow-y-auto">
           {battleLog.slice(-6).map((msg, i) => (
             <p key={`${battleLog.length - 6 + i}-${msg.slice(0, 20)}`} className="text-[9px] text-[#8b9bb4] py-0.5">
               {msg}

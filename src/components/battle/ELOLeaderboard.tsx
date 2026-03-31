@@ -88,15 +88,15 @@ export default function ELOLeaderboard({
       <div className="grid grid-cols-3 gap-2 mb-4">
         <div className="rounded-lg bg-[#1a1c2c] p-2 text-center">
           <p className="text-xs font-bold font-pixel text-[#38b764]">{totalWins}</p>
-          <p className="text-[8px] text-[#8b9bb4] font-pixel">Wins</p>
+          <p className="text-[10px] text-[#8b9bb4] font-pixel">Wins</p>
         </div>
         <div className="rounded-lg bg-[#1a1c2c] p-2 text-center">
           <p className="text-xs font-bold font-pixel text-[#e8433f]">{totalLosses}</p>
-          <p className="text-[8px] text-[#8b9bb4] font-pixel">Losses</p>
+          <p className="text-[10px] text-[#8b9bb4] font-pixel">Losses</p>
         </div>
         <div className="rounded-lg bg-[#1a1c2c] p-2 text-center">
           <p className="text-xs font-bold font-pixel text-[#f7a838]">{winRate}%</p>
-          <p className="text-[8px] text-[#8b9bb4] font-pixel">Rate</p>
+          <p className="text-[10px] text-[#8b9bb4] font-pixel">Rate</p>
         </div>
       </div>
 
@@ -146,7 +146,7 @@ export default function ELOLeaderboard({
                 <motion.span
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="text-[8px] font-pixel rounded bg-[#38b764] px-1.5 py-0.5 text-[#f0f0e8]"
+                  className="text-[10px] font-pixel rounded bg-[#38b764] px-1.5 py-0.5 text-[#f0f0e8]"
                 >
                   YOU
                 </motion.span>
@@ -217,7 +217,7 @@ export default function ELOLeaderboard({
                     {entry.score}
                   </span>
                   {entry.teamPokemon.length > 0 && (
-                    <span className="text-[8px] text-[#8b9bb4] truncate max-w-[80px] hidden sm:inline">
+                    <span className="text-[10px] text-[#8b9bb4] truncate max-w-[80px] hidden sm:inline">
                       {entry.teamPokemon.slice(0, 3).join(", ")}
                     </span>
                   )}

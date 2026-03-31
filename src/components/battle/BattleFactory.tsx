@@ -194,7 +194,7 @@ export default function BattleFactory({
                     className="mx-auto"
                   />
                 )}
-                <p className="text-[8px] text-[#f0f0e8] capitalize truncate max-w-[60px]">
+                <p className="text-[10px] text-[#f0f0e8] capitalize truncate max-w-[60px]">
                   {formatName(slot.pokemon.name)}
                 </p>
               </motion.div>

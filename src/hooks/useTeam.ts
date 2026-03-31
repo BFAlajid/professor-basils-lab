@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useEffect, useCallback, useRef } from "react";
+import { useReducer, useEffect, useCallback, useRef, useMemo } from "react";
 import { Pokemon, TeamSlot, TeamAction, Nature, EVSpread, IVSpread, TypeName } from "@/types";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
 import { fetchPokemonData } from "@/utils/pokeApiClient";
@@ -258,7 +258,7 @@ export function useTeam() {
     dispatch({ type: "SET_TEAM", slots });
   }, []);
 
-  return {
+  return useMemo(() => ({
     team,
     addPokemon,
     removePokemon,
@@ -274,7 +274,7 @@ export function useTeam() {
     setForme,
     setTeam,
     isFull: team.length >= MAX_TEAM_SIZE,
-  };
+  }), [team, addPokemon, removePokemon, clearTeam, reorder, setNature, setEvs, setIvs, setAbility, setHeldItem, setMoves, setTeraType, setForme, setTeam]);
 }
 
 // Encode/decode for URL sharing (full team data)

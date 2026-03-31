@@ -118,7 +118,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response, { status: 201 });
   } catch (err) {
-    console.error("Share upload failed:", err);
+    console.error("Share upload failed:", err instanceof Error ? err.message : "Unknown error");
     return NextResponse.json(
       { error: "Failed to store share" },
       { status: 500 }

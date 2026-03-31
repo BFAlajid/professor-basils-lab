@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { motion } from "framer-motion";
-import { useWildTabContext } from "@/contexts/WildTabContext";
+import { useWildInventoryContext, useWildUIContext } from "@/contexts/WildTabContext";
 import { createPCBoxPokemon } from "@/utils/pokemonFactory";
 import type { Pokemon } from "@/types";
 import PCBox from "./PCBox";
@@ -24,35 +24,16 @@ import EggMoveCalculator from "./EggMoveCalculator";
 
 export default function WildPanelRouter() {
   const {
-    activePanel,
-    setActivePanel,
-    box,
-    team,
-    handleMoveToTeam,
-    removeFromBox,
-    setNickname,
-    addToBox,
-    incrementStat,
-    linkView,
-    setLinkView,
-    online,
-    safari,
-    markCaught,
-    addUniqueBall,
-    addUniqueType,
-    addKantoSpecies,
-    handleGameCornerPurchase,
-    stats,
-    fossilInventory,
-    handleReviveFossil,
-    ballInventory,
-    battleItemInventory,
-    ownedItems,
-    setOwnedItems,
-    handlePokeMartBuy,
-    onSetEvs,
-    onSetMoves,
-  } = useWildTabContext();
+    box, handleMoveToTeam, removeFromBox, setNickname, addToBox,
+    incrementStat, markCaught, addUniqueBall, addUniqueType, addKantoSpecies,
+    handleGameCornerPurchase, stats, fossilInventory, handleReviveFossil,
+    ballInventory, battleItemInventory, ownedItems, setOwnedItems, handlePokeMartBuy,
+  } = useWildInventoryContext();
+
+  const {
+    activePanel, setActivePanel, linkView, setLinkView,
+    online, safari, team, onSetEvs, onSetMoves,
+  } = useWildUIContext();
 
   if (!activePanel) return null;
 

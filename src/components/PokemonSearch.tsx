@@ -347,13 +347,15 @@ export default function PokemonSearch({
               )}
             </div>
 
-            {error && (
-              <p className="mb-3 text-center text-xs text-[#e8433f]">{error}</p>
-            )}
+            <div aria-live="polite">
+              {error && (
+                <p className="mb-3 text-center text-xs text-[#e8433f]">{error}</p>
+              )}
+            </div>
 
             <div className="max-h-64 overflow-y-auto">
               {(debouncedQuery || hasAnyFilter) && filtered.length === 0 && !typeLoading && (
-                <p className="py-8 text-center text-[#8b9bb4]">
+                <p className="py-8 text-center text-[#8b9bb4]" aria-live="polite">
                   No Pokemon found
                 </p>
               )}

@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "crypto";
+
 export const maxDuration = 300;
 
 const BATCH_SIZE = 20;
@@ -16,7 +18,8 @@ export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   const expected = process.env.CRON_SECRET;
 
-  if (!expected || authHeader !== `Bearer ${expected}`) {
+  const expectedFull = `Bearer ${expected}`;
+  if (!expected || !authHeader || authHeader.length !== expectedFull.length || !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedFull))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

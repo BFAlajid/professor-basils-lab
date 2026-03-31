@@ -128,7 +128,7 @@ export default function ReplayList({ onViewReplay }: ReplayListProps) {
                   {replay.player2TeamNames.slice(0, 3).join(", ")}
                   {replay.player2TeamNames.length > 3 && ` +${replay.player2TeamNames.length - 3}`}
                 </p>
-                <p className="text-[8px] text-[#8b9bb4]">
+                <p className="text-[10px] text-[#8b9bb4]">
                   {dateStr} {timeStr}
                 </p>
               </div>

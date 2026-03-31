@@ -117,12 +117,12 @@ export default function PokeMart({ money, onBuy, ballInventory, battleItemInvent
                       {item.name}
                     </span>
                     {owned > 0 && (
-                      <span className="font-pixel text-[8px] text-[#8b9bb4]">
+                      <span className="font-pixel text-[10px] text-[#8b9bb4]">
                         ×{owned}
                       </span>
                     )}
                   </div>
-                  <p className="font-pixel text-[8px] text-[#8b9bb4] truncate">
+                  <p className="font-pixel text-[10px] text-[#8b9bb4] truncate">
                     {item.description}
                   </p>
                 </div>

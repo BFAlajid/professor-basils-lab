@@ -131,6 +131,7 @@ export interface BattleState {
   currentTurnPlayer: "player1" | "player2";
   field: FieldState;
   pendingPivotSwitch: "player1" | "player2" | null;
+  spreadDamageModifier?: number;
 }
 
 export type BattleAction =

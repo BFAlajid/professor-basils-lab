@@ -706,7 +706,7 @@ function executeMoveSingleTarget(
 
   // Store spread flag on state for damage calculation to pick up
   if (isSpread) {
-    (tempState as any).__spreadDamageModifier = SPREAD_DAMAGE_MODIFIER;
+    tempState = { ...tempState, spreadDamageModifier: SPREAD_DAMAGE_MODIFIER };
   }
 
   // Execute using existing single-target logic
@@ -714,7 +714,8 @@ function executeMoveSingleTarget(
 
   // Clean up spread flag
   if (isSpread) {
-    delete (tempState as any).__spreadDamageModifier;
+    const { spreadDamageModifier: _, ...cleanState } = tempState;
+    tempState = cleanState as BattleState;
   }
 
   // Restore original active indices (but keep Pokemon state changes)

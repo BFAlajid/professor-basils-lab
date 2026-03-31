@@ -12,15 +12,13 @@ import { useNuzlocke } from "@/hooks/useNuzlocke";
 import { useOnlineBattle } from "@/hooks/useOnlineBattle";
 import { useSafariZone } from "@/hooks/useSafariZone";
 import { useWildActions } from "@/hooks/useWildActions";
-import { createPCBoxPokemon } from "@/utils/pokemonFactory";
 import { playCry } from "@/utils/cryPlayer";
 
 const DEFAULT_BATTLE_ITEMS = { potion: 3, "super-potion": 2, "hyper-potion": 1, "full-restore": 1, revive: 1 };
 
-// --- Context value type ---
+// ── Context value types ──
 
-export interface WildTabContextValue {
-  // Encounter
+export interface WildEncounterContextValue {
   encounter: ReturnType<typeof useWildEncounter>["state"];
   battleLog: ReturnType<typeof useWildEncounter>["battleLog"];
   selectArea: ReturnType<typeof useWildEncounter>["selectArea"];
@@ -32,8 +30,12 @@ export interface WildTabContextValue {
   returnToMap: ReturnType<typeof useWildEncounter>["returnToMap"];
   continueAfterCatch: ReturnType<typeof useWildEncounter>["continueAfterCatch"];
   wildSlot: ReturnType<typeof useWildEncounter>["wildSlot"];
+  handleStartEncounter: () => void;
+  handleThrowBall: (ballType: BallType) => void;
+  handleAddToBox: () => void;
+}
 
-  // PC Box
+export interface WildInventoryContextValue {
   box: PCBoxPokemon[];
   ballInventory: Record<string, number>;
   addToBox: (p: PCBoxPokemon) => void;
@@ -42,8 +44,38 @@ export interface WildTabContextValue {
   moveToTeam: (index: number) => void;
   useBall: (ball: BallType) => boolean;
   isAlreadyCaught: (pokemonId: number) => boolean;
+  fossilInventory: Record<string, number>;
+  setFossilInventory: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  ownedItems: Record<string, number>;
+  setOwnedItems: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  battleItemInventory: Record<string, number>;
+  setBattleItemInventory: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  stats: ReturnType<typeof useAchievementsContext>["stats"];
+  incrementStat: ReturnType<typeof useAchievementsContext>["incrementStat"];
+  addUniqueBall: ReturnType<typeof useAchievementsContext>["addUniqueBall"];
+  addUniqueType: ReturnType<typeof useAchievementsContext>["addUniqueType"];
+  addKantoSpecies: ReturnType<typeof useAchievementsContext>["addKantoSpecies"];
+  addMoney: ReturnType<typeof useAchievementsContext>["addMoney"];
+  spendMoney: ReturnType<typeof useAchievementsContext>["spendMoney"];
+  markSeen: ReturnType<typeof usePokedexContext>["markSeen"];
+  markCaught: ReturnType<typeof usePokedexContext>["markCaught"];
+  handleReviveFossil: (fossilId: string) => Promise<void>;
+  handleGameCornerPurchase: (pokemonId: number, level: number, area: string) => Promise<void>;
+  handlePokeMartBuy: (item: { id: string; price: number; category: string; ballType?: BallType }, quantity: number) => boolean;
+  handleMoveToTeam: (index: number) => void;
+}
 
-  // Nuzlocke
+export interface WildUIContextValue {
+  activePanel: WildPanel;
+  setActivePanel: React.Dispatch<React.SetStateAction<WildPanel>>;
+  togglePanel: (panel: NonNullable<WildPanel>) => void;
+  linkView: "cable" | "trade";
+  setLinkView: React.Dispatch<React.SetStateAction<"cable" | "trade">>;
+  evolvingPokemon: PCBoxPokemon | null;
+  setEvolvingPokemon: React.Dispatch<React.SetStateAction<PCBoxPokemon | null>>;
+  isSearching: boolean;
+  showCatchFailure: boolean;
+  setShowCatchFailure: React.Dispatch<React.SetStateAction<boolean>>;
   nuzlocke: ReturnType<typeof useNuzlocke>["state"];
   enableNuzlocke: () => void;
   disableNuzlocke: () => void;
@@ -52,75 +84,54 @@ export interface WildTabContextValue {
   addToGraveyard: ReturnType<typeof useNuzlocke>["addToGraveyard"];
   checkGameOver: ReturnType<typeof useNuzlocke>["checkGameOver"];
   resetNuzlocke: ReturnType<typeof useNuzlocke>["resetNuzlocke"];
-
-  // Online & Safari (pass-through)
   online: ReturnType<typeof useOnlineBattle>;
   safari: ReturnType<typeof useSafariZone>;
-
-  // Panel state
-  activePanel: WildPanel;
-  setActivePanel: React.Dispatch<React.SetStateAction<WildPanel>>;
-  togglePanel: (panel: NonNullable<WildPanel>) => void;
-  linkView: "cable" | "trade";
-  setLinkView: React.Dispatch<React.SetStateAction<"cable" | "trade">>;
-
-  // UI state
-  evolvingPokemon: PCBoxPokemon | null;
-  setEvolvingPokemon: React.Dispatch<React.SetStateAction<PCBoxPokemon | null>>;
-  isSearching: boolean;
-  showCatchFailure: boolean;
-  setShowCatchFailure: React.Dispatch<React.SetStateAction<boolean>>;
-
-  // Inventories
-  fossilInventory: Record<string, number>;
-  setFossilInventory: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-  ownedItems: Record<string, number>;
-  setOwnedItems: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-  battleItemInventory: Record<string, number>;
-  setBattleItemInventory: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-
-  // Achievements stats
-  stats: ReturnType<typeof useAchievementsContext>["stats"];
-  incrementStat: ReturnType<typeof useAchievementsContext>["incrementStat"];
-  addUniqueBall: ReturnType<typeof useAchievementsContext>["addUniqueBall"];
-  addUniqueType: ReturnType<typeof useAchievementsContext>["addUniqueType"];
-  addKantoSpecies: ReturnType<typeof useAchievementsContext>["addKantoSpecies"];
-  addMoney: ReturnType<typeof useAchievementsContext>["addMoney"];
-  spendMoney: ReturnType<typeof useAchievementsContext>["spendMoney"];
-
-  // Pokedex
-  markSeen: ReturnType<typeof usePokedexContext>["markSeen"];
-  markCaught: ReturnType<typeof usePokedexContext>["markCaught"];
-
-  // Wild actions (composed)
-  handleReviveFossil: (fossilId: string) => Promise<void>;
-  handleGameCornerPurchase: (pokemonId: number, level: number, area: string) => Promise<void>;
-  handlePokeMartBuy: (item: { id: string; price: number; category: string; ballType?: BallType }, quantity: number) => boolean;
-  handleStartEncounter: () => void;
-  handleThrowBall: (ballType: BallType) => void;
-  handleAddToBox: () => void;
-  handleMoveToTeam: (index: number) => void;
-
-  // Team props (passed from parent)
   team: TeamSlot[];
-  onAddToTeam: (pokemon: import("@/types").Pokemon) => void;
+  onAddToTeam: (pokemon: Pokemon) => void;
   onSetEvs?: (position: number, evs: EVSpread) => void;
   onSetMoves?: (position: number, moves: string[]) => void;
 }
 
-const WildTabContext = createContext<WildTabContextValue | null>(null);
+// Backwards-compatible combined type
+export type WildTabContextValue = WildEncounterContextValue & WildInventoryContextValue & WildUIContextValue;
 
-export function useWildTabContext(): WildTabContextValue {
-  const ctx = useContext(WildTabContext);
-  if (!ctx) throw new Error("useWildTabContext must be used within WildTabProvider");
+// ── Contexts ──
+
+const WildEncounterCtx = createContext<WildEncounterContextValue | null>(null);
+const WildInventoryCtx = createContext<WildInventoryContextValue | null>(null);
+const WildUICtx = createContext<WildUIContextValue | null>(null);
+
+export function useWildEncounterContext(): WildEncounterContextValue {
+  const ctx = useContext(WildEncounterCtx);
+  if (!ctx) throw new Error("useWildEncounterContext must be used within WildTabProvider");
   return ctx;
 }
 
-// --- Provider ---
+export function useWildInventoryContext(): WildInventoryContextValue {
+  const ctx = useContext(WildInventoryCtx);
+  if (!ctx) throw new Error("useWildInventoryContext must be used within WildTabProvider");
+  return ctx;
+}
+
+export function useWildUIContext(): WildUIContextValue {
+  const ctx = useContext(WildUICtx);
+  if (!ctx) throw new Error("useWildUIContext must be used within WildTabProvider");
+  return ctx;
+}
+
+// Backwards-compatible hook
+export function useWildTabContext(): WildTabContextValue {
+  const encounter = useWildEncounterContext();
+  const inventory = useWildInventoryContext();
+  const ui = useWildUIContext();
+  return useMemo(() => ({ ...encounter, ...inventory, ...ui }), [encounter, inventory, ui]);
+}
+
+// ── Provider ──
 
 interface WildTabProviderProps {
   team: TeamSlot[];
-  onAddToTeam: (pokemon: import("@/types").Pokemon) => void;
+  onAddToTeam: (pokemon: Pokemon) => void;
   onSetEvs?: (position: number, evs: EVSpread) => void;
   onSetMoves?: (position: number, moves: string[]) => void;
   children: React.ReactNode;
@@ -128,42 +139,20 @@ interface WildTabProviderProps {
 
 export function WildTabProvider({ team, onAddToTeam, onSetEvs, onSetMoves, children }: WildTabProviderProps) {
   const {
-    state: encounter,
-    battleLog,
-    selectArea,
-    startEncounter,
-    enterBattle,
-    playerAttack,
-    throwBall,
-    playerRun,
-    returnToMap,
-    continueAfterCatch,
-    wildSlot,
+    state: encounter, battleLog, selectArea, startEncounter, enterBattle,
+    playerAttack, throwBall, playerRun, returnToMap, continueAfterCatch, wildSlot,
   } = useWildEncounter(team);
 
   const {
-    box,
-    ballInventory,
-    addToBox,
-    removeFromBox,
-    setNickname,
-    moveToTeam,
-    useBall,
-    isAlreadyCaught,
+    box, ballInventory, addToBox, removeFromBox, setNickname, moveToTeam, useBall, isAlreadyCaught,
   } = usePCBox();
 
   const { markSeen, markCaught } = usePokedexContext();
   const { incrementStat, addUniqueBall, addUniqueType, addKantoSpecies, updateShinyChain, resetShinyChain, addMoney, spendMoney, stats } = useAchievementsContext();
 
   const {
-    state: nuzlocke,
-    enableNuzlocke,
-    disableNuzlocke,
-    markAreaEncountered,
-    isAreaEncountered,
-    addToGraveyard,
-    checkGameOver,
-    resetNuzlocke,
+    state: nuzlocke, enableNuzlocke, disableNuzlocke,
+    markAreaEncountered, isAreaEncountered, addToGraveyard, checkGameOver, resetNuzlocke,
   } = useNuzlocke();
 
   const online = useOnlineBattle();
@@ -180,41 +169,18 @@ export function WildTabProvider({ team, onAddToTeam, onSetEvs, onSetMoves, child
   const [battleItemInventory, setBattleItemInventory] = usePersistedState<Record<string, number>>("pokemon-battle-items", DEFAULT_BATTLE_ITEMS);
 
   const {
-    handleReviveFossil,
-    handleGameCornerPurchase,
-    handlePokeMartBuy,
-    handleStartEncounter,
-    handleThrowBall,
-    handleAddToBox,
-    handleMoveToTeam,
+    handleReviveFossil, handleGameCornerPurchase, handlePokeMartBuy,
+    handleStartEncounter, handleThrowBall, handleAddToBox, handleMoveToTeam,
   } = useWildActions({
-    encounter,
-    startEncounter,
-    throwBall,
-    returnToMap,
-    addToBox,
-    moveToTeam,
-    useBall,
-    isAlreadyCaught,
-    onAddToTeam,
-    markCaught,
-    incrementStat,
-    addUniqueBall,
-    addUniqueType,
-    addKantoSpecies,
-    spendMoney,
-    money: stats.money,
-    fossilInventory,
-    setFossilInventory,
-    setBattleItemInventory,
-    setOwnedItems,
-    setIsSearching,
-    nuzlockeEnabled: nuzlocke.enabled,
-    isAreaEncountered,
-    markAreaEncountered,
+    encounter, startEncounter, throwBall, returnToMap,
+    addToBox, moveToTeam, useBall, isAlreadyCaught, onAddToTeam,
+    markCaught, incrementStat, addUniqueBall, addUniqueType, addKantoSpecies,
+    spendMoney, money: stats.money, fossilInventory, setFossilInventory,
+    setBattleItemInventory, setOwnedItems, setIsSearching,
+    nuzlockeEnabled: nuzlocke.enabled, isAreaEncountered, markAreaEncountered,
   });
 
-  // --- Effects (same order as original WildTab) ---
+  // --- Effects ---
 
   useEffect(() => {
     if (encounter.phase === "encounter_intro" && encounter.wildPokemon) {
@@ -250,12 +216,8 @@ export function WildTabProvider({ team, onAddToTeam, onSetEvs, onSetMoves, child
   }, [nuzlocke.enabled, encounter.phase, encounter.playerCurrentHp, team, encounter.wildPokemon, encounter.currentArea, encounter.wildLevel, addToGraveyard, checkGameOver, box.length]);
 
   useEffect(() => {
-    if (encounter.phase !== "catching") {
-      setShowCatchFailure(false);
-    }
-    if (encounter.phase === "fled") {
-      resetShinyChain();
-    }
+    if (encounter.phase !== "catching") setShowCatchFailure(false);
+    if (encounter.phase === "fled") resetShinyChain();
   }, [encounter.phase, resetShinyChain]);
 
   useEffect(() => {
@@ -271,94 +233,56 @@ export function WildTabProvider({ team, onAddToTeam, onSetEvs, onSetMoves, child
     });
   }, [encounter.phase, encounter.isCaught, encounter.currentArea?.theme, activePanel]);
 
-  // --- Memoized context value ---
+  // --- Memoized context values (each with focused deps) ---
 
-  const value = useMemo<WildTabContextValue>(() => ({
-    encounter,
-    battleLog,
-    selectArea,
-    startEncounter,
-    enterBattle,
-    playerAttack,
-    throwBall,
-    playerRun,
-    returnToMap,
-    continueAfterCatch,
-    wildSlot,
-    box,
-    ballInventory,
-    addToBox,
-    removeFromBox,
-    setNickname,
-    moveToTeam,
-    useBall,
-    isAlreadyCaught,
-    nuzlocke,
-    enableNuzlocke,
-    disableNuzlocke,
-    markAreaEncountered,
-    isAreaEncountered,
-    addToGraveyard,
-    checkGameOver,
-    resetNuzlocke,
-    online,
-    safari,
-    activePanel,
-    setActivePanel,
-    togglePanel,
-    linkView,
-    setLinkView,
-    evolvingPokemon,
-    setEvolvingPokemon,
-    isSearching,
-    showCatchFailure,
-    setShowCatchFailure,
-    fossilInventory,
-    setFossilInventory,
-    ownedItems,
-    setOwnedItems,
-    battleItemInventory,
-    setBattleItemInventory,
-    stats,
-    incrementStat,
-    addUniqueBall,
-    addUniqueType,
-    addKantoSpecies,
-    addMoney,
-    spendMoney,
-    markSeen,
-    markCaught,
-    handleReviveFossil,
-    handleGameCornerPurchase,
-    handlePokeMartBuy,
-    handleStartEncounter,
-    handleThrowBall,
-    handleAddToBox,
-    handleMoveToTeam,
-    team,
-    onAddToTeam,
-    onSetEvs,
-    onSetMoves,
+  const encounterValue = useMemo<WildEncounterContextValue>(() => ({
+    encounter, battleLog, selectArea, startEncounter, enterBattle,
+    playerAttack, throwBall, playerRun, returnToMap, continueAfterCatch, wildSlot,
+    handleStartEncounter, handleThrowBall, handleAddToBox,
   }), [
     encounter, battleLog, selectArea, startEncounter, enterBattle,
     playerAttack, throwBall, playerRun, returnToMap, continueAfterCatch, wildSlot,
+    handleStartEncounter, handleThrowBall, handleAddToBox,
+  ]);
+
+  const inventoryValue = useMemo<WildInventoryContextValue>(() => ({
     box, ballInventory, addToBox, removeFromBox, setNickname, moveToTeam, useBall, isAlreadyCaught,
-    nuzlocke, enableNuzlocke, disableNuzlocke, markAreaEncountered, isAreaEncountered,
-    addToGraveyard, checkGameOver, resetNuzlocke,
-    online, safari,
-    activePanel, togglePanel, linkView,
-    evolvingPokemon, isSearching, showCatchFailure,
+    fossilInventory, setFossilInventory, ownedItems, setOwnedItems,
+    battleItemInventory, setBattleItemInventory,
+    stats, incrementStat, addUniqueBall, addUniqueType, addKantoSpecies, addMoney, spendMoney,
+    markSeen, markCaught,
+    handleReviveFossil, handleGameCornerPurchase, handlePokeMartBuy, handleMoveToTeam,
+  }), [
+    box, ballInventory, addToBox, removeFromBox, setNickname, moveToTeam, useBall, isAlreadyCaught,
     fossilInventory, ownedItems, battleItemInventory,
     stats, incrementStat, addUniqueBall, addUniqueType, addKantoSpecies, addMoney, spendMoney,
     markSeen, markCaught,
-    handleReviveFossil, handleGameCornerPurchase, handlePokeMartBuy,
-    handleStartEncounter, handleThrowBall, handleAddToBox, handleMoveToTeam,
+    handleReviveFossil, handleGameCornerPurchase, handlePokeMartBuy, handleMoveToTeam,
+  ]);
+
+  const uiValue = useMemo<WildUIContextValue>(() => ({
+    activePanel, setActivePanel, togglePanel, linkView, setLinkView,
+    evolvingPokemon, setEvolvingPokemon, isSearching, showCatchFailure, setShowCatchFailure,
+    nuzlocke, enableNuzlocke, disableNuzlocke, markAreaEncountered, isAreaEncountered,
+    addToGraveyard, checkGameOver, resetNuzlocke,
+    online, safari,
+    team, onAddToTeam, onSetEvs, onSetMoves,
+  }), [
+    activePanel, togglePanel, linkView,
+    evolvingPokemon, isSearching, showCatchFailure,
+    nuzlocke, enableNuzlocke, disableNuzlocke, markAreaEncountered, isAreaEncountered,
+    addToGraveyard, checkGameOver, resetNuzlocke,
+    online, safari,
     team, onAddToTeam, onSetEvs, onSetMoves,
   ]);
 
   return (
-    <WildTabContext.Provider value={value}>
-      {children}
-    </WildTabContext.Provider>
+    <WildEncounterCtx.Provider value={encounterValue}>
+      <WildInventoryCtx.Provider value={inventoryValue}>
+        <WildUICtx.Provider value={uiValue}>
+          {children}
+        </WildUICtx.Provider>
+      </WildInventoryCtx.Provider>
+    </WildEncounterCtx.Provider>
   );
 }

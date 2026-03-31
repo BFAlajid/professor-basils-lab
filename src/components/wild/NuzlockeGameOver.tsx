@@ -61,7 +61,7 @@ export default function NuzlockeGameOver({ graveyard, onReset, onDisable }: Nuzl
               )}
               <div className="flex-1 min-w-0">
                 <span className="text-[10px] font-pixel text-[#8b9bb4]">{fallen.nickname}</span>
-                <span className="text-[8px] text-[#3a4466] ml-2">
+                <span className="text-[10px] text-[#3a4466] ml-2">
                   Lv.{fallen.level} — {fallen.causeOfDeath}
                 </span>
               </div>

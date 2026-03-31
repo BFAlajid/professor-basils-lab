@@ -51,6 +51,8 @@ export const HELD_ITEMS: HeldItem[] = [
   { name: "mental-herb", displayName: "Mental Herb", effect: "Cure Taunt/Encore/Disable (once)" },
 ];
 
+const ITEMS_MAP = new Map(HELD_ITEMS.map((i) => [i.name, i]));
+
 export function getHeldItem(name: string): HeldItem | undefined {
-  return HELD_ITEMS.find((i) => i.name === name);
+  return ITEMS_MAP.get(name);
 }

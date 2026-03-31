@@ -94,7 +94,7 @@ export default function MovePanel({ pokemon, onSelectMove, disabled, isDynamaxed
               PP: {currentPP}/{maxPP}
             </span>
             {isLockedMove && (
-              <span className="absolute top-1 right-1 text-[8px] font-pixel text-[#f7a838] bg-[#1a1c2c] px-1 rounded">
+              <span className="absolute top-1 right-1 text-[10px] font-pixel text-[#f7a838] bg-[#1a1c2c] px-1 rounded">
                 Locked
               </span>
             )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, memo } from "react";
 import { TOAST_DURATION } from "@/data/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot, Pokemon, Nature, EVSpread, IVSpread, TypeName } from "@/types";
@@ -29,7 +29,7 @@ interface TeamRosterProps {
   onSetTeam?: (slots: TeamSlot[]) => void;
 }
 
-export default function TeamRoster({
+export default memo(function TeamRoster({
   team,
   onAdd,
   onRemove,
@@ -201,7 +201,7 @@ export default function TeamRoster({
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-pixel text-[#f0f0e8]">{preset.name}</span>
-                      <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#3a4466] text-[#8b9bb4]">{preset.format}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#3a4466] text-[#8b9bb4]">{preset.format}</span>
                     </div>
                     <p className="text-[10px] text-[#8b9bb4] leading-tight">{preset.description}</p>
                   </button>
@@ -264,7 +264,7 @@ export default function TeamRoster({
                   </>
                 )}
                 {showdownMessage && (
-                  <span className="text-xs text-[#8b9bb4] font-pixel">
+                  <span aria-live="polite" className="text-xs text-[#8b9bb4] font-pixel">
                     {showdownMessage}
                   </span>
                 )}
@@ -345,4 +345,4 @@ export default function TeamRoster({
       )}
     </>
   );
-}
+});

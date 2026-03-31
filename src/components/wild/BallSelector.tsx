@@ -49,7 +49,7 @@ export default function BallSelector({ inventory, onSelect, onCancel }: BallSele
               <ItemSprite name={ballType} size={24} fallbackColor={ball.spriteColor} />
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] text-[#f0f0e8] truncate">{ball.displayName}</p>
-                <p className="text-[7px] text-[#8b9bb4] truncate">{ball.description}</p>
+                <p className="text-[10px] text-[#8b9bb4] truncate">{ball.description}</p>
               </div>
               <span className={`text-[10px] font-pixel flex-shrink-0 ${count <= 3 ? "text-[#e8433f]" : "text-[#8b9bb4]"}`}>
                 x{count}
