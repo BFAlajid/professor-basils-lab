@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import Image from "@/components/PokeImage";
-import { TeamSlot } from "@/types";
+import { TeamSlot, BaseStats } from "@/types";
 import { calculateAllStats, CalculatedStats, DEFAULT_IVS, DEFAULT_EVS } from "@/utils/statsWasm";
 import { extractBaseStats } from "@/utils/damage";
 import ComparisonStatBars, { POLY_COLORS } from "./ComparisonStatBars";
@@ -76,7 +76,7 @@ export default function PokemonComparison({ team }: PokemonComparisonProps) {
   // Pre-compute stats for all selected Pokemon
   const statsData = useMemo(() => {
     return selectedSlots.map(({ slot }) => ({
-      base: extractBaseStats(slot),
+      base: extractBaseStats(slot.pokemon),
       calc: getCalculatedStats(slot),
     }));
   }, [selectedSlots]);
