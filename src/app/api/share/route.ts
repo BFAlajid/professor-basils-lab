@@ -36,7 +36,10 @@ function isValidPayload(body: unknown): body is SharePayload {
   if (typeof m.title !== "string" || m.title.length === 0) return false;
   if (m.title.length > 100) return false;
   if (typeof m.trainerName === "string" && m.trainerName.length > 50) return false;
-  if (Array.isArray(m.pokemonNames) && m.pokemonNames.length > 6) return false;
+  if (Array.isArray(m.pokemonNames)) {
+    if (m.pokemonNames.length > 6) return false;
+    if (m.pokemonNames.some((n: unknown) => typeof n !== "string" || (n as string).length > 30)) return false;
+  }
   if (typeof m.createdAt !== "string") return false;
 
   // H1: Validate PNG magic bytes for trainer-card uploads
@@ -53,8 +56,7 @@ function isValidPayload(body: unknown): body is SharePayload {
 
 export async function POST(request: Request) {
   // Rate limit by IP
-  const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
+  const ip = request.headers.get("x-real-ip") || request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
   try {
     const allowed = await checkRateLimit(`share:${ip}`, SHARE_RATE_LIMIT_PER_HOUR);
     if (!allowed) {

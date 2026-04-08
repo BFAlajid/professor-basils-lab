@@ -7,7 +7,7 @@
   --border: #3a4466;
   --border-light: #5a6988;
   --text-primary: #f0f0e8;
-  --text-secondary: #8b9bb4;
+  --text-secondary: #a0b4cc;
   --accent: #e8433f;
   --hp-green: #38b764;
   --hp-yellow: #f7a838;
@@ -70,7 +70,7 @@ input[type="number"] {
 
 /* Pixel font sizing helpers */
 .text-pixel-xs { font-size: 10px; line-height: 1.4; }
-.text-pixel-sm { font-size: 10px; line-height: 1.4; }
+.text-pixel-sm { font-size: 11px; line-height: 1.4; }
 .text-pixel-base { font-size: 12px; line-height: 1.4; }
 .text-pixel-lg { font-size: 16px; line-height: 1.4; }
 
@@ -104,6 +104,17 @@ textarea:focus-visible,
 button:focus-visible {
   outline: 2px solid #e8433f !important;
   outline-offset: 2px !important;
+}
+
+/* CSS animations replacing JS-driven Framer Motion infinite loops */
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+@keyframes megaGlow {
+  0%, 100% { box-shadow: 0 0 8px #f7a838; }
+  50% { box-shadow: 0 0 20px #f7a838; }
 }
 
 /* Accessibility: respect reduced motion preferences */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useCallback, useRef, useEffect, useState } from "react";
+import { useReducer, useCallback, useRef, useEffect, useState, useMemo } from "react";
 import { SHINY_RATE } from "@/data/constants";
 import {
   WildEncounterState,
@@ -67,7 +67,7 @@ function wildEncounterReducer(
         encounterTurn: 1,
         shakeCount: 0,
         isCaught: false,
-        isShiny: Math.random() < SHINY_RATE,
+        isShiny: action.isShiny,
         selectedBall: null,
       };
 
@@ -201,6 +201,7 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
       wildMaxHp: wildBp.maxHp,
       playerHp: playerBp?.currentHp ?? 0,
       playerMaxHp: playerBp?.maxHp ?? 0,
+      isShiny: Math.random() < SHINY_RATE,
     });
   }, [playerTeam]);
 
@@ -330,7 +331,7 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
     }
   }, []);
 
-  return {
+  return useMemo(() => ({
     state,
     battleLog: battleLogState,
     selectArea,
@@ -343,5 +344,5 @@ export function useWildEncounter(playerTeam: TeamSlot[]) {
     continueAfterCatch,
     wildSlot: wildBpRef.current?.slot ?? null,
     playerBp: playerBpRef.current,
-  };
+  }), [state, battleLogState, selectArea, startEncounter, enterBattle, playerAttack, throwBall, playerRun, returnToMap, continueAfterCatch]);
 }

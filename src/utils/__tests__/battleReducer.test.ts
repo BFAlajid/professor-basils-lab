@@ -209,7 +209,7 @@ describe("battleReducer", () => {
       });
 
       expect(result.phase).toBe("action_select");
-      expect(result.turn).toBe(1);
+      expect(result.turn).toBe(0);
       expect(result.player1.pokemon).toHaveLength(1);
       expect(result.player2.pokemon).toHaveLength(1);
       expect(result.player1.pokemon[0].isActive).toBe(true);

@@ -23,7 +23,9 @@ export default function QRExport({ team, isOpen, onClose }: QRExportProps) {
 
   const showdownText = team.length > 0 ? exportToShowdown(team) : "";
 
-  const generateQR = useCallback(() => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const generateQR = useCallback(async () => {
     if (!showdownText) {
       setError("No team data to export.");
       return;
@@ -32,19 +34,19 @@ export default function QRExport({ team, isOpen, onClose }: QRExportProps) {
     setError(null);
     setQrUrl(null);
 
-    const apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(showdownText)}`;
-
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      setQrUrl(apiUrl);
+    try {
+      const QRCode = (await import("qrcode")).default;
+      const dataUrl = await QRCode.toDataURL(showdownText, {
+        width: 300,
+        margin: 2,
+        color: { dark: "#1a1c2c", light: "#f0f0e8" },
+      });
+      setQrUrl(dataUrl);
+    } catch {
+      setError("Failed to generate QR code.");
+    } finally {
       setLoading(false);
-    };
-    img.onerror = () => {
-      setError("Failed to generate QR code. Check your connection.");
-      setLoading(false);
-    };
-    img.src = apiUrl;
+    }
   }, [showdownText]);
 
   useEffect(() => {

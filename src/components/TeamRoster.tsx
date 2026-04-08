@@ -12,6 +12,7 @@ import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { useFeatureFlagsContext } from "@/contexts/FeatureFlagsContext";
 import { TEAM_PRESETS } from "@/data/teamPresets";
 import QRExport from "./QRExport";
+import WelcomeCard from "./WelcomeCard";
 
 interface TeamRosterProps {
   team: TeamSlot[];
@@ -291,22 +292,26 @@ export default memo(function TeamRoster({
           ))}
         </AnimatePresence>
 
-        {Array.from({ length: emptySlots }).map((_, i) => (
-          <motion.button
-            key={`empty-${i}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex h-[340px] items-center justify-center rounded-xl border-2 border-dashed border-[#3a4466] bg-[#262b44]/50 hover:border-[#e8433f] hover:bg-[#262b44] transition-colors"
-            onClick={() => !isFull && setSearchOpen(true)}
-          >
-            <div className="text-center">
-              <span className="block text-4xl text-[#3a4466]">+</span>
-              <span className="mt-2 block text-sm text-[#8b9bb4]">
-                Add Pokemon
-              </span>
-            </div>
-          </motion.button>
-        ))}
+        {team.length === 0 ? (
+          <WelcomeCard onGetStarted={() => setSearchOpen(true)} />
+        ) : (
+          Array.from({ length: emptySlots }).map((_, i) => (
+            <motion.button
+              key={`empty-${i}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex h-[340px] items-center justify-center rounded-xl border-2 border-dashed border-[#3a4466] bg-[#262b44]/50 hover:border-[#e8433f] hover:bg-[#262b44] transition-colors"
+              onClick={() => !isFull && setSearchOpen(true)}
+            >
+              <div className="text-center">
+                <span className="block text-4xl text-[#3a4466]">+</span>
+                <span className="mt-2 block text-sm text-[#8b9bb4]">
+                  Add Pokemon
+                </span>
+              </div>
+            </motion.button>
+          ))
+        )}
       </div>
 
       {/* Detail Panel */}

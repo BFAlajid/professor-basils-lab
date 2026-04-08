@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { motion, AnimatePresence, useReducedMotion, MotionConfig } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useTeam, encodeTeam, decodeTeam, type DecodedTeamData } from "@/hooks/useTeam";
 import { fetchPokemon } from "@/hooks/usePokemon";
 import { usePokedexContext } from "@/contexts/PokedexContext";
@@ -24,6 +24,7 @@ import TeamSuggestions from "@/components/TeamSuggestions";
 import TeamSummary from "@/components/TeamSummary";
 import AudioPlayer from "@/components/AudioPlayer";
 import TypeReference from "@/components/TypeReference";
+import DataManagerButton from "@/components/DataManagerButton";
 
 // Heavy — lazy load
 const StatRadar = dynamic(() => import("@/components/StatRadar"), {
@@ -83,15 +84,15 @@ const UnifiedEmulatorTab = dynamic(() => import("@/components/emulator/UnifiedEm
 type Tab = "team" | "analysis" | "stats" | "damage" | "battle" | "wild" | "emulator" | "pokedex" | "achievements";
 
 const tabs: { id: Tab; label: string; short: string }[] = [
-  { id: "team", label: "Team", short: "TM" },
-  { id: "analysis", label: "Coverage", short: "CV" },
-  { id: "stats", label: "Stats", short: "ST" },
-  { id: "damage", label: "Damage", short: "DM" },
-  { id: "battle", label: "Battle", short: "BT" },
-  { id: "wild", label: "Wild", short: "WD" },
-  { id: "emulator", label: "Emulator", short: "EM" },
-  { id: "pokedex", label: "Pokédex", short: "PD" },
-  { id: "achievements", label: "Badges", short: "BD" },
+  { id: "team", label: "Team", short: "Team" },
+  { id: "analysis", label: "Coverage", short: "Cover" },
+  { id: "stats", label: "Stats", short: "Stats" },
+  { id: "damage", label: "Damage", short: "Dmg" },
+  { id: "battle", label: "Battle", short: "Battle" },
+  { id: "wild", label: "Wild", short: "Wild" },
+  { id: "emulator", label: "Emulator", short: "Emu" },
+  { id: "pokedex", label: "Pokédex", short: "Dex" },
+  { id: "achievements", label: "Badges", short: "Badge" },
 ];
 
 export default function Home() {
@@ -126,7 +127,7 @@ export default function Home() {
     if (addParam) {
       fetchPokemon(addParam).then((pokemon) => {
         if (pokemon) addPokemon(pokemon);
-      }).catch(() => {});
+      }).catch(() => { /* add by URL — Pokemon not found, safe to ignore */ });
       window.history.replaceState({}, "", "/");
     }
 
@@ -283,7 +284,6 @@ export default function Home() {
   }
 
   return (
-    <MotionConfig reducedMotion="user">
     <div className="min-h-screen bg-[#1a1c2c]">
       {/* Announcement Banner */}
       {announcement.banner && (
@@ -339,6 +339,7 @@ export default function Home() {
                 </button>
               </>
             )}
+            <DataManagerButton />
             <span className="text-base text-[#8b9bb4]" aria-live="polite">
               {team.length}/6
             </span>
@@ -380,7 +381,7 @@ export default function Home() {
 
       {/* Content */}
       <main
-        id="main-content"
+        id={`tabpanel-${activeTab}`}
         className="mx-auto max-w-[1400px] px-6 py-8"
         role="tabpanel"
         aria-labelledby={`tab-${activeTab}`}
@@ -512,6 +513,5 @@ export default function Home() {
 
       <TypeReference />
     </div>
-    </MotionConfig>
   );
 }

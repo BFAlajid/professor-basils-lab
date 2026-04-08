@@ -136,8 +136,6 @@ export interface BattleState {
 
 export type BattleAction =
   | { type: "START_BATTLE"; player1Team: TeamSlot[]; player2Team: TeamSlot[]; mode: BattleMode; format?: BattleFormat; difficulty?: DifficultyLevel; player1Mechanic?: GenerationalMechanic; player2Mechanic?: GenerationalMechanic; megaFormeCache?: Map<string, AltFormeData> }
-  | { type: "SELECT_MOVE"; player: "player1" | "player2"; moveIndex: number }
-  | { type: "SELECT_SWITCH"; player: "player1" | "player2"; pokemonIndex: number }
   | { type: "EXECUTE_TURN"; player1Action: BattleTurnAction; player2Action: BattleTurnAction; player1Action2?: BattleTurnAction; player2Action2?: BattleTurnAction }
   | { type: "FORCE_SWITCH"; player: "player1" | "player2"; pokemonIndex: number; slot?: 0 | 1 }
   | { type: "RESET_BATTLE" };

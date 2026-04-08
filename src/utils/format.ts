@@ -1,3 +1,8 @@
+/** Normalize an ability name to a lowercase-hyphenated key (e.g. "Speed Boost" → "speed-boost"). */
+export function normalizeAbilityKey(ability: string | null | undefined): string {
+  return ability?.toLowerCase().replace(/\s+/g, "-") ?? "";
+}
+
 /** Capitalize the first letter of a string. */
 export function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);

@@ -127,12 +127,12 @@ describe("applyStatusMoveEffect", () => {
       expect(log.some((l) => l.message.includes("Protect failed"))).toBe(true);
     });
 
-    it("increments consecutiveProtects even on failure", () => {
+    it("resets consecutiveProtects on failure (matches main series behavior)", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.99);
       const state = buildState({ consecutiveProtects: 2 });
       const { state: result } = apply(state, { protect: true }, "protect");
 
-      expect(result.player1.pokemon[0].consecutiveProtects).toBe(3);
+      expect(result.player1.pokemon[0].consecutiveProtects).toBe(0);
     });
   });
 

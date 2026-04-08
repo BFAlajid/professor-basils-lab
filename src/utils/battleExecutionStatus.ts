@@ -44,7 +44,7 @@ function handleProtect(
     log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} protected itself!`, kind: "info" });
   } else {
     log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name}'s Protect failed!`, kind: "info" });
-    const updated = { ...attacker, consecutiveProtects: consecutiveUses + 1, lastMoveUsed: moveName };
+    const updated = { ...attacker, consecutiveProtects: 0, lastMoveUsed: moveName };
     state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, updated);
   }
 

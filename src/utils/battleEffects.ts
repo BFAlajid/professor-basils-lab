@@ -1,3 +1,4 @@
+import { normalizeAbilityKey } from "./format";
 import {
   BattleState,
   BattlePokemon,
@@ -30,7 +31,7 @@ export function applyHazardsOnSwitchIn(
 
   const types = getEffectiveTypes(pokemon);
   const isFlying = types.includes("flying");
-  const hasLevitate = pokemon.slot.ability?.toLowerCase().replace(/\s+/g, "-") === "levitate";
+  const hasLevitate = normalizeAbilityKey(pokemon.slot.ability) === "levitate";
   const isGrounded = !isFlying && !hasLevitate;
   let updated = { ...pokemon };
 
@@ -227,7 +228,7 @@ export function applyEndOfTurnEffects(state: BattleState, log: BattleLogEntry[])
     if (state.field.terrain === "grassy") {
       const grassyTypes = getEffectiveTypes(updated);
       const grassyIsFlying = grassyTypes.includes("flying");
-      const grassyHasLevitate = updated.slot.ability?.toLowerCase().replace(/\s+/g, "-") === "levitate";
+      const grassyHasLevitate = normalizeAbilityKey(updated.slot.ability) === "levitate";
       if (!grassyIsFlying && !grassyHasLevitate) {
         const heal = Math.max(1, Math.floor(updated.maxHp / 16));
         updated.currentHp = Math.min(updated.maxHp, updated.currentHp + heal);

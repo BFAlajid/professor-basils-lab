@@ -1,3 +1,4 @@
+import { normalizeAbilityKey } from "./format";
 import {
   BattleState,
   BattlePokemon,
@@ -647,7 +648,7 @@ export function executeDamagingMove(
   if (state.field.terrain === "psychic" && moveData.priority > 0) {
     const defTypes = getEffectiveTypes(defender);
     const defIsFlying = defTypes.includes("flying");
-    const defHasLevitate = defender.slot.ability?.toLowerCase().replace(/\s+/g, "-") === "levitate";
+    const defHasLevitate = normalizeAbilityKey(defender.slot.ability) === "levitate";
     if (!defIsFlying && !defHasLevitate) {
       log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name}'s move was blocked by Psychic Terrain!`, kind: "info" });
       return state;

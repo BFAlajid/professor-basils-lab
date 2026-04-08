@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { TeamSlot, BattleReplay, BattleMode, GenerationalMechanic, DifficultyLevel } from "@/types";
 import { useBattle } from "@/hooks/useBattle";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
@@ -46,6 +46,8 @@ export default function BattleTab({ team }: BattleTabProps) {
   const { addMoney, stats } = useAchievementsContext();
   const { features } = useFeatureFlagsContext();
   const replayRecorder = useReplayRecorder();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const cachedReplays = useMemo(() => replayRecorder.loadReplays(), [replayRecorder.loadReplays]);
   const tournament = useTournament();
   const online = useOnlineBattle();
   const facility = useBattleFacility();
@@ -430,7 +432,7 @@ export default function BattleTab({ team }: BattleTabProps) {
               totalBattlesPlayed: stats.totalBattlesPlayed,
               eloRating: stats.eloRating,
             }}
-            replays={replayRecorder.loadReplays()}
+            replays={cachedReplays}
           />
           {features.enableLeaderboards && (
             <ELOLeaderboard

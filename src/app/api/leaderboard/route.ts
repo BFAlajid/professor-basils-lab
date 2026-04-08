@@ -32,8 +32,9 @@ const SCORE_CAPS: Record<LeaderboardType, number> = {
 
 const TRAINER_ID_PATTERN = /^\d{5}$/;
 
-function stripHtml(str: string): string {
-  return str.replace(/<[^>]*>/g, "");
+function sanitizeName(str: string): string {
+  // Allowlist: alphanumeric, spaces, hyphens, periods, apostrophes
+  return str.replace(/[^a-zA-Z0-9\s\-.']/g, "").trim();
 }
 
 function isValidType(value: unknown): value is LeaderboardType {
@@ -54,7 +55,7 @@ function validateEntry(
   if (typeof e.trainerName !== "string" || e.trainerName.length === 0) {
     return { valid: false, error: "trainerName is required" };
   }
-  const cleanName = stripHtml(e.trainerName).trim();
+  const cleanName = sanitizeName(e.trainerName).trim();
   if (cleanName.length === 0 || cleanName.length > LEADERBOARD_MAX_NAME_LENGTH) {
     return {
       valid: false,
@@ -88,7 +89,7 @@ function validateEntry(
 
   // Sanitize teamPokemon — strip HTML and enforce length limits
   const sanitizedTeam = (e.teamPokemon as string[]).map((name: string) =>
-    stripHtml(String(name)).trim().slice(0, 30)
+    sanitizeName(String(name)).trim().slice(0, 30)
   );
   if (sanitizedTeam.some((p: string) => p.length === 0)) {
     return { valid: false, error: "Invalid Pokemon names" };
@@ -155,8 +156,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   // Rate limit by IP
-  const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
+  const ip = request.headers.get("x-real-ip") || request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
 
   try {
     const allowed = await checkRateLimit(ip, LEADERBOARD_RATE_LIMIT_PER_HOUR);

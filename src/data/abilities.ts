@@ -1,5 +1,6 @@
 import { BattlePokemon, TypeName, WeatherType, TerrainType, StatusCondition } from "@/types";
 import { CONTACT_MOVES } from "@/data/constants";
+import { normalizeAbilityKey } from "@/utils/format";
 
 // --- Ability Hook Types ---
 
@@ -457,7 +458,7 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
       // Flying types and Levitate are immune to trapping
       if (oppTypes.includes("flying")) return false;
       if (oppTypes.includes("ghost")) return false;
-      const oppAbility = opponent.slot.ability?.toLowerCase().replace(/\s+/g, "-");
+      const oppAbility = normalizeAbilityKey(opponent.slot.ability);
       if (oppAbility === "levitate") return false;
       return true;
     },
@@ -467,7 +468,7 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
     onTrapping: ({ opponent }) => {
       const oppTypes = opponent.slot.pokemon.types.map(t => t.type.name);
       if (oppTypes.includes("ghost")) return false;
-      const oppAbility = opponent.slot.ability?.toLowerCase().replace(/\s+/g, "-");
+      const oppAbility = normalizeAbilityKey(opponent.slot.ability);
       if (oppAbility === "shadow-tag") return false;
       return true;
     },
@@ -741,13 +742,12 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
 export function getAbilityHooks(abilityName: string | undefined | null): AbilityHooks | null {
   if (!abilityName) return null;
   // Normalize: PokeAPI uses kebab-case, display names use spaces
-  const normalized = abilityName.toLowerCase().replace(/\s+/g, "-");
+  const normalized = normalizeAbilityKey(abilityName);
   return ABILITY_REGISTRY[normalized] ?? null;
 }
 
 export function hasAbility(pokemon: BattlePokemon, abilityName: string): boolean {
-  const ability = pokemon.slot.ability?.toLowerCase().replace(/\s+/g, "-");
-  return ability === abilityName.toLowerCase().replace(/\s+/g, "-");
+  return normalizeAbilityKey(pokemon.slot.ability) === normalizeAbilityKey(abilityName);
 }
 
 /** Get the best stat for Beast Boost */

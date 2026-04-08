@@ -441,13 +441,12 @@ export default memo(function BattleArena({
             )}
           </div>
 
-          <motion.div
+          <div
             className="text-2xl font-bold text-[#3a4466] font-pixel"
-            animate={{ scale: [1, 1.1, 1] }}
-            transition={{ repeat: Infinity, duration: 2 }}
+            style={{ animation: "pulseScale 2s ease-in-out infinite" }}
           >
             VS
-          </motion.div>
+          </div>
 
           <div className={isDoubles ? "flex flex-col gap-2" : ""}>
             <PokemonBattleSprite

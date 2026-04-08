@@ -18,7 +18,6 @@ export type AllStatKey = (typeof STAT_KEYS)[number];
 export const STAT_LABELS_SHORT = ["HP", "Atk", "Def", "SpA", "SpD", "Spe"] as const;
 
 // Battle mechanics
-export const CRIT_RATE = 1 / 16; // legacy flat rate, kept for backward compat
 export const CRIT_STAGE_RATES = [1 / 24, 1 / 8, 1 / 2, 1, 1]; // stages 0-4, Gen 7+
 export const HIGH_CRIT_MOVES = new Set([
   "slash", "stone-edge", "cross-chop", "psycho-cut", "night-slash",

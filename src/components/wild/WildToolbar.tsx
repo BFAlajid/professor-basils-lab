@@ -65,7 +65,10 @@ export default function WildToolbar({
   ];
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto">
+    <div className="relative">
+    <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin"
+      style={{ maskImage: "linear-gradient(to right, black calc(100% - 32px), transparent)", WebkitMaskImage: "linear-gradient(to right, black calc(100% - 32px), transparent)" }}
+    >
       {/* Nuzlocke toggle */}
       <button
         onClick={onToggleNuzlocke}
@@ -104,6 +107,7 @@ export default function WildToolbar({
           </button>
         );
       })}
+    </div>
     </div>
   );
 }

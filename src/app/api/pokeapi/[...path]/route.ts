@@ -41,7 +41,16 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const upstreamUrl = new URL(`${UPSTREAM_BASE}/${path.join("/")}`);
   searchParams.forEach((value, key) => {
-    if (ALLOWED_PARAMS.has(key)) upstreamUrl.searchParams.set(key, value);
+    if (!ALLOWED_PARAMS.has(key)) return;
+    if (key === "limit") {
+      const val = Math.min(Math.max(parseInt(value, 10) || 20, 1), 1025);
+      upstreamUrl.searchParams.set(key, String(val));
+    } else if (key === "offset") {
+      const val = Math.max(parseInt(value, 10) || 0, 0);
+      upstreamUrl.searchParams.set(key, String(val));
+    } else {
+      upstreamUrl.searchParams.set(key, value);
+    }
   });
 
   const controller = new AbortController();

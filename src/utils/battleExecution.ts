@@ -16,6 +16,7 @@ import { extractBaseStats } from "./damage";
 import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { executeDamagingMove } from "./battleExecutionDamage";
 import { applyStatusMoveEffect } from "./battleExecutionStatus";
+import { normalizeAbilityKey } from "./format";
 
 export function executeMove(
   state: BattleState,
@@ -133,6 +134,17 @@ export function executeMove(
 
   log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} used ${moveName.replace(/-/g, " ")}!`, kind: "info" });
 
+  // Assault Vest: blocks status moves (check before PP deduction)
+  if (attacker.slot.heldItem === "assault-vest") {
+    const statusEffect = STATUS_MOVE_EFFECTS[moveName];
+    const cached = getCachedMoves().get(moveName);
+    const isCachedStatus = cached?.damage_class?.name === "status";
+    if ((statusEffect && !statusEffect.clearHazards) || isCachedStatus) {
+      log.push({ turn: state.turn, message: `The Assault Vest prevents the use of status moves!`, kind: "info" });
+      return state;
+    }
+  }
+
   // Decrement PP for the used move
   const currentAttackerForPP = getActivePokemon(state[attackerPlayer]);
   if (currentAttackerForPP.movePP && moveIndex < currentAttackerForPP.movePP.length) {
@@ -144,22 +156,11 @@ export function executeMove(
     });
   }
 
-  // Assault Vest: blocks status moves
-  if (attacker.slot.heldItem === "assault-vest") {
-    const statusEffect = STATUS_MOVE_EFFECTS[moveName];
-    const cached = getCachedMoves().get(moveName);
-    const isCachedStatus = cached?.damage_class?.name === "status";
-    if ((statusEffect && !statusEffect.clearHazards) || isCachedStatus) {
-      log.push({ turn: state.turn, message: `The Assault Vest prevents the use of status moves!`, kind: "info" });
-      return state;
-    }
-  }
-
   // Check if it's a status move with known effects
   const statusEffect = STATUS_MOVE_EFFECTS[moveName];
   if (statusEffect) {
     // Prankster Dark-type immunity: Prankster-boosted status moves fail against Dark types
-    const attackerAbility = attacker.slot.ability?.toLowerCase().replace(/\s+/g, "-") ?? "";
+    const attackerAbility = normalizeAbilityKey(attacker.slot.ability);
     if (attackerAbility === "prankster") {
       const defenderTypes = getEffectiveTypes(defender);
       const targetsOpponent = !!(statusEffect.targetStatChanges || statusEffect.targetConfusion || statusEffect.targetStatus || statusEffect.forceSwitch);

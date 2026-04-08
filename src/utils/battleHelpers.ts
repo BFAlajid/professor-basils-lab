@@ -1,3 +1,4 @@
+import { normalizeAbilityKey } from "./format";
 import {
   BattleState,
   BattlePokemon,
@@ -210,7 +211,7 @@ export function getMovePriority(pokemon: BattlePokemon, action: BattleTurnAction
   let priority = moveData.priority ?? 0;
   const moveName = (pokemon.slot.selectedMoves ?? [])[moveIndex] ?? "";
 
-  const abilityKey = pokemon.slot.ability?.toLowerCase().replace(/\s+/g, "-") ?? "";
+  const abilityKey = normalizeAbilityKey(pokemon.slot.ability);
 
   // Prankster: +1 priority to status moves
   if (abilityKey === "prankster") {
@@ -313,7 +314,7 @@ export function triggerOnStatDrop(
 export function getCritStage(attacker: BattlePokemon, moveName: string): number {
   let stage = 0;
   if (HIGH_CRIT_MOVES.has(moveName)) stage += 1;
-  const abilityKey = attacker.slot.ability?.toLowerCase().replace(/\s+/g, "-") ?? "";
+  const abilityKey = normalizeAbilityKey(attacker.slot.ability);
   if (abilityKey === "super-luck") stage += 1;
   const itemKey = attacker.slot.heldItem?.toLowerCase().replace(/\s+/g, "-") ?? "";
   if (itemKey === "scope-lens" || itemKey === "razor-claw") stage += 1;

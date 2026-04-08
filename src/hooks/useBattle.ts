@@ -21,7 +21,7 @@ export function useBattle() {
 
   // Start recording when battle begins (turn 1, first action_select)
   useEffect(() => {
-    if (state.phase === "action_select" && state.turn === 1 && prevTurnRef.current === 0) {
+    if (state.phase === "action_select" && state.turn === 0 && prevTurnRef.current === 0) {
       recorder.startRecording(state);
       prevTurnRef.current = 1;
     }
@@ -154,16 +154,16 @@ export function useBattle() {
           const aiSlots = current.player2.activePokemonIndex2 !== null
             ? getActivePokemonBySlot(current.player2, 1)
             : null;
-          const aiAction2: BattleTurnAction = aiSlots && !aiSlots.isFainted
+          const aiAction2: BattleTurnAction | null = aiSlots && !aiSlots.isFainted
             ? { type: "MOVE", moveIndex: Math.floor(Math.random() * Math.max(1, (aiSlots.slot.selectedMoves?.length ?? 1))), target: Math.random() < 0.5 ? "opp0" : "opp1", slot: 1 }
-            : { type: "MOVE", moveIndex: 0, slot: 1 };
+            : null;
 
           dispatch({
             type: "EXECUTE_TURN",
             player1Action: action1,
             player1Action2: action2,
             player2Action: { ...aiAction1, slot: 0 } as BattleTurnAction,
-            player2Action2: aiAction2,
+            ...(aiAction2 ? { player2Action2: aiAction2 } : {}),
           });
         } else {
           // Singles: same as before
@@ -196,6 +196,7 @@ export function useBattle() {
 
   const resetBattle = useCallback(() => {
     recorder.clearRecording();
+    doublesActionBuffer.current = null;
     dispatch({ type: "RESET_BATTLE" });
   }, [recorder]);
 

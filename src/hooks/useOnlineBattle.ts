@@ -111,10 +111,13 @@ function onlineReducer(state: OnlineState, action: OnlineAction): OnlineState {
 }
 
 function generateRoomCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const array = new Uint8Array(8);
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID().replace(/-/g, "").slice(0, 16).toUpperCase();
+  }
+  // Fallback for environments without crypto.randomUUID
+  const array = new Uint8Array(16);
   crypto.getRandomValues(array);
-  return Array.from(array, b => chars[b % chars.length]).join("");
+  return Array.from(array, b => b.toString(16).padStart(2, "0")).join("").slice(0, 16).toUpperCase();
 }
 
 export function useOnlineBattle() {
@@ -148,7 +151,7 @@ export function useOnlineBattle() {
     connRef.current = conn;
 
     conn.on("open", () => {
-      console.log("[OnlineBattle] DataConnection open with peer:", conn.peer);
+      // Connection opened with peer
       dispatch({ type: "CONNECTED" });
       // Start ping/pong heartbeat
       pingInterval.current = setInterval(() => {
@@ -161,10 +164,10 @@ export function useOnlineBattle() {
     conn.on("data", (raw) => {
       const msg = validateOnlineMessage(raw);
       if (!msg) {
-        console.warn("[OnlineBattle] Invalid message dropped:", typeof raw, raw);
+        // Invalid message dropped
         return;
       }
-      console.log("[OnlineBattle] Received:", msg.type);
+      // Message received
 
       // Rate limit: drop non-critical messages arriving too fast
       const now = Date.now();
@@ -184,10 +187,10 @@ export function useOnlineBattle() {
         case "TEAM_SUBMIT": {
           const team = validateTeamSlots(msg.payload);
           if (!team) {
-            console.warn("[OnlineBattle] TEAM_SUBMIT validation failed:", msg.payload);
+            // Team validation failed
             return;
           }
-          console.log("[OnlineBattle] Opponent team received:", team.length, "pokemon");
+          // Opponent team received
           dispatch({ type: "OPPONENT_TEAM", team });
           break;
         }
@@ -247,13 +250,13 @@ export function useOnlineBattle() {
     peerRef.current = peer;
 
     peer.on("open", (id) => {
-      console.log("[OnlineBattle] Host peer open with id:", id);
+      // Host peer open
       // Peer registered with signaling server — safe to share code
       dispatch({ type: "CREATE_LOBBY", roomCode });
     });
 
     peer.on("connection", (conn) => {
-      console.log("[OnlineBattle] Host received connection from:", conn.peer);
+      // Host received connection
       setupConnection(conn);
     });
 
@@ -274,9 +277,9 @@ export function useOnlineBattle() {
     peerRef.current = peer;
 
     peer.on("open", (id) => {
-      console.log("[OnlineBattle] Guest peer open with id:", id);
+      // Guest peer open
       const conn = peer.connect(`pkmn-battle-${roomCode}`, { reliable: true });
-      console.log("[OnlineBattle] Guest connecting to:", `pkmn-battle-${roomCode}`);
+      // Guest connecting
       setupConnection(conn);
     });
 

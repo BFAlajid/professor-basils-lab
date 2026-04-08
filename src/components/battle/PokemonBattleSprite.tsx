@@ -73,10 +73,9 @@ export default function PokemonBattleSprite({
           />
           {/* Mega Evolution glow */}
           {pokemon.isMegaEvolved && (
-            <motion.div
+            <div
               className="absolute inset-0 rounded-full pointer-events-none"
-              animate={{ boxShadow: ["0 0 8px #f7a838", "0 0 20px #f7a838", "0 0 8px #f7a838"] }}
-              transition={{ repeat: Infinity, duration: 1.5 }}
+              style={{ animation: "megaGlow 1.5s ease-in-out infinite" }}
             />
           )}
           {/* Terastallize crystal overlay */}

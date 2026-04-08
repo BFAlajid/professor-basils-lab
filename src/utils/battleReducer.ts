@@ -164,16 +164,16 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       const p1 = initBattleTeam(action.player1Team, action.player1Mechanic ?? null, action.megaFormeCache, format);
       const p2 = initBattleTeam(action.player2Team, action.player2Mechanic ?? null, action.megaFormeCache, format);
       const log: BattleLogEntry[] = [
-        { turn: 1, message: `${format === "doubles" ? "Doubles b" : "B"}attle start!`, kind: "info" },
-        { turn: 1, message: `${action.player1Team[0].pokemon.name} was sent out!`, kind: "switch" },
-        { turn: 1, message: `${action.player2Team[0].pokemon.name} was sent out!`, kind: "switch" },
+        { turn: 0, message: `${format === "doubles" ? "Doubles b" : "B"}attle start!`, kind: "info" },
+        { turn: 0, message: `${action.player1Team[0].pokemon.name} was sent out!`, kind: "switch" },
+        { turn: 0, message: `${action.player2Team[0].pokemon.name} was sent out!`, kind: "switch" },
       ];
       if (format === "doubles") {
         if (action.player1Team.length > 1) {
-          log.push({ turn: 1, message: `${action.player1Team[1].pokemon.name} was sent out!`, kind: "switch" });
+          log.push({ turn: 0, message: `${action.player1Team[1].pokemon.name} was sent out!`, kind: "switch" });
         }
         if (action.player2Team.length > 1) {
-          log.push({ turn: 1, message: `${action.player2Team[1].pokemon.name} was sent out!`, kind: "switch" });
+          log.push({ turn: 0, message: `${action.player2Team[1].pokemon.name} was sent out!`, kind: "switch" });
         }
       }
       let newState: BattleState = {
@@ -181,7 +181,7 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         phase: "action_select",
         mode: action.mode,
         format,
-        turn: 1,
+        turn: 0,
         player1: p1,
         player2: p2,
         log,
@@ -204,7 +204,7 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
           const effect = abilityHooks.onSwitchIn({ pokemon: switchedIn, opponent: opp });
           if (effect) {
             if (effect.message) {
-              newState = { ...newState, log: [...newState.log, { turn: 1, message: effect.message, kind: "status" }] };
+              newState = { ...newState, log: [...newState.log, { turn: 0, message: effect.message, kind: "status" }] };
             }
             if (effect.type === "stat_drop" && effect.stat && effect.stages) {
               const target = getActivePokemon(newState[oppPlayer]);
@@ -248,6 +248,18 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       newPokemon[oldIndex] = {
         ...newPokemon[oldIndex],
         isActive: false,
+        statStages: initStatStages(),
+        confusionTurns: 0,
+        toxicCounter: 0,
+        consecutiveProtects: 0,
+        isProtected: false,
+        isFlinched: false,
+        turnsOnField: 0,
+        focusEnergy: false,
+        substituteHp: 0,
+        chargingMove: null,
+        semiInvulnerable: null,
+        yawnTurns: 0,
       };
       newPokemon[action.pokemonIndex] = {
         ...newPokemon[action.pokemonIndex],
@@ -277,8 +289,9 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         log,
       };
 
-      // Apply ability onSwitchIn
-      const switchedIn = getActivePokemon(newState[action.player]);
+      // Apply ability onSwitchIn (use correct slot for doubles)
+      const switchedInIdx = switchSlot === 1 ? updatedTeam.activePokemonIndex2 : updatedTeam.activePokemonIndex;
+      const switchedIn = switchedInIdx !== null ? newState[action.player].pokemon[switchedInIdx] : getActivePokemon(newState[action.player]);
       const oppPlayer = action.player === "player1" ? "player2" : "player1";
       const opp = getActivePokemon(newState[oppPlayer]);
       const abilityHooks = getAbilityHooks(switchedIn.slot.ability);
@@ -344,6 +357,7 @@ function executeTurn(
         isProtected: false,
         isFlinched: false,
         roostActive: false,
+        consecutiveProtects: 0,
         turnsOnField: (active.turnsOnField ?? 0) + 1,
       });
     }
@@ -494,6 +508,7 @@ function executeDoublesTurn(
         isProtected: false,
         isFlinched: false,
         roostActive: false,
+        consecutiveProtects: 0,
         turnsOnField: (pokemon.turnsOnField ?? 0) + 1,
       });
     }
@@ -719,10 +734,13 @@ function executeMoveSingleTarget(
   }
 
   // Restore original active indices (but keep Pokemon state changes)
+  // Only restore if the Pokemon at the original index is not fainted (a faint may have changed indices)
+  const attackerFainted = tempState[attackerPlayer].pokemon[origAttackerIdx]?.isFainted;
+  const defenderFainted = tempState[defenderPlayer].pokemon[origDefenderIdx]?.isFainted;
   const result = {
     ...tempState,
-    [attackerPlayer]: { ...tempState[attackerPlayer], activePokemonIndex: origAttackerIdx },
-    [defenderPlayer]: { ...tempState[defenderPlayer], activePokemonIndex: origDefenderIdx },
+    [attackerPlayer]: { ...tempState[attackerPlayer], activePokemonIndex: attackerFainted ? tempState[attackerPlayer].activePokemonIndex : origAttackerIdx },
+    [defenderPlayer]: { ...tempState[defenderPlayer], activePokemonIndex: defenderFainted ? tempState[defenderPlayer].activePokemonIndex : origDefenderIdx },
   };
 
   return result;

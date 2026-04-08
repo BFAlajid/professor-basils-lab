@@ -321,6 +321,7 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
             style={{
               imageRendering: "pixelated",
               WebkitImageRendering: "crisp-edges",
+              touchAction: "none",
             } as React.CSSProperties}
             className="block w-full aspect-[3/2]"
           />
