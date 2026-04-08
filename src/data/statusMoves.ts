@@ -10,6 +10,16 @@ export interface StatusMoveEffect {
   clearHazards?: "rapid-spin" | "defog";
   reflect?: boolean;
   lightScreen?: boolean;
+  targetConfusion?: boolean;
+  focusEnergy?: boolean;
+  fieldEffect?: string;
+  sideEffect?: string;
+  resetStats?: boolean;
+  forceSwitch?: boolean;
+  healTeamStatus?: boolean;
+  substitute?: boolean;
+  wish?: boolean;
+  yawn?: boolean;
 }
 
 export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
@@ -47,10 +57,9 @@ export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
   "hypnosis": { targetStatus: "sleep" },
   "sing": { targetStatus: "sleep" },
   "dark-void": { targetStatus: "sleep" },
-  "yawn": { targetStatus: "sleep" },
+  "yawn": { yawn: true },
   "glare": { targetStatus: "paralyze" },
   "stun-spore": { targetStatus: "paralyze" },
-  "nuzzle": { targetStatus: "paralyze" },
 
   // Protection
   "protect": { protect: true },
@@ -68,7 +77,7 @@ export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
   "moonlight": { healPercent: 50 },
   "morning-sun": { healPercent: 50 },
   "synthesis": { healPercent: 50 },
-  "wish": { healPercent: 50 },
+  "wish": { wish: true },
   "rest": { healPercent: 100, targetStatus: "sleep" },
 
   // Entry hazards
@@ -84,4 +93,33 @@ export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
   // Screens
   "reflect": { reflect: true },
   "light-screen": { lightScreen: true },
+
+  // Critical hit boost
+  "focus-energy": { focusEnergy: true },
+
+  // Confusion
+  "confuse-ray": { targetConfusion: true },
+  "swagger": { targetConfusion: true, targetStatChanges: { attack: 2 } },
+  "flatter": { targetConfusion: true, targetStatChanges: { spAtk: 1 } },
+  "teeter-dance": { targetConfusion: true },
+  "sweet-kiss": { targetConfusion: true },
+  "supersonic": { targetConfusion: true },
+
+  // Field/side effects
+  "trick-room": { fieldEffect: "trickRoom" },
+  "tailwind": { sideEffect: "tailwind" },
+
+  // Stat reset
+  "haze": { resetStats: true },
+
+  // Forced switch
+  "whirlwind": { forceSwitch: true },
+  "roar": { forceSwitch: true },
+
+  // Team status heal
+  "aromatherapy": { healTeamStatus: true },
+  "heal-bell": { healTeamStatus: true },
+
+  // Substitute
+  "substitute": { substitute: true },
 };

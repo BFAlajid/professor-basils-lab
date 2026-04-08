@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type KeyboardEvent } from "react";
 import { TOAST_DURATION } from "@/data/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot } from "@/types";
@@ -18,10 +18,14 @@ export default function QRExport({ team, isOpen, onClose }: QRExportProps) {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const showdownText = team.length > 0 ? exportToShowdown(team) : "";
 
-  const generateQR = useCallback(() => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const generateQR = useCallback(async () => {
     if (!showdownText) {
       setError("No team data to export.");
       return;
@@ -30,31 +34,52 @@ export default function QRExport({ team, isOpen, onClose }: QRExportProps) {
     setError(null);
     setQrUrl(null);
 
-    const apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(showdownText)}`;
-
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      setQrUrl(apiUrl);
+    try {
+      const QRCode = (await import("qrcode")).default;
+      const dataUrl = await QRCode.toDataURL(showdownText, {
+        width: 300,
+        margin: 2,
+        color: { dark: "#1a1c2c", light: "#f0f0e8" },
+      });
+      setQrUrl(dataUrl);
+    } catch {
+      setError("Failed to generate QR code.");
+    } finally {
       setLoading(false);
-    };
-    img.onerror = () => {
-      setError("Failed to generate QR code. Check your connection.");
-      setLoading(false);
-    };
-    img.src = apiUrl;
+    }
   }, [showdownText]);
 
   useEffect(() => {
     if (isOpen) {
       generateQR();
       setCopied(false);
+      // Focus close button on open
+      requestAnimationFrame(() => closeRef.current?.focus());
     } else {
       setQrUrl(null);
       setError(null);
       setLoading(false);
     }
   }, [isOpen, generateQR]);
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") { onClose(); return; }
+    if (e.key === "Tab" && modalRef.current) {
+      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  };
 
   const handleCopy = async () => {
     try {
@@ -89,8 +114,13 @@ export default function QRExport({ team, isOpen, onClose }: QRExportProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={handleOverlayClick}
+          onKeyDown={handleKeyDown}
         >
           <motion.div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Team QR Code"
             className="relative w-[360px] max-w-[95vw] rounded-lg border-2 p-6"
             style={{
               backgroundColor: "#262b44",
@@ -109,6 +139,7 @@ export default function QRExport({ team, isOpen, onClose }: QRExportProps) {
                 Team QR Code
               </h2>
               <button
+                ref={closeRef}
                 onClick={onClose}
                 className="flex h-7 w-7 items-center justify-center rounded transition-colors"
                 style={{ backgroundColor: "#3a4466", color: "#f0f0e8" }}

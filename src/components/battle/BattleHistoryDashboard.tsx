@@ -111,7 +111,7 @@ export default function BattleHistoryDashboard({
                   style={{ backgroundColor: tier.color }}
                 />
               </div>
-              <p className="text-[8px] text-[#8b9bb4] mt-1">
+              <p className="text-[10px] text-[#8b9bb4] mt-1">
                 {nextTier.minRating - stats.eloRating} to {nextTier.name}
               </p>
             </div>
@@ -176,17 +176,19 @@ export default function BattleHistoryDashboard({
               <div
                 key={replay.id}
                 aria-label={`Battle ${replay.winner === "player1" ? "won" : "lost"}`}
-                className="w-4 h-4 rounded-sm"
+                className="w-4 h-4 rounded-sm flex items-center justify-center text-[10px] font-bold text-[#f0f0e8]"
                 style={{
                   backgroundColor:
                     replay.winner === "player1" ? "#38b764" : "#e8433f",
                 }}
                 title={`${replay.winner === "player1" ? "W" : "L"} - ${replay.totalTurns} turns`}
-              />
+              >
+                {replay.winner === "player1" ? "W" : "L"}
+              </div>
             ))}
           </div>
           {replays.length > 20 && (
-            <p className="text-[8px] text-[#8b9bb4] mt-2">
+            <p className="text-[10px] text-[#8b9bb4] mt-2">
               +{replays.length - 20} more battles
             </p>
           )}

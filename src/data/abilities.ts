@@ -1,4 +1,6 @@
-import { BattlePokemon, TypeName, WeatherType, StatusCondition } from "@/types";
+import { BattlePokemon, TypeName, WeatherType, TerrainType, StatusCondition } from "@/types";
+import { CONTACT_MOVES } from "@/data/constants";
+import { normalizeAbilityKey } from "@/utils/format";
 
 // --- Ability Hook Types ---
 
@@ -15,6 +17,7 @@ export interface AbilityHooks {
     attacker: BattlePokemon;
     moveType: TypeName;
     movePower: number;
+    isPhysical?: boolean;
   }) => IncomingDamageResult | null;
 
   /** Modify the attack stat during damage calc */
@@ -22,6 +25,7 @@ export interface AbilityHooks {
     attacker: BattlePokemon;
     movePower: number;
     isPhysical: boolean;
+    moveName?: string;
   }) => number; // multiplier (1 = no change)
 
   /** Modify STAB multiplier */
@@ -62,17 +66,37 @@ export interface AbilityHooks {
     stages: number;
   }) => StatBoostResult | null;
 
+  /** Triggered when this Pokemon switches out */
+  onSwitchOut?: (context: {
+    pokemon: BattlePokemon;
+  }) => SwitchOutResult | null;
+
   /** Check if this ability traps the opponent (Arena Trap, Shadow Tag, Magnet Pull) */
   onTrapping?: (context: {
     pokemon: BattlePokemon;
     opponent: BattlePokemon;
   }) => boolean; // true = opponent is trapped
+
+  /** Modify critical hit damage multiplier (Sniper: 1.5x → 2.25x) */
+  modifyCritDamage?: number; // multiplier applied to crit damage (e.g. 2.25 for Sniper)
+
+  /** Triggered when this Pokemon is hit by a contact move */
+  onContact?: (context: {
+    attacker: BattlePokemon;
+    defender: BattlePokemon;
+  }) => ContactResult | null;
 }
 
 // --- Result Types ---
 
+export interface ContactResult {
+  status: StatusCondition;
+  chance: number; // 0-1 probability
+  message?: string;
+}
+
 export interface SwitchInResult {
-  type: "stat_drop" | "weather";
+  type: "stat_drop" | "weather" | "terrain";
   // stat_drop (Intimidate)
   stat?: "attack" | "spAtk";
   stages?: number;
@@ -80,6 +104,9 @@ export interface SwitchInResult {
   // weather (Drizzle, Drought, etc.)
   weather?: WeatherType;
   weatherTurns?: number;
+  // terrain (Electric Surge, Grassy Surge, etc.)
+  terrain?: TerrainType;
+  terrainTurns?: number;
   message?: string;
 }
 
@@ -88,10 +115,11 @@ export interface IncomingDamageResult {
   healInstead?: boolean; // Water Absorb, Volt Absorb
   message?: string;
   flashFireBoost?: boolean; // Flash Fire special case
+  statBoost?: { stat: string; stages: number }; // Lightning Rod, Storm Drain
 }
 
 export interface StatBoostResult {
-  stat: "attack" | "spAtk" | "speed" | "best";
+  stat: "attack" | "defense" | "spAtk" | "spDef" | "speed" | "best";
   stages: number;
   message?: string;
 }
@@ -109,6 +137,12 @@ export interface EndOfTurnResult {
 
 export interface SurvivalResult {
   surviveWithHp: number; // 1 = Sturdy (survive at 1 HP)
+  message?: string;
+}
+
+export interface SwitchOutResult {
+  type: "heal" | "cure_status";
+  healFraction?: number; // e.g. 1/3 for Regenerator
   message?: string;
 }
 
@@ -218,6 +252,7 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
       if (moveType === "electric") {
         return {
           multiplier: 0,
+          statBoost: { stat: "spAtk", stages: 1 },
           message: `${defender.slot.pokemon.name}'s Lightning Rod drew in the move!`,
         };
       }
@@ -230,6 +265,7 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
       if (moveType === "water") {
         return {
           multiplier: 0,
+          statBoost: { stat: "spAtk", stages: 1 },
           message: `${defender.slot.pokemon.name}'s Storm Drain drew in the move!`,
         };
       }
@@ -271,16 +307,16 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
   },
 
   "iron-fist": {
-    modifyAttackStat: ({ attacker }) => {
+    modifyAttackStat: ({ moveName }) => {
       // Iron Fist boosts punching moves — we check via move name patterns
       const punchMoves = [
         "thunder-punch", "ice-punch", "fire-punch", "drain-punch",
         "mach-punch", "mega-punch", "focus-punch", "sky-uppercut",
         "comet-punch", "shadow-punch", "bullet-punch", "hammer-arm",
-        "power-up-punch", "plasma-fists", "meteor-mash",
+        "power-up-punch", "plasma-fists", "surging-strikes",
+        "wicked-blow", "rage-fist", "jet-punch",
       ];
-      const lastMove = attacker.lastMoveUsed;
-      if (lastMove && punchMoves.includes(lastMove)) return 1.2;
+      if (moveName && punchMoves.includes(moveName)) return 1.2;
       return 1;
     },
   },
@@ -396,20 +432,6 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
     },
   },
 
-  filter: {
-    modifyIncomingDamage: ({ defender, attacker, moveType }) => {
-      // Applied in damage calc based on type effectiveness, but we use a flat 0.75x for SE here
-      return null; // Handled via damage calc to check effectiveness
-    },
-  },
-
-  "solid-rock": {
-    modifyIncomingDamage: ({ defender }) => {
-      // Same as Filter — handled via damage calc
-      return null;
-    },
-  },
-
   // === onStatDrop abilities (Defiant, Competitive) ===
 
   defiant: {
@@ -436,7 +458,7 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
       // Flying types and Levitate are immune to trapping
       if (oppTypes.includes("flying")) return false;
       if (oppTypes.includes("ghost")) return false;
-      const oppAbility = opponent.slot.ability?.toLowerCase().replace(/\s+/g, "-");
+      const oppAbility = normalizeAbilityKey(opponent.slot.ability);
       if (oppAbility === "levitate") return false;
       return true;
     },
@@ -446,7 +468,7 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
     onTrapping: ({ opponent }) => {
       const oppTypes = opponent.slot.pokemon.types.map(t => t.type.name);
       if (oppTypes.includes("ghost")) return false;
-      const oppAbility = opponent.slot.ability?.toLowerCase().replace(/\s+/g, "-");
+      const oppAbility = normalizeAbilityKey(opponent.slot.ability);
       if (oppAbility === "shadow-tag") return false;
       return true;
     },
@@ -461,6 +483,258 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
 
   // === Additional common abilities ===
 
+  // === Critical hit abilities ===
+
+  "super-luck": {
+    // Crit stage +1 handled in getCritStage; no hooks needed here
+  },
+
+  sniper: {
+    modifyCritDamage: 2.25, // Sniper: crit damage is 2.25x instead of 1.5x
+  },
+
+  // === Damage modifier abilities (modifyAttackStat as power proxy) ===
+
+  "sheer-force": {
+    // 1.3x power on moves with secondary effects; secondary effect removal + Life Orb recoil skip
+    // handled in battleExecutionDamage.ts applySecondaryEffects and applyRecoilDrain
+    modifyAttackStat: ({ moveName }) => {
+      const SECONDARY_EFFECT_MOVES = [
+        "flamethrower", "ice-beam", "thunderbolt", "psychic", "shadow-ball",
+        "fire-blast", "blizzard", "thunder", "focus-blast", "sludge-bomb",
+        "sludge-wave", "earth-power", "moonblast", "flash-cannon",
+        "scald", "lava-plume", "discharge", "tri-attack", "ancient-power",
+        "rock-slide", "iron-head", "air-slash", "zen-headbutt", "waterfall",
+        "fire-punch", "ice-punch", "thunder-punch", "poison-jab", "crunch",
+        "fire-fang", "ice-fang", "thunder-fang", "play-rough", "body-slam",
+        "headbutt", "stomp", "bite", "snore", "icicle-crash",
+        "rock-tomb", "liquidation", "darkest-lariat", "dragon-rush",
+        "sky-attack", "needle-arm", "blaze-kick", "bounce", "fake-out",
+      ];
+      if (moveName && SECONDARY_EFFECT_MOVES.includes(moveName)) return 1.3;
+      return 1;
+    },
+  },
+
+  reckless: {
+    modifyAttackStat: ({ moveName }) => {
+      const RECOIL_MOVES = [
+        "brave-bird", "flare-blitz", "double-edge", "wild-charge",
+        "take-down", "submission", "head-smash", "wood-hammer",
+        "volt-tackle", "wave-crash", "light-of-ruin", "head-charge",
+      ];
+      if (moveName && RECOIL_MOVES.includes(moveName)) return 1.2;
+      return 1;
+    },
+  },
+
+  "tough-claws": {
+    modifyAttackStat: ({ moveName }) => {
+      if (moveName && CONTACT_MOVES.has(moveName)) return 1.33;
+      return 1;
+    },
+  },
+
+  analytic: {
+    // 1.3x power if moving last — approximated via modifyAttackStat
+    // TODO: Consumer needs to pass turn order info for accurate check;
+    // for now always applies since AI moves second in most scenarios
+    modifyAttackStat: () => 1.3,
+  },
+
+  "mega-launcher": {
+    modifyAttackStat: ({ moveName }) => {
+      const PULSE_MOVES = [
+        "dark-pulse", "water-pulse", "aura-sphere", "dragon-pulse",
+        "heal-pulse", "origin-pulse", "terrain-pulse",
+      ];
+      if (moveName && PULSE_MOVES.includes(moveName)) return 1.5;
+      return 1;
+    },
+  },
+
+  "strong-jaw": {
+    modifyAttackStat: ({ moveName }) => {
+      const BITE_MOVES = [
+        "bite", "crunch", "fire-fang", "ice-fang", "thunder-fang",
+        "poison-fang", "psychic-fangs", "jaw-lock", "fishious-rend",
+        "hyper-fang",
+      ];
+      if (moveName && BITE_MOVES.includes(moveName)) return 1.5;
+      return 1;
+    },
+  },
+
+  // === Type immunity abilities (via modifyIncomingDamage) ===
+
+  "sap-sipper": {
+    modifyIncomingDamage: ({ moveType, defender }) => {
+      if (moveType === "grass") {
+        return {
+          multiplier: 0,
+          statBoost: { stat: "attack", stages: 1 },
+          message: `${defender.slot.pokemon.name}'s Sap Sipper raised its Attack!`,
+        };
+      }
+      return null;
+    },
+  },
+
+  "motor-drive": {
+    modifyIncomingDamage: ({ moveType, defender }) => {
+      if (moveType === "electric") {
+        return {
+          multiplier: 0,
+          statBoost: { stat: "speed", stages: 1 },
+          message: `${defender.slot.pokemon.name}'s Motor Drive raised its Speed!`,
+        };
+      }
+      return null;
+    },
+  },
+
+  "dry-skin": {
+    modifyIncomingDamage: ({ moveType, defender }) => {
+      if (moveType === "water") {
+        return {
+          multiplier: 0,
+          healInstead: true,
+          message: `${defender.slot.pokemon.name}'s Dry Skin absorbed the water!`,
+        };
+      }
+      // TODO: Fire takes 1.25x damage — consumer damage loop only handles multiplier < 1;
+      // needs update to applyDamageLoop to also apply multiplier > 1
+      return null;
+    },
+  },
+
+  // === Defensive abilities (via modifyIncomingDamage) ===
+
+  "solid-rock": {
+    // Super-effective reduction handled in damage.ts (line 187-192)
+    // Registered here for completeness — the damage.ts consumer reads defenderAbility directly
+  },
+
+  filter: {
+    // Super-effective reduction handled in damage.ts (line 187-192)
+  },
+
+  "fur-coat": {
+    // Doubles Defense — only halves physical damage
+    modifyIncomingDamage: ({ defender, isPhysical }) => {
+      if (isPhysical === true) {
+        return { multiplier: 0.5, message: `${defender.slot.pokemon.name}'s Fur Coat softened the blow!` };
+      }
+      return null;
+    },
+  },
+
+  "ice-scales": {
+    // Doubles Special Defense — only halves special damage
+    modifyIncomingDamage: ({ defender, isPhysical }) => {
+      if (isPhysical === false) {
+        return { multiplier: 0.5, message: `${defender.slot.pokemon.name}'s Ice Scales weakened the attack!` };
+      }
+      return null;
+    },
+  },
+
+  // === On-Switch abilities (terrain setters) ===
+
+  "electric-surge": {
+    onSwitchIn: ({ pokemon }) => ({
+      type: "terrain",
+      terrain: "electric",
+      terrainTurns: 5,
+      message: `${pokemon.slot.pokemon.name}'s Electric Surge electrified the battlefield!`,
+    }),
+  },
+
+  "grassy-surge": {
+    onSwitchIn: ({ pokemon }) => ({
+      type: "terrain",
+      terrain: "grassy",
+      terrainTurns: 5,
+      message: `${pokemon.slot.pokemon.name}'s Grassy Surge covered the field in grass!`,
+    }),
+  },
+
+  "misty-surge": {
+    onSwitchIn: ({ pokemon }) => ({
+      type: "terrain",
+      terrain: "misty",
+      terrainTurns: 5,
+      message: `${pokemon.slot.pokemon.name}'s Misty Surge covered the field in mist!`,
+    }),
+  },
+
+  "psychic-surge": {
+    onSwitchIn: ({ pokemon }) => ({
+      type: "terrain",
+      terrain: "psychic",
+      terrainTurns: 5,
+      message: `${pokemon.slot.pokemon.name}'s Psychic Surge set Psychic Terrain!`,
+    }),
+  },
+
+  // === onContact abilities ===
+
+  static: {
+    onContact: ({ defender }) => ({
+      status: "paralyze",
+      chance: 0.3,
+      message: `${defender.slot.pokemon.name}'s Static paralyzed the attacker!`,
+    }),
+  },
+
+  "flame-body": {
+    onContact: ({ defender }) => ({
+      status: "burn",
+      chance: 0.3,
+      message: `${defender.slot.pokemon.name}'s Flame Body burned the attacker!`,
+    }),
+  },
+
+  // === Status/Utility abilities ===
+
+  // Prankster: +1 priority to status moves (implemented in battleHelpers.ts getMovePriority)
+  prankster: {},
+
+  // Gale Wings: +1 priority to Flying moves at full HP (implemented in battleHelpers.ts getMovePriority)
+  "gale-wings": {},
+
+  // Triage: +3 priority to healing moves (implemented in battleHelpers.ts getMovePriority)
+  triage: {},
+
+  // Serene Grace: doubles secondary effect chance — handled in battleExecutionDamage.ts applySecondaryEffects
+  "serene-grace": {},
+
+  // Mold Breaker: ignores opponent's defensive abilities
+  // TODO: Consumer in damage.ts and battleExecutionDamage.ts need to check attacker ability
+  // and skip defender ability hooks when this is active
+  "mold-breaker": {},
+
+  // === Switch-out abilities ===
+
+  regenerator: {
+    onSwitchOut: ({ pokemon }) => ({
+      type: "heal",
+      healFraction: 1 / 3,
+      message: `${pokemon.slot.pokemon.name}'s Regenerator restored its HP!`,
+    }),
+  },
+
+  "natural-cure": {
+    onSwitchOut: ({ pokemon }) => {
+      if (pokemon.status) {
+        return {
+          type: "cure_status",
+          message: `${pokemon.slot.pokemon.name}'s Natural Cure cured its status!`,
+        };
+      }
+      return null;
+    },
+  },
 };
 
 // --- Public API ---
@@ -468,23 +742,24 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
 export function getAbilityHooks(abilityName: string | undefined | null): AbilityHooks | null {
   if (!abilityName) return null;
   // Normalize: PokeAPI uses kebab-case, display names use spaces
-  const normalized = abilityName.toLowerCase().replace(/\s+/g, "-");
+  const normalized = normalizeAbilityKey(abilityName);
   return ABILITY_REGISTRY[normalized] ?? null;
 }
 
 export function hasAbility(pokemon: BattlePokemon, abilityName: string): boolean {
-  const ability = pokemon.slot.ability?.toLowerCase().replace(/\s+/g, "-");
-  return ability === abilityName.toLowerCase().replace(/\s+/g, "-");
+  return normalizeAbilityKey(pokemon.slot.ability) === normalizeAbilityKey(abilityName);
 }
 
 /** Get the best stat for Beast Boost */
-export function getHighestStat(pokemon: BattlePokemon): "attack" | "spAtk" | "speed" {
+export function getHighestStat(pokemon: BattlePokemon): "attack" | "defense" | "spAtk" | "spDef" | "speed" {
   const stats = pokemon.slot.pokemon.stats;
   const get = (name: string) => stats.find((s) => s.stat.name === name)?.base_stat ?? 0;
-  const atk = get("attack");
-  const spAtk = get("special-attack");
-  const speed = get("speed");
-  if (atk >= spAtk && atk >= speed) return "attack";
-  if (spAtk >= atk && spAtk >= speed) return "spAtk";
-  return "speed";
+  const candidates: { key: "attack" | "defense" | "spAtk" | "spDef" | "speed"; value: number }[] = [
+    { key: "attack", value: get("attack") },
+    { key: "defense", value: get("defense") },
+    { key: "spAtk", value: get("special-attack") },
+    { key: "spDef", value: get("special-defense") },
+    { key: "speed", value: get("speed") },
+  ];
+  return candidates.reduce((best, c) => c.value > best.value ? c : best, candidates[0]).key;
 }

@@ -33,6 +33,10 @@ export default function HeldItemSelector({ value, onChange }: HeldItemSelectorPr
       <div className="relative">
         <input
           type="text"
+          role="combobox"
+          aria-expanded={open && filtered.length > 0}
+          aria-autocomplete="list"
+          aria-controls="item-suggestions"
           value={open ? search : selectedItem?.displayName ?? ""}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -47,10 +51,12 @@ export default function HeldItemSelector({ value, onChange }: HeldItemSelectorPr
           className="w-full rounded-lg border border-[#3a4466] bg-[#1a1c2c] px-3 py-2 text-sm text-[#f0f0e8] placeholder-[#8b9bb4] outline-none focus:border-[#e8433f]"
         />
         {open && filtered.length > 0 && (
-          <div className="absolute z-20 mt-1 w-full rounded-lg border border-[#3a4466] bg-[#262b44] shadow-lg max-h-40 overflow-y-auto">
+          <div id="item-suggestions" role="listbox" className="absolute z-20 mt-1 w-full rounded-lg border border-[#3a4466] bg-[#262b44] shadow-lg max-h-40 overflow-y-auto">
             {filtered.map((item) => (
               <button
                 key={item.name}
+                role="option"
+                aria-selected={value === item.name}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   onChange(item.name);

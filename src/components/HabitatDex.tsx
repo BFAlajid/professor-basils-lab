@@ -163,7 +163,7 @@ function HabitatRow({ entry, maxRate }: { entry: HabitatEntry; maxRate: number }
     <div className="bg-[#1a1c2c] border border-[#3a4466] rounded-lg px-3 py-2 flex items-center gap-2">
       {/* Region badge */}
       <span
-        className="text-[8px] font-pixel px-1.5 py-0.5 rounded shrink-0"
+        className="text-[10px] font-pixel px-1.5 py-0.5 rounded shrink-0"
         style={{ backgroundColor: regionColor + "22", color: regionColor, border: `1px solid ${regionColor}44` }}
       >
         {entry.region.charAt(0).toUpperCase() + entry.region.slice(1)}
@@ -185,7 +185,7 @@ function HabitatRow({ entry, maxRate }: { entry: HabitatEntry; maxRate: number }
             }}
           />
         </div>
-        <span className="text-[8px] font-pixel text-[#8b9bb4] w-7 text-right shrink-0">
+        <span className="text-[10px] font-pixel text-[#8b9bb4] w-7 text-right shrink-0">
           {entry.encounterRate}%
         </span>
       </div>

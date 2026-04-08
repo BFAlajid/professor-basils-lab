@@ -138,6 +138,7 @@ export default function ReplayViewer({ replay, onClose }: ReplayViewerProps) {
           max={Math.max(0, totalSnapshots - 1)}
           value={currentIndex}
           onChange={(e) => seekTo(Number(e.target.value))}
+          aria-label="Battle replay timeline"
           className="w-full h-1.5 rounded-full appearance-none bg-[#3a4466] cursor-pointer
             [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#e8433f]
             [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#e8433f] [&::-moz-range-thumb]:border-none"

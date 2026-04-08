@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, memo } from "react";
 import { TOAST_DURATION } from "@/data/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot, Pokemon, Nature, EVSpread, IVSpread, TypeName } from "@/types";
 import PokemonCard from "./PokemonCard";
 import PokemonSearch from "./PokemonSearch";
 import PokemonDetailPanel from "./PokemonDetailPanel";
-import { exportToShowdown, importFromShowdown } from "@/utils/showdownFormatWasm";
+import { exportToShowdown, exportSlotToShowdown, importFromShowdown } from "@/utils/showdownFormatWasm";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { useFeatureFlagsContext } from "@/contexts/FeatureFlagsContext";
 import { TEAM_PRESETS } from "@/data/teamPresets";
 import QRExport from "./QRExport";
+import WelcomeCard from "./WelcomeCard";
 
 interface TeamRosterProps {
   team: TeamSlot[];
@@ -29,7 +30,7 @@ interface TeamRosterProps {
   onSetTeam?: (slots: TeamSlot[]) => void;
 }
 
-export default function TeamRoster({
+export default memo(function TeamRoster({
   team,
   onAdd,
   onRemove,
@@ -52,6 +53,7 @@ export default function TeamRoster({
   const [isImporting, setIsImporting] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [clipboardCopied, setClipboardCopied] = useState(false);
   const emptySlots = Math.max(0, 6 - team.length);
   const { incrementStat } = useAchievementsContext();
   const { features } = useFeatureFlagsContext();
@@ -85,8 +87,25 @@ export default function TeamRoster({
     navigator.clipboard.writeText(showdownText).then(() => {
       setShowdownMessage("Copied!");
       setTimeout(() => setShowdownMessage(""), TOAST_DURATION);
+    }).catch(() => {
+      setShowdownMessage("Copy failed");
+      setTimeout(() => setShowdownMessage(""), TOAST_DURATION);
     });
   }, [showdownText]);
+
+  const handleCopyToClipboard = useCallback(() => {
+    if (team.length === 0) return;
+    const text = exportToShowdown(team);
+    navigator.clipboard.writeText(text).then(() => {
+      setClipboardCopied(true);
+      incrementStat("showdownExports");
+      setTimeout(() => setClipboardCopied(false), TOAST_DURATION);
+    }).catch(() => {
+      setClipboardCopied(false);
+      setShowdownMessage("Copy failed");
+      setTimeout(() => setShowdownMessage(""), TOAST_DURATION);
+    });
+  }, [team, incrementStat]);
 
   const handleImport = useCallback(async () => {
     if (!showdownText.trim() || !onSetTeam) return;
@@ -120,14 +139,20 @@ export default function TeamRoster({
           <>
             <button
               onClick={handleExport}
-              className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors focus-visible:ring-2 focus-visible:ring-[#e8433f]"
             >
               Export Showdown
+            </button>
+            <button
+              onClick={handleCopyToClipboard}
+              className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors focus-visible:ring-2 focus-visible:ring-[#e8433f]"
+            >
+              {clipboardCopied ? "Copied!" : "Copy Showdown"}
             </button>
             {features.enableSharing && (
               <button
                 onClick={() => setShowQR(true)}
-                className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors focus-visible:ring-2 focus-visible:ring-[#e8433f]"
               >
                 QR Code
               </button>
@@ -140,14 +165,14 @@ export default function TeamRoster({
             setShowShowdown(true);
             setShowdownMessage("");
           }}
-          className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
+          className="px-3 py-1.5 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors focus-visible:ring-2 focus-visible:ring-[#e8433f]"
         >
           Import Showdown
         </button>
         {onSetTeam && (
           <button
             onClick={() => setShowPresets(!showPresets)}
-            className={`px-3 py-1.5 rounded-lg text-[#f0f0e8] text-xs font-pixel transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-[#f0f0e8] text-xs font-pixel transition-colors focus-visible:ring-2 focus-visible:ring-[#e8433f] ${
               showPresets ? "bg-[#e8433f] hover:bg-[#f05050]" : "bg-[#3a4466] hover:bg-[#4a5577]"
             }`}
           >
@@ -173,11 +198,11 @@ export default function TeamRoster({
                     key={preset.name}
                     onClick={() => handleLoadPreset(preset.showdownPaste)}
                     disabled={isImporting}
-                    className="text-left rounded-lg border border-[#3a4466] bg-[#1a1c2c] p-3 hover:border-[#e8433f] transition-colors disabled:opacity-50"
+                    className="text-left rounded-lg border border-[#3a4466] bg-[#1a1c2c] p-3 hover:border-[#e8433f] transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[#e8433f]"
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-pixel text-[#f0f0e8]">{preset.name}</span>
-                      <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#3a4466] text-[#8b9bb4]">{preset.format}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#3a4466] text-[#8b9bb4]">{preset.format}</span>
                     </div>
                     <p className="text-[10px] text-[#8b9bb4] leading-tight">{preset.description}</p>
                   </button>
@@ -240,7 +265,7 @@ export default function TeamRoster({
                   </>
                 )}
                 {showdownMessage && (
-                  <span className="text-xs text-[#8b9bb4] font-pixel">
+                  <span aria-live="polite" className="text-xs text-[#8b9bb4] font-pixel">
                     {showdownMessage}
                   </span>
                 )}
@@ -267,22 +292,26 @@ export default function TeamRoster({
           ))}
         </AnimatePresence>
 
-        {Array.from({ length: emptySlots }).map((_, i) => (
-          <motion.button
-            key={`empty-${i}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex h-[340px] items-center justify-center rounded-xl border-2 border-dashed border-[#3a4466] bg-[#262b44]/50 hover:border-[#e8433f] hover:bg-[#262b44] transition-colors"
-            onClick={() => !isFull && setSearchOpen(true)}
-          >
-            <div className="text-center">
-              <span className="block text-4xl text-[#3a4466]">+</span>
-              <span className="mt-2 block text-sm text-[#8b9bb4]">
-                Add Pokemon
-              </span>
-            </div>
-          </motion.button>
-        ))}
+        {team.length === 0 ? (
+          <WelcomeCard onGetStarted={() => setSearchOpen(true)} />
+        ) : (
+          Array.from({ length: emptySlots }).map((_, i) => (
+            <motion.button
+              key={`empty-${i}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex h-[340px] items-center justify-center rounded-xl border-2 border-dashed border-[#3a4466] bg-[#262b44]/50 hover:border-[#e8433f] hover:bg-[#262b44] transition-colors"
+              onClick={() => !isFull && setSearchOpen(true)}
+            >
+              <div className="text-center">
+                <span className="block text-4xl text-[#3a4466]">+</span>
+                <span className="mt-2 block text-sm text-[#8b9bb4]">
+                  Add Pokemon
+                </span>
+              </div>
+            </motion.button>
+          ))
+        )}
       </div>
 
       {/* Detail Panel */}
@@ -321,4 +350,4 @@ export default function TeamRoster({
       )}
     </>
   );
-}
+});

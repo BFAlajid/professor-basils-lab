@@ -1,5 +1,5 @@
 "use client";
-import { useReducer, useEffect } from "react";
+import { useReducer, useEffect, useRef } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import { SLOT_SYMBOLS, calculatePayout } from "@/data/slotSymbols";
 
@@ -62,8 +62,13 @@ function randomReel(): number {
 
 export function useSlotMachine() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const initialized = useRef(false);
+  const spinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -76,13 +81,22 @@ export function useSlotMachine() {
   }, []);
 
   useEffect(() => {
+    if (!initialized.current) return;
     localStorage.setItem(STORAGE_KEY, String(state.coins));
   }, [state.coins]);
+
+  // Clean up spin timer on unmount
+  useEffect(() => {
+    return () => {
+      if (spinTimerRef.current) clearTimeout(spinTimerRef.current);
+    };
+  }, []);
 
   const spin = () => {
     if (state.spinning || state.coins < state.bet) return;
     dispatch({ type: "SPIN" });
-    setTimeout(() => {
+    spinTimerRef.current = setTimeout(() => {
+      spinTimerRef.current = null;
       const reels: [number, number, number] = [randomReel(), randomReel(), randomReel()];
       dispatch({ type: "STOP", reels });
     }, 1500);

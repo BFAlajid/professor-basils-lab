@@ -80,7 +80,7 @@ export default function SafariSummaryView({
                   className="pixelated"
                 />
               )}
-              <span className="text-[7px] text-[#f0f0e8] capitalize truncate w-full text-center">
+              <span className="text-[10px] text-[#f0f0e8] capitalize truncate w-full text-center">
                 {entry.pokemon.name}
                 {entry.isShiny && " \u2728"}
               </span>

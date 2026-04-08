@@ -1,9 +1,10 @@
 "use client";
 
 import { useReducer, useCallback, useState, useEffect, useRef } from "react";
-import { BattleTurnAction, TeamSlot, BattleMode, GenerationalMechanic, AltFormeData, DifficultyLevel } from "@/types";
+import { BattleTurnAction, BattlePokemon, TeamSlot, BattleMode, BattleFormat, GenerationalMechanic, AltFormeData, DifficultyLevel } from "@/types";
 import { isMegaStone, getMegaStone } from "@/data/megaStones";
-import { battleReducer, initialBattleState } from "@/utils/battle";
+import { battleReducer, initialBattleState, getActivePokemon } from "@/utils/battle";
+import { getActivePokemonBySlot } from "@/utils/battleHelpers";
 import { fetchAndCacheMoves } from "@/utils/moveCache";
 import { selectAIAction, generateRandomTeam, getBestSwitchIn } from "@/utils/aiWasm";
 import { useReplayRecorder } from "./useReplayRecorder";
@@ -20,7 +21,7 @@ export function useBattle() {
 
   // Start recording when battle begins (turn 1, first action_select)
   useEffect(() => {
-    if (state.phase === "action_select" && state.turn === 1 && prevTurnRef.current === 0) {
+    if (state.phase === "action_select" && state.turn === 0 && prevTurnRef.current === 0) {
       recorder.startRecording(state);
       prevTurnRef.current = 1;
     }
@@ -88,7 +89,8 @@ export function useBattle() {
       mode: BattleMode,
       player1Mechanic: GenerationalMechanic = null,
       player2Mechanic: GenerationalMechanic = null,
-      difficulty: DifficultyLevel = "normal"
+      difficulty: DifficultyLevel = "normal",
+      format: BattleFormat = "singles"
     ) => {
       const allTeams = [...player1Team, ...player2Team];
       await preloadMoves(allTeams);
@@ -98,6 +100,7 @@ export function useBattle() {
         player1Team,
         player2Team,
         mode,
+        format,
         player1Mechanic,
         player2Mechanic,
         megaFormeCache,
@@ -127,17 +130,50 @@ export function useBattle() {
     []
   );
 
+  // For doubles: accumulate player's 2 actions before dispatching
+  const doublesActionBuffer = useRef<BattleTurnAction | null>(null);
+
   const submitPlayerAction = useCallback(
     (action: BattleTurnAction) => {
       const current = stateRef.current;
       if (current.mode === "ai") {
-        // AI selects its action
-        const aiAction = selectAIAction(current);
-        dispatch({
-          type: "EXECUTE_TURN",
-          player1Action: action,
-          player2Action: aiAction,
-        });
+        if (current.format === "doubles") {
+          // In doubles, player submits 2 actions (one per active slot)
+          if (!doublesActionBuffer.current) {
+            // First action (slot 0) — buffer it
+            doublesActionBuffer.current = { ...action, slot: 0 } as BattleTurnAction;
+            return;
+          }
+          // Second action (slot 1) — dispatch both
+          const action1 = doublesActionBuffer.current;
+          const action2 = { ...action, slot: 1 } as BattleTurnAction;
+          doublesActionBuffer.current = null;
+
+          // AI selects 2 actions
+          const aiAction1 = selectAIAction(current);
+          const aiSlots = current.player2.activePokemonIndex2 !== null
+            ? getActivePokemonBySlot(current.player2, 1)
+            : null;
+          const aiAction2: BattleTurnAction | null = aiSlots && !aiSlots.isFainted
+            ? { type: "MOVE", moveIndex: Math.floor(Math.random() * Math.max(1, (aiSlots.slot.selectedMoves?.length ?? 1))), target: Math.random() < 0.5 ? "opp0" : "opp1", slot: 1 }
+            : null;
+
+          dispatch({
+            type: "EXECUTE_TURN",
+            player1Action: action1,
+            player1Action2: action2,
+            player2Action: { ...aiAction1, slot: 0 } as BattleTurnAction,
+            ...(aiAction2 ? { player2Action2: aiAction2 } : {}),
+          });
+        } else {
+          // Singles: same as before
+          const aiAction = selectAIAction(current);
+          dispatch({
+            type: "EXECUTE_TURN",
+            player1Action: action,
+            player2Action: aiAction,
+          });
+        }
       }
     },
     []
@@ -159,13 +195,17 @@ export function useBattle() {
   }, []);
 
   const resetBattle = useCallback(() => {
+    recorder.clearRecording();
+    doublesActionBuffer.current = null;
     dispatch({ type: "RESET_BATTLE" });
-  }, []);
+  }, [recorder]);
 
   // Audio track triggers
   useEffect(() => {
+    let cancelled = false;
     // Dynamic import to avoid SSR issues
     import("@/utils/audioManager").then(({ playTrack }) => {
+      if (cancelled) return;
       if (state.phase === "action_select" || state.phase === "executing" || state.phase === "force_switch") {
         playTrack("battle");
       } else if (state.phase === "ended") {
@@ -178,6 +218,7 @@ export function useBattle() {
         playTrack("teamBuilder");
       }
     });
+    return () => { cancelled = true; };
   }, [state.phase, state.winner, state.mode]);
 
   return {

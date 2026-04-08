@@ -47,10 +47,19 @@ export const ROUTE_AREAS: RouteArea[] = [
   ...PALDEA_ROUTES,
 ];
 
+const AREAS_BY_REGION = new Map<string, RouteArea[]>();
+const AREAS_BY_ID = new Map<string, RouteArea>();
+for (const area of ROUTE_AREAS) {
+  const existing = AREAS_BY_REGION.get(area.region);
+  if (existing) existing.push(area);
+  else AREAS_BY_REGION.set(area.region, [area]);
+  AREAS_BY_ID.set(area.id, area);
+}
+
 export function getAreasForRegion(regionId: string): RouteArea[] {
-  return ROUTE_AREAS.filter((area) => area.region === regionId);
+  return AREAS_BY_REGION.get(regionId) ?? [];
 }
 
 export function getAreaById(areaId: string): RouteArea | undefined {
-  return ROUTE_AREAS.find((area) => area.id === areaId);
+  return AREAS_BY_ID.get(areaId);
 }

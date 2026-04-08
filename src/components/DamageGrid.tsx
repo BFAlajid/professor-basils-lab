@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { TeamSlot, Pokemon, Move } from "@/types";
 import { calculateDamage, extractBaseStats } from "@/utils/damage";
-import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
+import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
 import { formatName } from "@/utils/format";
 
 interface ThreatEntry {

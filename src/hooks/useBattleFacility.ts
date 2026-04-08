@@ -12,6 +12,7 @@ import { useBattle } from "./useBattle";
 import { facilityReducer, initialFacilityState } from "./useBattleFacilityReducer";
 import { GYM_BADGE_NAMES } from "@/data/gymLeaders";
 import { generateScaledTeam } from "@/utils/aiWasm";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 
 // ── Hook ──────────────────────────────────────────────────────────────
 
@@ -106,10 +107,7 @@ export function useBattleFacility() {
         // Build opponent TeamSlot[] from EliteFourMember
         const opponentSlots: TeamSlot[] = await Promise.all(
           opponent.team.map(async (member, i) => {
-            const res = await fetch(
-              `https://pokeapi.co/api/v2/pokemon/${member.pokemonId}`
-            );
-            const pokemon = await res.json();
+            const pokemon = await fetchPokemonData(member.pokemonId);
             return {
               pokemon,
               position: i,
@@ -196,7 +194,7 @@ export function useBattleFacility() {
         dispatch({ type: "BATTLE_LOST" });
       }
     },
-    [battle.state, facilityState.mode, facilityState.streak, facilityState.bestStreak]
+    [battle.state, facilityState.mode, facilityState.streak, facilityState.bestStreak, facilityState.currentOpponentIndex, facilityState.badges]
   );
 
   // ── Next battle ───────────────────────────────────────────────────

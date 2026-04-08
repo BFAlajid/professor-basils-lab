@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { TeamSlot, BattleReplay, BattleMode, GenerationalMechanic, DifficultyLevel } from "@/types";
 import { useBattle } from "@/hooks/useBattle";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
@@ -46,6 +46,8 @@ export default function BattleTab({ team }: BattleTabProps) {
   const { addMoney, stats } = useAchievementsContext();
   const { features } = useFeatureFlagsContext();
   const replayRecorder = useReplayRecorder();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const cachedReplays = useMemo(() => replayRecorder.loadReplays(), [replayRecorder.loadReplays]);
   const tournament = useTournament();
   const online = useOnlineBattle();
   const facility = useBattleFacility();
@@ -53,6 +55,7 @@ export default function BattleTab({ team }: BattleTabProps) {
   const [viewingReplay, setViewingReplay] = useState<BattleReplay | null>(null);
   const [replaySaved, setReplaySaved] = useState(false);
   const [activeBattleMode, setActiveBattleMode] = useState<"ai" | "pvp" | "tournament" | "online" | "facility" | "factory" | null>(null);
+  const factoryEndHandled = useRef(false);
 
   // Determine which battle state to use
   const isFacilityMode = activeBattleMode === "facility";
@@ -74,6 +77,24 @@ export default function BattleTab({ team }: BattleTabProps) {
       setReplaySaved(false);
     }
   }, [state.phase]);
+
+  // Handle factory battle end (report win/loss + reset)
+  useEffect(() => {
+    if (activeBattleMode !== "factory") return;
+    const fPhase = factory.factoryState.phase;
+    if (fPhase !== "battling" || state.phase !== "ended") {
+      factoryEndHandled.current = false;
+      return;
+    }
+    if (factoryEndHandled.current) return;
+    factoryEndHandled.current = true;
+    if (state.winner === "player1") {
+      factory.reportWin();
+    } else {
+      factory.reportLoss();
+    }
+    resetBattle();
+  }, [state.phase, state.winner, activeBattleMode, factory, resetBattle]);
 
   const handleSaveReplay = useCallback(() => {
     const replay = saveReplay(state);
@@ -106,10 +127,11 @@ export default function BattleTab({ team }: BattleTabProps) {
     mode: BattleMode,
     playerMechanic?: GenerationalMechanic,
     aiMechanic?: GenerationalMechanic,
-    difficulty?: DifficultyLevel
+    difficulty?: DifficultyLevel,
+    format?: "singles" | "doubles"
   ) => {
     setActiveBattleMode(mode);
-    startBattle(player1Team, player2Team, mode, playerMechanic, aiMechanic, difficulty);
+    startBattle(player1Team, player2Team, mode, playerMechanic, aiMechanic, difficulty, format);
   }, [startBattle]);
 
   // Handle entering factory mode
@@ -122,11 +144,45 @@ export default function BattleTab({ team }: BattleTabProps) {
   // Handle online ready to battle
   const handleOnlineReady = useCallback(() => {
     online.sendReady();
-    if (online.state.opponentTeam) {
+    if (online.state.opponentTeam && !onlineBattleStartedRef.current) {
+      onlineBattleStartedRef.current = true;
       setActiveBattleMode("online");
-      startBattle(team, online.state.opponentTeam, "pvp");
+      // Host is always player1, guest is always player2 — both sides must agree
+      const p1 = online.state.isHost ? team : online.state.opponentTeam;
+      const p2 = online.state.isHost ? online.state.opponentTeam : team;
+      startBattle(p1, p2, "pvp").catch((err) => {
+        console.error("[BattleTab] startBattle failed:", err);
+        onlineBattleStartedRef.current = false;
+      });
     }
   }, [online, team, startBattle]);
+
+  // Auto-start battle when opponent sends READY and battle hasn't started yet
+  const onlineBattleStartedRef = useRef(false);
+  useEffect(() => {
+    if (state.phase === "setup") {
+      onlineBattleStartedRef.current = false;
+    }
+  }, [state.phase]);
+
+  useEffect(() => {
+    if (
+      online.state.phase === "battling" &&
+      state.phase === "setup" &&
+      online.state.opponentTeam &&
+      !onlineBattleStartedRef.current
+    ) {
+      onlineBattleStartedRef.current = true;
+      setActiveBattleMode("online");
+      // Host is always player1, guest is always player2
+      const p1 = online.state.isHost ? team : online.state.opponentTeam;
+      const p2 = online.state.isHost ? online.state.opponentTeam : team;
+      startBattle(p1, p2, "pvp").catch((err) => {
+        console.error("[BattleTab] startBattle failed:", err);
+        onlineBattleStartedRef.current = false;
+      });
+    }
+  }, [online.state.phase, online.state.isHost, state.phase, online.state.opponentTeam, team, startBattle]);
 
   const handleResetBattle = useCallback(() => {
     resetBattle();
@@ -239,15 +295,20 @@ export default function BattleTab({ team }: BattleTabProps) {
       );
     }
 
-    // Battle ended in factory mode
+    // Battle ended in factory mode — handled by useEffect above
     if (fPhase === "battling" && state.phase === "ended") {
-      if (state.winner === "player1") {
-        factory.reportWin();
-      } else {
-        factory.reportLoss();
-      }
-      resetBattle();
-      return null;
+      return (
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div
+              role="status"
+              aria-label="Loading next battle"
+              className="animate-spin rounded-full border-4 border-[#3a4466] border-t-[#e8433f] h-10 w-10"
+            />
+            <p className="text-sm font-pixel text-[#8b9bb4]">Preparing next battle...</p>
+          </div>
+        </div>
+      );
     }
 
     // All other factory phases (pick, swap, victory, defeat)
@@ -371,7 +432,7 @@ export default function BattleTab({ team }: BattleTabProps) {
               totalBattlesPlayed: stats.totalBattlesPlayed,
               eloRating: stats.eloRating,
             }}
-            replays={replayRecorder.loadReplays()}
+            replays={cachedReplays}
           />
           {features.enableLeaderboards && (
             <ELOLeaderboard
@@ -395,11 +456,19 @@ export default function BattleTab({ team }: BattleTabProps) {
           if (activeBattleMode === "tournament") {
             // Return to bracket, not setup
             resetBattle();
+          } else if (activeBattleMode === "online") {
+            online.disconnect();
+            handleResetBattle();
           } else {
             handleResetBattle();
           }
         }}
-        onReset={handleResetBattle}
+        onReset={() => {
+          if (activeBattleMode === "online") {
+            online.disconnect();
+          }
+          handleResetBattle();
+        }}
         onSaveReplay={handleSaveReplay}
         replaySaved={replaySaved}
         prizeMoney={state.mode === "ai" && state.winner === "player1" ? 500 + state.turn * 50 : undefined}
@@ -408,6 +477,8 @@ export default function BattleTab({ team }: BattleTabProps) {
     );
   }
 
+  const isOnlineBattle = activeBattleMode === "online";
+
   return (
     <BattleArena
       state={state}
@@ -415,6 +486,12 @@ export default function BattleTab({ team }: BattleTabProps) {
       onForceSwitch={forceSwitch}
       onAutoAISwitch={autoAISwitch}
       onSubmitPvPActions={submitActions}
+      isOnline={isOnlineBattle}
+      isHost={isOnlineBattle ? online.state.isHost : undefined}
+      onSubmitOnlineAction={isOnlineBattle ? online.submitAction : undefined}
+      onSubmitOnlineForceSwitch={isOnlineBattle ? online.submitForceSwitch : undefined}
+      onWaitForOpponent={isOnlineBattle ? online.waitForOpponentAction : undefined}
+      isOpponentDisconnected={isOnlineBattle ? online.state.phase === "disconnected" : undefined}
     />
   );
 }

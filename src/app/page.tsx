@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useTeam, encodeTeam, decodeTeam, type DecodedTeamData } from "@/hooks/useTeam";
 import { fetchPokemon } from "@/hooks/usePokemon";
@@ -20,8 +20,11 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import TeamRoster from "@/components/TeamRoster";
 import TypeCoverage from "@/components/TypeCoverage";
 import TeamWeaknessPanel from "@/components/TeamWeaknessPanel";
+import TeamSuggestions from "@/components/TeamSuggestions";
 import TeamSummary from "@/components/TeamSummary";
 import AudioPlayer from "@/components/AudioPlayer";
+import TypeReference from "@/components/TypeReference";
+import DataManagerButton from "@/components/DataManagerButton";
 
 // Heavy — lazy load
 const StatRadar = dynamic(() => import("@/components/StatRadar"), {
@@ -45,6 +48,9 @@ const AchievementPanel = dynamic(() => import("@/components/AchievementPanel"), 
 const SpeedTierChart = dynamic(() => import("@/components/SpeedTierChart"), {
   loading: () => <SkeletonLoader label="Loading speed chart..." lines={2} />,
 });
+const SpeedOptimizer = dynamic(() => import("@/components/SpeedOptimizer"), {
+  loading: () => <SkeletonLoader label="Loading speed optimizer..." lines={2} />,
+});
 const PokemonComparison = dynamic(() => import("@/components/PokemonComparison"), {
   loading: () => <SkeletonLoader label="Loading comparison..." lines={3} />,
 });
@@ -56,6 +62,9 @@ const DamageMatrix = dynamic(() => import("@/components/DamageMatrix"), {
 });
 const TeamTemplates = dynamic(() => import("@/components/TeamTemplates"), {
   loading: () => <SkeletonLoader label="Loading templates..." lines={2} />,
+});
+const CoverageGrid = dynamic(() => import("@/components/CoverageGrid"), {
+  loading: () => <SkeletonLoader label="Loading coverage grid..." lines={2} />,
 });
 const MovePoolBrowser = dynamic(() => import("@/components/MovePoolBrowser"), {
   loading: () => <SkeletonLoader label="Loading move pool..." lines={3} />,
@@ -75,15 +84,15 @@ const UnifiedEmulatorTab = dynamic(() => import("@/components/emulator/UnifiedEm
 type Tab = "team" | "analysis" | "stats" | "damage" | "battle" | "wild" | "emulator" | "pokedex" | "achievements";
 
 const tabs: { id: Tab; label: string; short: string }[] = [
-  { id: "team", label: "Team", short: "TM" },
-  { id: "analysis", label: "Coverage", short: "CV" },
-  { id: "stats", label: "Stats", short: "ST" },
-  { id: "damage", label: "Damage", short: "DM" },
-  { id: "battle", label: "Battle", short: "BT" },
-  { id: "wild", label: "Wild", short: "WD" },
-  { id: "emulator", label: "Emulator", short: "EM" },
-  { id: "pokedex", label: "Pokédex", short: "PD" },
-  { id: "achievements", label: "Badges", short: "BD" },
+  { id: "team", label: "Team", short: "Team" },
+  { id: "analysis", label: "Coverage", short: "Cover" },
+  { id: "stats", label: "Stats", short: "Stats" },
+  { id: "damage", label: "Damage", short: "Dmg" },
+  { id: "battle", label: "Battle", short: "Battle" },
+  { id: "wild", label: "Wild", short: "Wild" },
+  { id: "emulator", label: "Emulator", short: "Emu" },
+  { id: "pokedex", label: "Pokédex", short: "Dex" },
+  { id: "achievements", label: "Badges", short: "Badge" },
 ];
 
 export default function Home() {
@@ -118,7 +127,7 @@ export default function Home() {
     if (addParam) {
       fetchPokemon(addParam).then((pokemon) => {
         if (pokemon) addPokemon(pokemon);
-      }).catch(() => {});
+      }).catch(() => { /* add by URL — Pokemon not found, safe to ignore */ });
       window.history.replaceState({}, "", "/");
     }
 
@@ -128,15 +137,21 @@ export default function Home() {
       if (decoded.length === 0) return;
 
       if (typeof decoded[0] === "number") {
-        // Old format — just IDs
-        (decoded as number[]).forEach(async (id) => {
-          try {
-            const pokemon = await fetchPokemon(id);
-            addPokemon(pokemon);
-          } catch {
-            // skip invalid
-          }
-        });
+        // Old format — just IDs (atomic load via setTeam)
+        Promise.all(
+          (decoded as number[]).map(async (id) => {
+            try {
+              return await fetchPokemon(id);
+            } catch {
+              return null;
+            }
+          })
+        ).then((results) => {
+          const validSlots = results
+            .filter((p): p is NonNullable<typeof p> => p !== null)
+            .map((pokemon, i) => ({ pokemon, position: i } as TeamSlot));
+          if (validSlots.length > 0) setTeam(validSlots);
+        }).catch(() => {});
       } else {
         // New format — full team data
         const slots = decoded as DecodedTeamData;
@@ -220,10 +235,16 @@ export default function Home() {
 
   const [selectedTeamPokemonIdx, setSelectedTeamPokemonIdx] = useState(0);
 
-  const visibleTabs = tabs.filter((tab) => {
+  useEffect(() => {
+    if (selectedTeamPokemonIdx >= team.length && team.length > 0) {
+      setSelectedTeamPokemonIdx(team.length - 1);
+    }
+  }, [team.length, selectedTeamPokemonIdx]);
+
+  const visibleTabs = useMemo(() => tabs.filter((tab) => {
     if (tab.id === "emulator" && !features.enableEmulator) return false;
     return true;
-  });
+  }), [features.enableEmulator]);
 
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent, tabId: Tab) => {
@@ -244,7 +265,7 @@ export default function Home() {
     [visibleTabs]
   );
 
-  const teamPokemon = team.map((s) => s.pokemon);
+  const teamPokemon = useMemo(() => team.map((s) => s.pokemon), [team]);
   const motionDuration = shouldReduceMotion ? 0 : 0.2;
 
   if (features.maintenanceMode) {
@@ -308,7 +329,9 @@ export default function Home() {
                   </button>
                 )}
                 <button
-                  onClick={clearTeam}
+                  onClick={() => {
+                    if (window.confirm("Clear your entire team?")) clearTeam();
+                  }}
                   aria-label="Clear all team members"
                   className="rounded-lg bg-[#3a4466] px-4 py-2 text-base text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
                 >
@@ -316,6 +339,7 @@ export default function Home() {
                 </button>
               </>
             )}
+            <DataManagerButton />
             <span className="text-base text-[#8b9bb4]" aria-live="polite">
               {team.length}/6
             </span>
@@ -357,7 +381,7 @@ export default function Home() {
 
       {/* Content */}
       <main
-        id="main-content"
+        id={`tabpanel-${activeTab}`}
         className="mx-auto max-w-[1400px] px-6 py-8"
         role="tabpanel"
         aria-labelledby={`tab-${activeTab}`}
@@ -406,8 +430,12 @@ export default function Home() {
               {activeTab === "analysis" && (
                 <ErrorBoundary fallbackLabel="Coverage analysis crashed">
                   <div className="space-y-6">
-                    <TypeCoverage team={teamPokemon} />
+                    <TypeCoverage team={team} />
+                    {team.length >= 1 && <CoverageGrid team={team} />}
                     <TeamWeaknessPanel team={team} />
+                    {team.length < 6 && (
+                      <TeamSuggestions team={team} onAddPokemon={addPokemon} />
+                    )}
                   </div>
                 </ErrorBoundary>
               )}
@@ -416,6 +444,7 @@ export default function Home() {
                   <div className="space-y-6">
                     <StatRadar team={team} />
                     <SpeedTierChart team={team} />
+                    <SpeedOptimizer team={team} />
                     <PokemonComparison team={team} />
                     <TeamSummary team={teamPokemon} />
                     {team.length > 0 && (
@@ -452,7 +481,7 @@ export default function Home() {
               {activeTab === "damage" && (
                 <ErrorBoundary fallbackLabel="Damage calculator crashed">
                   <div className="space-y-6">
-                    <DamageCalculator team={teamPokemon} />
+                    <DamageCalculator team={team} />
                     <DamageMatrix team={team} />
                   </div>
                 </ErrorBoundary>
@@ -481,6 +510,8 @@ export default function Home() {
           )}
         </AnimatePresence>
       </main>
+
+      <TypeReference />
     </div>
   );
 }

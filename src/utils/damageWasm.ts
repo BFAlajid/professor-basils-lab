@@ -103,6 +103,7 @@ export function calculateDamage(
         attacker: options.attackerBattlePokemon,
         movePower: move.power,
         isPhysical,
+        moveName: move.name,
       });
     }
 
@@ -198,5 +199,5 @@ export function calculateDamage(
   }
 }
 
-export { extractBaseStats, getEffectivenessText } from "./damage";
-export type { DamageCalcOptions, DamageResult } from "./damage";
+export { extractBaseStats, getEffectivenessText, calculateKO } from "./damage";
+export type { DamageCalcOptions, DamageResult, KOResult } from "./damage";

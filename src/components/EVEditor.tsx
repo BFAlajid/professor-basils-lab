@@ -44,7 +44,7 @@ export default function EVEditor({ evs, onChange }: EVEditorProps) {
     <div>
       <div className="mb-2 flex items-center justify-between">
         <label className="text-xs text-[#8b9bb4]">EVs</label>
-        <span className={`text-xs font-mono ${total >= MAX_TOTAL_EVS ? "text-[#e8433f]" : remaining < 100 ? "text-[#f7a838]" : "text-[#8b9bb4]"}`}>
+        <span role="status" aria-live="polite" className={`text-xs font-mono ${total >= MAX_TOTAL_EVS ? "text-[#e8433f]" : remaining < 100 ? "text-[#f7a838]" : "text-[#8b9bb4]"}`}>
           {total}/{MAX_TOTAL_EVS}
         </span>
       </div>

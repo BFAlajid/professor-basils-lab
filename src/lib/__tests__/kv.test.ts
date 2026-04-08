@@ -280,12 +280,12 @@ describe("checkRateLimit", () => {
     expect(mockExpire).toHaveBeenCalledWith("rate:1.2.3.4:leaderboard", 3600);
   });
 
-  it("does not set TTL on subsequent increments", async () => {
+  it("sets TTL on every increment for atomicity safety", async () => {
     mockIncr.mockResolvedValue(2);
 
     await checkRateLimit("1.2.3.4", 10);
 
-    expect(mockExpire).not.toHaveBeenCalled();
+    expect(mockExpire).toHaveBeenCalledWith("rate:1.2.3.4:leaderboard", 3600);
   });
 
   it("uses correct rate limit key format", async () => {

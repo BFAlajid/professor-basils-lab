@@ -231,6 +231,9 @@ export default memo(function TrainerCard({ team, stats }: TrainerCardProps) {
         <div className="border-t border-[#3a4466]" />
 
         {/* Canvas export */}
+        <div className="sr-only" role="img" aria-label={`Trainer Card: ${cardData.name}, ID ${cardData.trainerId}, ${cardData.badges?.length ?? 0} badges, ${stats.totalCaught ?? 0} caught, ELO ${stats.eloRating ?? 1000}`}>
+          Trainer Card summary
+        </div>
         <TrainerCardCanvas team={team} cardData={cardData} exportAsImage={exportAsImage} />
       </div>
     </motion.div>

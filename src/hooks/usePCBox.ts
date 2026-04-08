@@ -4,7 +4,7 @@ import { useReducer, useEffect, useCallback, useRef, useState } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import { PCBoxPokemon, PCBoxAction, BallType, TeamSlot } from "@/types";
 import { DEFAULT_BALL_INVENTORY } from "@/data/pokeBalls";
-import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/stats";
+import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
 
 const PC_BOX_KEY = "pokemon-team-builder-pc-box";
 const BALL_INVENTORY_KEY = "pokemon-team-builder-ball-inventory";
@@ -108,13 +108,14 @@ export function usePCBox() {
   }, [box]);
 
   const useBall = useCallback((ball: BallType): boolean => {
-    if (ballInventory[ball] <= 0) return false;
-    setBallInventory((prev) => ({
-      ...prev,
-      [ball]: prev[ball] - 1,
-    }));
-    return true;
-  }, [ballInventory]);
+    let success = false;
+    setBallInventory((prev) => {
+      if ((prev[ball] ?? 0) <= 0) return prev;
+      success = true;
+      return { ...prev, [ball]: prev[ball] - 1 };
+    });
+    return success;
+  }, []);
 
   const isAlreadyCaught = useCallback((pokemonId: number): boolean => {
     return box.some((p) => p.pokemon.id === pokemonId);

@@ -81,11 +81,14 @@ export function useAchievements() {
   const [recentUnlock, setRecentUnlock] = useState<Achievement | null>(null);
   const initialized = useRef(false);
   const recentTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const statsRef = useRef(stats);
+  statsRef.current = stats;
 
   // Load persisted data and achievement definitions on mount
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
+    let cancelled = false;
 
     const saved = loadFromStorage();
     if (saved) {
@@ -94,8 +97,10 @@ export function useAchievements() {
     }
 
     import("@/data/achievementDefinitions").then((mod) => {
-      setDefinitions(mod.ACHIEVEMENT_DEFINITIONS);
+      if (!cancelled) setDefinitions(mod.ACHIEVEMENT_DEFINITIONS);
     });
+
+    return () => { cancelled = true; };
   }, []);
 
   // Build full achievement list with unlock state
@@ -108,12 +113,15 @@ export function useAchievements() {
   }, [definitions, unlockedMap]);
 
   // Check achievements and return newly unlocked ones
+  const newUnlocksRef = useRef<Achievement[]>([]);
+
   const checkAchievements = useCallback(() => {
-    let newUnlocks: Achievement[] = [];
+    newUnlocksRef.current = [];
 
     setUnlockedMap((prev) => {
       const updated = { ...prev };
       let changed = false;
+      const unlocks: Achievement[] = [];
 
       for (const def of definitions) {
         if (def.id in updated) continue;
@@ -121,7 +129,7 @@ export function useAchievements() {
           const now = new Date().toISOString();
           updated[def.id] = now;
           changed = true;
-          newUnlocks.push({
+          unlocks.push({
             ...def,
             unlocked: true,
             unlockedAt: now,
@@ -129,11 +137,13 @@ export function useAchievements() {
         }
       }
 
+      newUnlocksRef.current = unlocks;
       if (!changed) return prev;
       return updated;
     });
 
     // Show the most recent unlock as a toast trigger
+    const newUnlocks = newUnlocksRef.current;
     if (newUnlocks.length > 0) {
       const latest = newUnlocks[newUnlocks.length - 1];
       setRecentUnlock(latest);
@@ -208,10 +218,10 @@ export function useAchievements() {
   }, []);
 
   const spendMoney = useCallback((amount: number): boolean => {
-    if (stats.money < amount) return false;
+    if (statsRef.current.money < amount) return false;
     dispatchStats({ type: "SPEND_MONEY", amount });
     return true;
-  }, [stats.money]);
+  }, []);
 
   const updateElo = useCallback((won: boolean, opponentRating?: number) => {
     dispatchStats({ type: "UPDATE_ELO", won, opponentRating });

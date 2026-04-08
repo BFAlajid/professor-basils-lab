@@ -72,7 +72,7 @@ export default function EmulatorControls({
           <button
             key={slot}
             onClick={() => onSaveState(slot)}
-            className="w-6 h-6 rounded bg-[#2a5040] text-[#f0f0e8] text-[10px] font-pixel hover:bg-[#3a6050] transition-colors"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded bg-[#2a5040] text-[#f0f0e8] text-[10px] font-pixel hover:bg-[#3a6050] transition-colors"
           >
             {slot}
           </button>
@@ -84,7 +84,7 @@ export default function EmulatorControls({
           <button
             key={slot}
             onClick={() => onLoadState(slot)}
-            className="w-6 h-6 rounded bg-[#2a3050] text-[#f0f0e8] text-[10px] font-pixel hover:bg-[#3a4060] transition-colors"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded bg-[#2a3050] text-[#f0f0e8] text-[10px] font-pixel hover:bg-[#3a4060] transition-colors"
           >
             {slot}
           </button>

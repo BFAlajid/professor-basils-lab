@@ -47,6 +47,9 @@ export default memo(function PokemonCard({
         boxShadow: `0 0 20px ${glowColor}4D`,
         borderColor: `${glowColor}80`,
       }}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } }}
       className={`relative rounded-xl border bg-[#262b44] p-4 cursor-pointer transition-colors ${
         isExpanded ? "border-[#e8433f]" : "border-[#3a4466]"
       }`}
@@ -59,7 +62,7 @@ export default memo(function PokemonCard({
             playCry(pokemon);
           }}
           aria-label={`Play ${pokemon.name} cry`}
-          className="flex h-6 w-6 items-center justify-center rounded-full bg-[#3a4466] text-xs text-[#8b9bb4] hover:bg-[#3b82f6] hover:text-[#f0f0e8] transition-colors"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#3a4466] text-xs text-[#8b9bb4] hover:bg-[#3b82f6] hover:text-[#f0f0e8] transition-colors"
           title="Play cry"
         >
           &#9835;
@@ -70,7 +73,7 @@ export default memo(function PokemonCard({
             onRemove(position);
           }}
           aria-label={`Remove ${pokemon.name} from team`}
-          className="flex h-6 w-6 items-center justify-center rounded-full bg-[#3a4466] text-xs text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#3a4466] text-xs text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
         >
           X
         </button>

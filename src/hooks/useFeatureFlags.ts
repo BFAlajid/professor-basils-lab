@@ -15,7 +15,7 @@ const DEFAULT_STATE: FeatureFlagsState = {
     enableLeaderboards: true,
     enableEmulator: true,
     enableCitrine: false,
-    enableMultiplayer: false,
+    enableMultiplayer: true,
     maintenanceMode: false,
   },
   announcement: { banner: null, bannerType: "info" },

@@ -1,8 +1,10 @@
 "use client";
 
+import { useCallback } from "react";
 import { motion } from "framer-motion";
-import { TeamSlot, BallType, PCBoxPokemon, Pokemon, OnlineState, SafariZoneState, LinkMode, TradeOffer } from "@/types";
-import type { WildPanel } from "./WildToolbar";
+import { useWildInventoryContext, useWildUIContext } from "@/contexts/WildTabContext";
+import { createPCBoxPokemon } from "@/utils/pokemonFactory";
+import type { Pokemon } from "@/types";
 import PCBox from "./PCBox";
 import DayCare from "./DayCare";
 import WonderTrade from "./WonderTrade";
@@ -20,81 +22,67 @@ import BerryFarm from "./BerryFarm";
 import SlotMachine from "./SlotMachine";
 import EggMoveCalculator from "./EggMoveCalculator";
 
-interface WildPanelRouterProps {
-  activePanel: WildPanel;
-  // PC Box
-  box: PCBoxPokemon[];
-  teamSize: number;
-  onMoveToTeam: (index: number) => void;
-  onRemoveFromBox: (index: number) => void;
-  onSetNickname: (index: number, nickname: string) => void;
-  onAddToBox: (p: PCBoxPokemon) => void;
-  // Wonder Trade / Mystery Gift
-  onTradeComplete: () => void;
-  onGiftClaimed: () => void;
-  // Link Cable / Trade
-  linkView: "cable" | "trade";
-  online: {
-    state: OnlineState;
-    createLobby: () => Promise<void>;
-    joinLobby: (code: string) => Promise<void>;
-    setLinkMode: (mode: LinkMode) => void;
-    disconnect: () => void;
-    shareMyBox: (box: PCBoxPokemon[]) => void;
-    sendTradeOffer: (offer: TradeOffer) => void;
-    confirmTrade: () => void;
-    rejectTrade: () => void;
-    completeTrade: (sent: PCBoxPokemon) => void;
-    resetTrade: () => void;
-  };
-  onLinkBattle: () => void;
-  onLinkTrade: () => void;
-  onLinkBack: () => void;
-  onTradeSwitchToCable: () => void;
-  // Safari Zone
-  safari: {
-    state: SafariZoneState;
-    isSearching: boolean;
-    enterSafari: (region: string) => void;
-    search: () => Promise<void>;
-    throwBall: () => void;
-    throwRock: () => void;
-    throwBait: () => void;
-    run: () => void;
-    continueAfterResult: () => void;
-    exitSafari: () => void;
-    reset: () => void;
-  };
-  onSafariAddAll: (entries: { pokemon: Pokemon; level: number; isShiny: boolean }[]) => void;
-  onSafariTrip: () => void;
-  onSafariClose: () => void;
-  // Game Corner
-  onGameCornerPurchase: (pokemonId: number, level: number, area: string) => Promise<void>;
-  onCoinsEarned: (amount: number) => void;
-  // Type Quiz
-  stats: { money: number; quizBestScore?: number };
-  onQuizScore: (score: number) => void;
-  // Fossil Lab
-  fossilInventory: Record<string, number>;
-  onReviveFossil: (fossilId: string) => Promise<void>;
-  onFossilClose: () => void;
-  // PokeMart
-  ballInventory: Record<string, number>;
-  battleItemInventory: Record<string, number>;
-  ownedItems: Record<string, number>;
-  onPokeMartBuy: (item: { id: string; price: number; category: string; ballType?: BallType }, quantity: number) => boolean;
-  // EV Training
-  team: TeamSlot[];
-  onUpdateEvs: (position: number, evs: import("@/types").EVSpread) => void;
-  onEvSession: () => void;
-  // Move Tutor
-  onTeachMove: (position: number, moveName: string) => void;
-  onSpendHeartScale: () => boolean;
-}
+export default function WildPanelRouter() {
+  const {
+    box, handleMoveToTeam, removeFromBox, setNickname, addToBox,
+    incrementStat, markCaught, addUniqueBall, addUniqueType, addKantoSpecies,
+    handleGameCornerPurchase, stats, fossilInventory, handleReviveFossil,
+    ballInventory, battleItemInventory, ownedItems, setOwnedItems, handlePokeMartBuy,
+  } = useWildInventoryContext();
 
-export default function WildPanelRouter(props: WildPanelRouterProps) {
-  const { activePanel } = props;
+  const {
+    activePanel, setActivePanel, linkView, setLinkView,
+    online, safari, team, onSetEvs, onSetMoves,
+  } = useWildUIContext();
+
   if (!activePanel) return null;
+
+  const onSafariAddAll = useCallback((entries: { pokemon: Pokemon; level: number; isShiny: boolean }[]) => {
+    entries.forEach((entry) => {
+      const pcPokemon = createPCBoxPokemon({
+        pokemon: entry.pokemon,
+        caughtInArea: `Safari Zone (${safari.state.region})`,
+        level: entry.level,
+        isShiny: entry.isShiny,
+      });
+      addToBox(pcPokemon);
+      markCaught(entry.pokemon.id, entry.pokemon.name, "safari");
+      incrementStat("totalCaught");
+      incrementStat("safariPokemonCaught");
+      if (entry.isShiny) incrementStat("shinyCaught");
+      entry.pokemon.types.forEach((t: { type: { name: string } }) => addUniqueType(t.type.name));
+      if (entry.pokemon.id <= 151) addKantoSpecies(entry.pokemon.id);
+    });
+    incrementStat("safariTripsCompleted");
+  }, [safari.state.region, addToBox, markCaught, incrementStat, addUniqueType, addKantoSpecies]);
+
+  const onSafariTrip = useCallback(() => {
+    if (safari.state.caughtPokemon.length > 0) incrementStat("safariTripsCompleted");
+  }, [safari.state.caughtPokemon.length, incrementStat]);
+
+  const onSafariClose = useCallback(() => {
+    if (safari.state.phase !== "entrance") safari.reset();
+    setActivePanel(null);
+  }, [safari, setActivePanel]);
+
+  const onQuizScore = useCallback((score: number) => {
+    if (score > (stats.quizBestScore ?? 0)) incrementStat("quizBestScore", score - (stats.quizBestScore ?? 0));
+  }, [stats.quizBestScore, incrementStat]);
+
+  const onTeachMove = useCallback((position: number, moveName: string) => {
+    const slot = team[position];
+    if (!slot) return;
+    const moves = slot.selectedMoves ?? [];
+    if (moves.length >= 4) return;
+    onSetMoves?.(position, [...moves, moveName]);
+  }, [team, onSetMoves]);
+
+  const onSpendHeartScale = useCallback(() => {
+    if ((ownedItems["heart-scale"] ?? 0) <= 0) return false;
+    setOwnedItems((prev) => ({ ...prev, "heart-scale": (prev["heart-scale"] ?? 0) - 1 }));
+    incrementStat("heartScalesUsed");
+    return true;
+  }, [ownedItems, setOwnedItems, incrementStat]);
 
   return (
     <motion.div
@@ -105,118 +93,118 @@ export default function WildPanelRouter(props: WildPanelRouterProps) {
     >
       {activePanel === "pcBox" && (
         <PCBox
-          box={props.box}
-          teamSize={props.teamSize}
-          onMoveToTeam={props.onMoveToTeam}
-          onRemove={props.onRemoveFromBox}
-          onSetNickname={props.onSetNickname}
+          box={box}
+          teamSize={team.length}
+          onMoveToTeam={handleMoveToTeam}
+          onRemove={removeFromBox}
+          onSetNickname={setNickname}
         />
       )}
-      {activePanel === "dayCare" && <DayCare box={props.box} />}
+      {activePanel === "dayCare" && <DayCare box={box} />}
       {activePanel === "wonderTrade" && (
         <WonderTrade
-          box={props.box}
-          onRemoveFromBox={props.onRemoveFromBox}
-          onAddToBox={props.onAddToBox}
-          onTradeComplete={props.onTradeComplete}
+          box={box}
+          onRemoveFromBox={removeFromBox}
+          onAddToBox={addToBox}
+          onTradeComplete={() => incrementStat("wonderTradesCompleted")}
         />
       )}
       {activePanel === "mysteryGift" && (
         <MysteryGift
-          onAddToBox={props.onAddToBox}
-          onGiftClaimed={props.onGiftClaimed}
+          onAddToBox={addToBox}
+          onGiftClaimed={() => incrementStat("mysteryGiftsClaimed")}
         />
       )}
       {activePanel === "linkCable" && (
-        props.linkView === "cable" ? (
+        linkView === "cable" ? (
           <LinkCable
             online={{
-              state: props.online.state,
-              createLobby: props.online.createLobby,
-              joinLobby: props.online.joinLobby,
-              setLinkMode: props.online.setLinkMode,
-              disconnect: props.online.disconnect,
+              state: online.state,
+              createLobby: online.createLobby,
+              joinLobby: online.joinLobby,
+              setLinkMode: online.setLinkMode,
+              disconnect: online.disconnect,
             }}
-            onBattle={props.onLinkBattle}
-            onTrade={props.onLinkTrade}
-            onBack={props.onLinkBack}
+            onBattle={() => setActivePanel(null)}
+            onTrade={() => setLinkView("trade")}
+            onBack={() => { online.disconnect(); setActivePanel(null); }}
           />
         ) : (
           <LinkTrade
-            myBox={props.box}
-            trade={props.online.state.trade}
-            isHost={props.online.state.isHost}
-            onShareBox={props.online.shareMyBox}
-            onOfferPokemon={props.online.sendTradeOffer}
-            onConfirm={props.online.confirmTrade}
-            onReject={props.online.rejectTrade}
-            onComplete={(sentPokemon) => props.online.completeTrade(sentPokemon)}
-            onReset={props.online.resetTrade}
-            onAddToBox={props.onAddToBox}
-            onRemoveFromBox={props.onRemoveFromBox}
-            onBack={props.onTradeSwitchToCable}
+            myBox={box}
+            trade={online.state.trade}
+            isHost={online.state.isHost}
+            onShareBox={online.shareMyBox}
+            onOfferPokemon={online.sendTradeOffer}
+            onConfirm={online.confirmTrade}
+            onReject={online.rejectTrade}
+            onComplete={(sentPokemon) => online.completeTrade(sentPokemon)}
+            onReset={online.resetTrade}
+            onAddToBox={addToBox}
+            onRemoveFromBox={removeFromBox}
+            onBack={() => setLinkView("cable")}
           />
         )
       )}
       {activePanel === "safariZone" && (
         <SafariZone
-          state={props.safari.state}
-          isSearching={props.safari.isSearching}
-          onEnter={props.safari.enterSafari}
-          onSearch={props.safari.search}
-          onThrowBall={props.safari.throwBall}
-          onThrowRock={props.safari.throwRock}
-          onThrowBait={props.safari.throwBait}
-          onRun={props.safari.run}
-          onContinue={props.safari.continueAfterResult}
-          onExit={props.safari.exitSafari}
+          state={safari.state}
+          isSearching={safari.isSearching}
+          onEnter={safari.enterSafari}
+          onSearch={safari.search}
+          onThrowBall={safari.throwBall}
+          onThrowRock={safari.throwRock}
+          onThrowBait={safari.throwBait}
+          onRun={safari.run}
+          onContinue={safari.continueAfterResult}
+          onExit={safari.exitSafari}
           onReset={() => {
-            props.onSafariTrip();
-            props.safari.reset();
+            onSafariTrip();
+            safari.reset();
           }}
-          onAddAllToBox={props.onSafariAddAll}
-          onClose={props.onSafariClose}
+          onAddAllToBox={onSafariAddAll}
+          onClose={onSafariClose}
         />
       )}
       {activePanel === "gameCorner" && (
         <VoltorbFlip
-          onAddToBox={props.onGameCornerPurchase}
-          onCoinsEarned={props.onCoinsEarned}
+          onAddToBox={handleGameCornerPurchase}
+          onCoinsEarned={(amount) => incrementStat("gameCornerCoinsEarned", amount)}
         />
       )}
       {activePanel === "typeQuiz" && (
-        <TypeQuiz onScoreUpdate={props.onQuizScore} />
+        <TypeQuiz onScoreUpdate={onQuizScore} />
       )}
       {activePanel === "fossilLab" && (
         <FossilLab
-          fossilInventory={props.fossilInventory}
-          onRevive={props.onReviveFossil}
-          onClose={props.onFossilClose}
+          fossilInventory={fossilInventory}
+          onRevive={handleReviveFossil}
+          onClose={() => setActivePanel(null)}
         />
       )}
       {activePanel === "pokeMart" && (
         <PokeMart
-          money={props.stats.money}
-          onBuy={props.onPokeMartBuy}
-          ballInventory={props.ballInventory}
-          battleItemInventory={props.battleItemInventory}
-          ownedItems={props.ownedItems}
+          money={stats.money}
+          onBuy={handlePokeMartBuy}
+          ballInventory={ballInventory}
+          battleItemInventory={battleItemInventory}
+          ownedItems={ownedItems}
         />
       )}
       {activePanel === "evTraining" && (
         <EVTraining
-          team={props.team}
-          ownedItems={props.ownedItems}
-          onUpdateEvs={props.onUpdateEvs}
-          onSessionComplete={props.onEvSession}
+          team={team}
+          ownedItems={ownedItems}
+          onUpdateEvs={(position, evs) => onSetEvs?.(position, evs)}
+          onSessionComplete={() => incrementStat("evTrainingSessions")}
         />
       )}
       {activePanel === "moveTutor" && (
         <MoveTutor
-          team={props.team}
-          heartScales={props.ownedItems["heart-scale"] ?? 0}
-          onTeachMove={props.onTeachMove}
-          onSpendHeartScale={props.onSpendHeartScale}
+          team={team}
+          heartScales={ownedItems["heart-scale"] ?? 0}
+          onTeachMove={onTeachMove}
+          onSpendHeartScale={onSpendHeartScale}
         />
       )}
       {activePanel === "berryFarm" && <BerryFarm />}

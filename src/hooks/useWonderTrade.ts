@@ -13,6 +13,7 @@ import {
 import { pickRandomFromPool } from "@/data/wonderTradePool";
 import { NATURES } from "@/data/natures";
 import { generateRandomIVs } from "@/utils/wildBattle";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 import { shuffleArray } from "@/utils/random";
 
 const WONDER_TRADE_KEY = "pokemon-wonder-trade";
@@ -57,6 +58,7 @@ function wonderTradeReducer(
 export function useWonderTrade() {
   const [state, dispatch] = useReducer(wonderTradeReducer, initialState);
   const initialized = useRef(false);
+  const tradeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load history from localStorage
   useEffect(() => {
@@ -86,6 +88,13 @@ export function useWonderTrade() {
     }
   }, [state.history]);
 
+  // Clean up trade timer on unmount
+  useEffect(() => {
+    return () => {
+      if (tradeTimerRef.current) clearTimeout(tradeTimerRef.current);
+    };
+  }, []);
+
   const selectPokemon = useCallback((index: number) => {
     dispatch({ type: "SELECT_POKEMON", index });
   }, []);
@@ -95,9 +104,10 @@ export function useWonderTrade() {
   }, []);
 
   const executeTrade = useCallback(
-    async (box: PCBoxPokemon[]): Promise<PCBoxPokemon | null> => {
-      if (state.selectedBoxIndex === null) return null;
-      const offeredPokemon = box[state.selectedBoxIndex];
+    async (box: PCBoxPokemon[], selectedIndex?: number): Promise<PCBoxPokemon | null> => {
+      const idx = selectedIndex ?? state.selectedBoxIndex;
+      if (idx === null) return null;
+      const offeredPokemon = box[idx];
       if (!offeredPokemon) return null;
 
       dispatch({ type: "START_TRADE" });
@@ -107,11 +117,7 @@ export function useWonderTrade() {
         const poolEntry = pickRandomFromPool();
 
         // Fetch Pokemon data from PokeAPI
-        const response = await fetch(
-          `https://pokeapi.co/api/v2/pokemon/${poolEntry.pokemonId}`
-        );
-        if (!response.ok) throw new Error("Failed to fetch Pokemon");
-        const pokemonData = await response.json();
+        const pokemonData = await fetchPokemonData(poolEntry.pokemonId);
 
         // Random level 1-50
         const level = Math.floor(Math.random() * 50) + 1;
@@ -160,9 +166,12 @@ export function useWonderTrade() {
         };
 
         // Simulate searching delay (2-3 seconds)
-        await new Promise((r) =>
-          setTimeout(r, 2000 + Math.random() * 1000)
-        );
+        await new Promise<void>((r) => {
+          tradeTimerRef.current = setTimeout(() => {
+            tradeTimerRef.current = null;
+            r();
+          }, 2000 + Math.random() * 1000);
+        });
 
         const record: WonderTradeRecord = {
           id: `wt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

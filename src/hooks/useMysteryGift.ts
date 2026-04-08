@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useEffect, useCallback, useRef, useMemo } from "react";
+import { useReducer, useEffect, useCallback, useRef, useMemo, useState } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import {
   MysteryGiftState,
@@ -13,6 +13,7 @@ import {
 import { getTodaysGift } from "@/data/mysteryGifts";
 import { NATURES } from "@/data/natures";
 import { generateRandomIVs } from "@/utils/wildBattle";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 
 const STORAGE_KEY = "pokemon-mystery-gift";
 
@@ -44,6 +45,7 @@ function mysteryGiftReducer(
 export function useMysteryGift() {
   const [state, dispatch] = useReducer(mysteryGiftReducer, initialState);
   const initialized = useRef(false);
+  const claimingRef = useRef(false);
 
   // Load from localStorage
   useEffect(() => {
@@ -77,6 +79,17 @@ export function useMysteryGift() {
     }
   }, [state]);
 
+  const [dateKey, setDateKey] = useState(() => new Date().toISOString().slice(0, 10));
+
+  // Check for date rollover every 60s
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = new Date().toISOString().slice(0, 10);
+      if (now !== dateKey) setDateKey(now);
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [dateKey]);
+
   const todaysGift = useMemo<{
     gift: MysteryGiftDefinition;
     reason: string;
@@ -87,7 +100,7 @@ export function useMysteryGift() {
       silentWarn("getTodaysGift", e);
       return null;
     }
-  }, []);
+  }, [dateKey]);
 
   const isClaimedToday = useMemo<boolean>(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -95,6 +108,10 @@ export function useMysteryGift() {
   }, [state.claimedDates]);
 
   const claimGift = useCallback(async (): Promise<PCBoxPokemon | null> => {
+    if (claimingRef.current) return null;
+    claimingRef.current = true;
+
+    try {
     const today = new Date().toISOString().split("T")[0];
 
     // Already claimed today
@@ -105,11 +122,12 @@ export function useMysteryGift() {
     const gift = giftResult.gift;
 
     // Fetch the Pokemon from PokeAPI
-    const res = await fetch(
-      `https://pokeapi.co/api/v2/pokemon/${gift.pokemonId}`
-    );
-    if (!res.ok) return null;
-    const data: Pokemon = await res.json();
+    let data: Pokemon;
+    try {
+      data = await fetchPokemonData(gift.pokemonId);
+    } catch {
+      return null;
+    }
 
     // Nature: use gift-specified nature or random
     const nature = gift.nature
@@ -148,6 +166,9 @@ export function useMysteryGift() {
     dispatch({ type: "CLAIM", date: today });
 
     return pokemon;
+    } finally {
+      claimingRef.current = false;
+    }
   }, [state.claimedDates]);
 
   return {

@@ -109,7 +109,7 @@ function FossilCard({
           <span className="text-[10px] font-pixel text-[#f0f0e8] truncate">
             {fossil.name}
           </span>
-          <span className="text-[8px] font-pixel text-[#8b9bb4] shrink-0">
+          <span className="text-[10px] font-pixel text-[#8b9bb4] shrink-0">
             Lv. {fossil.reviveLevel}
           </span>
         </div>

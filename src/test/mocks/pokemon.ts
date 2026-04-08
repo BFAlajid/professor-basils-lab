@@ -129,7 +129,7 @@ function defaultStatStages(): StatStages {
 }
 
 function defaultSideConditions(): SideConditions {
-  return { stealthRock: false, spikesLayers: 0, toxicSpikesLayers: 0, stickyWeb: false, reflect: 0, lightScreen: 0 };
+  return { stealthRock: false, spikesLayers: 0, toxicSpikesLayers: 0, stickyWeb: false, reflect: 0, lightScreen: 0, tailwind: 0 };
 }
 
 export function createMockBattlePokemon(
@@ -146,12 +146,19 @@ export function createMockBattlePokemon(
     isFainted: false,
     toxicCounter: 0,
     sleepTurns: 0,
+    confusionTurns: 0,
     turnsOnField: 0,
     isProtected: false,
     lastMoveUsed: null,
     consecutiveProtects: 0,
     isFlinched: false,
     choiceLockedMove: null,
+    focusEnergy: false,
+    movePP: (slot.selectedMoves ?? []).map(() => 15),
+    moveMaxPP: (slot.selectedMoves ?? []).map(() => 15),
+    substituteHp: 0,
+    chargingMove: null,
+    semiInvulnerable: null,
     isMegaEvolved: false,
     isTerastallized: false,
     isDynamaxed: false,
@@ -163,6 +170,7 @@ export function createMockBattlePokemon(
     hasMegaEvolved: false,
     hasTerastallized: false,
     hasDynamaxed: false,
+    roostActive: false,
     ...overrides,
   };
 }
@@ -200,6 +208,7 @@ export function createMockBattleState(
       weatherTurnsLeft: 0,
       terrain: null,
       terrainTurnsLeft: 0,
+      trickRoom: 0,
       player1Side: defaultSideConditions(),
       player2Side: defaultSideConditions(),
     },

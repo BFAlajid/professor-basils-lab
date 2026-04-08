@@ -87,7 +87,7 @@ describe("POST /api/leaderboard", () => {
     expect(body.error).toBe("Invalid leaderboard type");
   });
 
-  it("strips HTML from trainerName", async () => {
+  it("sanitizes trainerName to allowlisted characters", async () => {
     const response = await POST(
       makePostRequest({
         type: "battle-tower",
@@ -97,7 +97,7 @@ describe("POST /api/leaderboard", () => {
 
     expect(response.status).toBe(201);
     const submittedEntry = mockSubmitScore.mock.calls[0][1];
-    expect(submittedEntry.trainerName).toBe("Ash");
+    expect(submittedEntry.trainerName).toBe("bAshb");
   });
 
   it("rejects trainerId not matching 5-digit format", async () => {
@@ -178,7 +178,7 @@ describe("POST /api/leaderboard", () => {
     expect(body.error).toContain("at most 6");
   });
 
-  it("sanitizes teamPokemon entries by stripping HTML", async () => {
+  it("sanitizes teamPokemon entries to allowlisted characters", async () => {
     const response = await POST(
       makePostRequest({
         type: "battle-tower",
@@ -188,7 +188,7 @@ describe("POST /api/leaderboard", () => {
 
     expect(response.status).toBe(201);
     const submittedEntry = mockSubmitScore.mock.calls[0][1];
-    expect(submittedEntry.teamPokemon[0]).toBe("pikachu");
+    expect(submittedEntry.teamPokemon[0]).toBe("bpikachub");
   });
 
   it("rejects non-string teamPokemon entries", async () => {
@@ -267,11 +267,11 @@ describe("POST /api/leaderboard", () => {
     expect(response.status).toBe(400);
   });
 
-  it("rejects empty trainerName after HTML stripping", async () => {
+  it("rejects empty trainerName after sanitization", async () => {
     const response = await POST(
       makePostRequest({
         type: "battle-tower",
-        entry: validEntry({ trainerName: "<script></script>" }),
+        entry: validEntry({ trainerName: "!@#$%^&*()" }),
       })
     );
 

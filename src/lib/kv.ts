@@ -101,8 +101,6 @@ export async function checkRateLimit(
 ): Promise<boolean> {
   const key = rateLimitKey(ip);
   const current = await kv.incr(key);
-  if (current === 1) {
-    await kv.expire(key, 3600);
-  }
+  await kv.expire(key, 3600);
   return current <= maxPerHour;
 }

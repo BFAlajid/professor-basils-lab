@@ -37,7 +37,7 @@ function PokemonCard({
     >
       {/* Selection indicator */}
       <div
-        className={`absolute top-1 right-1 w-4 h-4 rounded-full border-2 flex items-center justify-center text-[8px] ${
+        className={`absolute top-1 right-1 w-4 h-4 rounded-full border-2 flex items-center justify-center text-[10px] ${
           preview.selected
             ? "border-[#e8433f] bg-[#e8433f] text-white"
             : "border-[#8b9bb4]"
@@ -67,7 +67,7 @@ function PokemonCard({
       <p className="text-[#8b9bb4] text-[9px] text-center">
         Lv.{gen3.level} {gen3.isShiny && "★"}
       </p>
-      <p className="text-[#8b9bb4] text-[8px] text-center">{nature}</p>
+      <p className="text-[#8b9bb4] text-[10px] text-center">{nature}</p>
 
       {/* IVs summary */}
       <div className="flex justify-center gap-0.5 mt-1">
@@ -82,7 +82,7 @@ function PokemonCard({
       </div>
 
       {preview.source === "box" && preview.boxIndex !== undefined && (
-        <p className="text-[#8b9bb4] text-[7px] text-center mt-0.5">
+        <p className="text-[#8b9bb4] text-[10px] text-center mt-0.5">
           Box {preview.boxIndex + 1}
         </p>
       )}

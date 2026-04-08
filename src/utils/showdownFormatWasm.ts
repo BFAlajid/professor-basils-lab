@@ -5,6 +5,7 @@ import { fetchPokemon } from "@/hooks/usePokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import {
   exportToShowdown as exportToShowdown_JS,
+  exportSlotToShowdown as exportSlotToShowdown_JS,
   importFromShowdown as importFromShowdown_JS,
 } from "./showdownFormat";
 import { STAT_KEYS } from "@/data/constants";
@@ -113,4 +114,8 @@ export function exportToShowdown(team: TeamSlot[]): string {
     } catch (e) { silentWarn("wasmExportShowdown", e); }
   }
   return exportToShowdown_JS(team);
+}
+
+export function exportSlotToShowdown(slot: TeamSlot): string {
+  return exportToShowdown([slot]);
 }

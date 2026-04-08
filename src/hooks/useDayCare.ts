@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useEffect, useRef, useCallback, useState } from "react";
+import { useReducer, useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import { DayCareState, DayCareAction, BreedingPair, PCBoxPokemon, BreedingEgg } from "@/types";
 import { fetchEggGroups, checkCompatibility, getOffspringSpeciesId, createEgg } from "@/utils/breedingWasm";
@@ -52,6 +52,8 @@ export function useDayCare(box: PCBoxPokemon[]) {
   const [state, dispatch] = useReducer(dayCareReducer, initialState);
   const [isCheckingCompat, setIsCheckingCompat] = useState(false);
   const initialized = useRef(false);
+  const boxRef = useRef(box);
+  boxRef.current = box;
   const stepInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load from localStorage on mount
@@ -79,9 +81,12 @@ export function useDayCare(box: PCBoxPokemon[]) {
     }
   }, [state.currentPair, state.eggs]);
 
+  // Stable boolean dep to avoid re-creating interval on every egg state change
+  const hasUnhatchedEggs = useMemo(() => state.eggs.some((e) => !e.isHatched), [state.eggs]);
+
   // Step counter interval — advances eggs every 3 seconds
   useEffect(() => {
-    if (state.eggs.some((e) => !e.isHatched)) {
+    if (hasUnhatchedEggs) {
       stepInterval.current = setInterval(() => {
         dispatch({ type: "ADVANCE_STEPS", steps: 128 });
       }, 3000);
@@ -89,13 +94,14 @@ export function useDayCare(box: PCBoxPokemon[]) {
     return () => {
       if (stepInterval.current) clearInterval(stepInterval.current);
     };
-  }, [state.eggs]);
+  }, [hasUnhatchedEggs]);
 
-  // Check compatibility when pair changes
+  // Check compatibility when pair changes (use boxRef to avoid re-running on every box mutation)
   useEffect(() => {
     if (!state.currentPair) return;
-    const p1 = box[state.currentPair.parent1Index];
-    const p2 = box[state.currentPair.parent2Index];
+    const currentBox = boxRef.current;
+    const p1 = currentBox[state.currentPair.parent1Index];
+    const p2 = currentBox[state.currentPair.parent2Index];
     if (!p1 || !p2) return;
 
     setIsCheckingCompat(true);
@@ -106,13 +112,11 @@ export function useDayCare(box: PCBoxPokemon[]) {
       const isDitto1 = p1.pokemon.name === "ditto";
       const isDitto2 = p2.pokemon.name === "ditto";
       const result = checkCompatibility(groups1, groups2, isDitto1, isDitto2);
-      // Mutate state directly through a fresh SET_PAIR won't help, so we use a small hack:
-      // We just update the compatibility fields based on the check
       dispatch({ type: "SET_PAIR", pair: state.currentPair! });
-      // We store compatibility in local state since it's derived
       setCompatState(result);
     }).finally(() => setIsCheckingCompat(false));
-  }, [state.currentPair, box]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.currentPair]);
 
   const [compatState, setCompatState] = useState<{ compatible: boolean; message: string }>({
     compatible: false,
@@ -130,8 +134,9 @@ export function useDayCare(box: PCBoxPokemon[]) {
 
   const collectEgg = useCallback(async () => {
     if (!state.currentPair || !compatState.compatible) return;
-    const p1 = box[state.currentPair.parent1Index];
-    const p2 = box[state.currentPair.parent2Index];
+    const currentBox = boxRef.current;
+    const p1 = currentBox[state.currentPair.parent1Index];
+    const p2 = currentBox[state.currentPair.parent2Index];
     if (!p1 || !p2) return;
 
     const speciesId = await getOffspringSpeciesId(p1, p2);
@@ -146,7 +151,7 @@ export function useDayCare(box: PCBoxPokemon[]) {
 
     const egg = createEgg(p1, p2, speciesId, speciesName);
     dispatch({ type: "CREATE_EGG", egg });
-  }, [state.currentPair, compatState.compatible, box]);
+  }, [state.currentPair, compatState.compatible]);
 
   const hatchEgg = useCallback(async (index: number) => {
     const egg = state.eggs[index];

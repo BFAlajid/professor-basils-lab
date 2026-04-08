@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Image from "@/components/PokeImage";
-import { TeamSlot, BattleMode, GenerationalMechanic, DifficultyLevel } from "@/types";
+import { TeamSlot, BattleMode, BattleFormat, GenerationalMechanic, DifficultyLevel } from "@/types";
 import LoadingSpinner from "../LoadingSpinner";
 import TypeBadge from "../TypeBadge";
 
 interface BattleSetupProps {
   playerTeam: TeamSlot[];
-  onStart: (player1Team: TeamSlot[], player2Team: TeamSlot[], mode: BattleMode, playerMechanic?: GenerationalMechanic, aiMechanic?: GenerationalMechanic, difficulty?: DifficultyLevel) => void;
+  onStart: (player1Team: TeamSlot[], player2Team: TeamSlot[], mode: BattleMode, playerMechanic?: GenerationalMechanic, aiMechanic?: GenerationalMechanic, difficulty?: DifficultyLevel, format?: BattleFormat) => void;
   onGenerateOpponent: () => Promise<TeamSlot[]>;
   isLoadingOpponent: boolean;
   onModeChange?: (mode: string) => void;
@@ -23,6 +23,7 @@ export default function BattleSetup({
   onModeChange,
 }: BattleSetupProps) {
   const [mode, setMode] = useState<BattleMode>("ai");
+  const [format, setFormat] = useState<BattleFormat>("singles");
   const [mechanic, setMechanic] = useState<GenerationalMechanic>(null);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>("normal");
   const [opponentTeam, setOpponentTeam] = useState<TeamSlot[] | null>(null);
@@ -37,7 +38,7 @@ export default function BattleSetup({
     if (!opponentTeam) return;
     setIsStarting(true);
     try {
-      await onStart(playerTeam, opponentTeam, mode, mechanic, mechanic, difficulty);
+      await onStart(playerTeam, opponentTeam, mode, mechanic, mechanic, difficulty, format);
     } finally {
       setIsStarting(false);
     }
@@ -55,7 +56,7 @@ export default function BattleSetup({
       {/* Mode Selection */}
       <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
         <h3 className="mb-3 text-lg font-bold font-pixel">Battle Mode</h3>
-        <div className="flex gap-3" role="radiogroup" aria-label="Battle mode selection">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2" role="radiogroup" aria-label="Battle mode selection">
           <button
             onClick={() => setMode("ai")}
             role="radio"
@@ -129,6 +130,39 @@ export default function BattleSetup({
             <span className="block text-[10px] mt-1 opacity-70">
               Rental Pokemon
             </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Battle Format */}
+      <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
+        <h3 className="mb-3 text-lg font-bold font-pixel">Format</h3>
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Battle format selection">
+          <button
+            onClick={() => setFormat("singles")}
+            role="radio"
+            aria-checked={format === "singles"}
+            className={`rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+              format === "singles"
+                ? "bg-[#e8433f] text-[#f0f0e8]"
+                : "bg-[#3a4466] text-[#8b9bb4] hover:bg-[#4a5577]"
+            }`}
+          >
+            <span className="block text-base font-pixel">Singles</span>
+            <span className="block text-[10px] mt-1 opacity-70">1v1 active Pokemon</span>
+          </button>
+          <button
+            onClick={() => setFormat("doubles")}
+            role="radio"
+            aria-checked={format === "doubles"}
+            className={`rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+              format === "doubles"
+                ? "bg-[#e8433f] text-[#f0f0e8]"
+                : "bg-[#3a4466] text-[#8b9bb4] hover:bg-[#4a5577]"
+            }`}
+          >
+            <span className="block text-base font-pixel">Doubles</span>
+            <span className="block text-[10px] mt-1 opacity-70">2v2 active Pokemon</span>
           </button>
         </div>
       </div>

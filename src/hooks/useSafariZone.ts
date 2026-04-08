@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useCallback, useState } from "react";
+import { useReducer, useCallback, useState, useRef } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import { SHINY_RATE } from "@/data/constants";
 import {
@@ -11,6 +11,7 @@ import {
   SafariZoneState,
   Pokemon,
 } from "@/types";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 import {
   SAFARI_ENCOUNTERS,
   SafariEncounterDef,
@@ -118,7 +119,7 @@ function safariReducer(
 
       const p = state.currentPokemon;
       const newBalls = state.ballsRemaining - 1;
-      const catchChance = p.baseCatchRate * p.catchModifier;
+      const catchChance = Math.min(1, p.baseCatchRate * p.catchModifier);
       const caught = Math.random() < catchChance;
 
       if (caught) {
@@ -140,7 +141,7 @@ function safariReducer(
       }
 
       // Missed — check flee
-      const fleeChance = p.baseFleeRate * p.fleeModifier;
+      const fleeChance = Math.min(1, p.baseFleeRate * p.fleeModifier);
       const fled = Math.random() < fleeChance;
 
       if (fled) {
@@ -170,12 +171,12 @@ function safariReducer(
       const p = state.currentPokemon;
       const updated: SafariPokemonFull = {
         ...p,
-        catchModifier: p.catchModifier * 2,
-        fleeModifier: p.fleeModifier * 2,
+        catchModifier: Math.min(4, Math.max(0.25, p.catchModifier * 2)),
+        fleeModifier: Math.min(4, Math.max(0.25, p.fleeModifier * 2)),
       };
 
       // Immediate flee check with new flee modifier
-      const fleeChance = updated.baseFleeRate * updated.fleeModifier;
+      const fleeChance = Math.min(1, updated.baseFleeRate * updated.fleeModifier);
       const fled = Math.random() < fleeChance;
 
       if (fled) {
@@ -204,12 +205,12 @@ function safariReducer(
       const p = state.currentPokemon;
       const updated: SafariPokemonFull = {
         ...p,
-        fleeModifier: p.fleeModifier * 0.5,
-        catchModifier: p.catchModifier * 0.5,
+        fleeModifier: Math.min(4, Math.max(0.25, p.fleeModifier * 0.5)),
+        catchModifier: Math.min(4, Math.max(0.25, p.catchModifier * 0.5)),
       };
 
       // Immediate flee check with new flee modifier
-      const fleeChance = updated.baseFleeRate * updated.fleeModifier;
+      const fleeChance = Math.min(1, updated.baseFleeRate * updated.fleeModifier);
       const fled = Math.random() < fleeChance;
 
       if (fled) {
@@ -274,21 +275,29 @@ function safariReducer(
 export function useSafariZone() {
   const [state, dispatch] = useReducer(safariReducer, initialState);
   const [isSearching, setIsSearching] = useState(false);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   const enterSafari = useCallback((region: string) => {
     dispatch({ type: "ENTER_SAFARI", region });
   }, []);
 
+  const searchingRef = useRef(false);
+
   const search = useCallback(async () => {
-    if (state.phase !== "walking") return;
+    if (searchingRef.current) return;
+    const s = stateRef.current;
+    if (s.phase !== "walking") return;
+    searchingRef.current = true;
     setIsSearching(true);
 
     const stepCost = 15 + Math.floor(Math.random() * 11); // 15-25
 
     // Check if out of steps after this search
-    if (state.stepsRemaining - stepCost <= 0) {
+    if (s.stepsRemaining - stepCost <= 0) {
       dispatch({ type: "EXIT_SAFARI" });
       setIsSearching(false);
+      searchingRef.current = false;
       return;
     }
 
@@ -297,15 +306,11 @@ export function useSafariZone() {
     // 70% chance of encounter
     if (Math.random() < 0.7) {
       const pool =
-        SAFARI_ENCOUNTERS[state.region] ?? SAFARI_ENCOUNTERS.kanto;
+        SAFARI_ENCOUNTERS[s.region] ?? SAFARI_ENCOUNTERS.kanto;
       const encounter = weightedRandom(pool);
 
       try {
-        const res = await fetch(
-          `https://pokeapi.co/api/v2/pokemon/${encounter.pokemonId}`
-        );
-        if (!res.ok) throw new Error("Failed to fetch Pokemon");
-        const pokemon: Pokemon = await res.json();
+        const pokemon: Pokemon = await fetchPokemonData(encounter.pokemonId);
 
         const level =
           encounter.minLevel +
@@ -332,7 +337,8 @@ export function useSafariZone() {
     }
 
     setIsSearching(false);
-  }, [state.phase, state.stepsRemaining, state.region]);
+    searchingRef.current = false;
+  }, []);
 
   const throwBall = useCallback(() => {
     dispatch({ type: "THROW_BALL" });

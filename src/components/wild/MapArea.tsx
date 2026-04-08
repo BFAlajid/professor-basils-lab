@@ -50,7 +50,7 @@ export default function MapArea({ area, isSelected, onClick }: MapAreaProps) {
           backdropFilter: "blur(2px)",
         }}
       >
-        <span className="text-[8px] font-pixel text-[#f0f0e8] drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] leading-tight block p-1 truncate">
+        <span className="text-[10px] font-pixel text-[#f0f0e8] drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] leading-tight block p-1 truncate">
           {area.name}
         </span>
       </div>
@@ -59,7 +59,7 @@ export default function MapArea({ area, isSelected, onClick }: MapAreaProps) {
       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-50 pointer-events-none">
         <div className="bg-[#1a1c2c] border border-[#3a4466] rounded-lg px-2 py-1 whitespace-nowrap">
           <p className="text-[9px] font-pixel text-[#f0f0e8]">{area.name}</p>
-          <p className="text-[8px] text-[#8b9bb4]">
+          <p className="text-[10px] text-[#8b9bb4]">
             Lv. {minLevel}-{maxLevel} · {theme.label}
           </p>
         </div>

@@ -29,6 +29,7 @@ function MoveSlot({ moveName, onRemove }: { moveName: string; onRemove: () => vo
       </div>
       <button
         onClick={onRemove}
+        aria-label="Remove move"
         className="text-xs text-[#8b9bb4] hover:text-[#e8433f] transition-colors"
       >
         X
@@ -85,6 +86,10 @@ export default function MoveSelector({
         <div className="relative mt-2">
           <input
             type="text"
+            role="combobox"
+            aria-expanded={open && filtered.length > 0}
+            aria-autocomplete="list"
+            aria-controls="move-suggestions"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -96,10 +101,11 @@ export default function MoveSelector({
             className="w-full rounded-lg border border-[#3a4466] bg-[#1a1c2c] px-3 py-2 text-sm text-[#f0f0e8] placeholder-[#8b9bb4] outline-none focus:border-[#e8433f]"
           />
           {open && filtered.length > 0 && (
-            <div className="absolute z-20 mt-1 w-full rounded-lg border border-[#3a4466] bg-[#262b44] shadow-lg max-h-40 overflow-y-auto">
+            <div id="move-suggestions" role="listbox" className="absolute z-20 mt-1 w-full rounded-lg border border-[#3a4466] bg-[#262b44] shadow-lg max-h-40 overflow-y-auto">
               {filtered.map((m) => (
                 <button
                   key={m}
+                  role="option"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => addMove(m)}
                   className="w-full px-3 py-2 text-left text-sm capitalize hover:bg-[#3a4466] transition-colors"

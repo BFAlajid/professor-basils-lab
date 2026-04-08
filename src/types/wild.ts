@@ -86,7 +86,7 @@ export interface PCBoxPokemon {
 
 export type WildEncounterAction =
   | { type: "SELECT_AREA"; area: RouteArea }
-  | { type: "START_ENCOUNTER"; pokemon: Pokemon; level: number; captureRate: number; playerHp: number; playerMaxHp: number; wildHp: number; wildMaxHp: number }
+  | { type: "START_ENCOUNTER"; pokemon: Pokemon; level: number; captureRate: number; playerHp: number; playerMaxHp: number; wildHp: number; wildMaxHp: number; isShiny: boolean }
   | { type: "PLAYER_ATTACK"; newWildHp: number; newWildStatus: StatusCondition; newPlayerHp: number; newPlayerStatus: StatusCondition; logMessages: string[] }
   | { type: "THROW_BALL"; ball: BallType; shakeChecks: boolean[]; isCaught: boolean }
   | { type: "WILD_FLED" }

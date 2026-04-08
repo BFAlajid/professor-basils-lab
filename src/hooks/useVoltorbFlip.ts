@@ -139,8 +139,6 @@ function voltorbFlipReducer(
       if (value === 0) {
         // Reveal entire board on game over
         const allRevealed = state.board.map((r) => r.map(() => true));
-        // Drop level: lose 1 level (min 1)
-        const newLevel = Math.max(1, state.level - 1);
         return {
           ...state,
           revealed: allRevealed,

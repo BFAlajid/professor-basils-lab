@@ -19,6 +19,8 @@ export function extractBaseStats(pokemon: Pokemon): BaseStats {
 }
 
 export interface DamageCalcOptions {
+  attackerLevel?: number;
+  defenderLevel?: number;
   attackerEvs?: EVSpread;
   attackerIvs?: IVSpread;
   attackerNature?: Nature | null;
@@ -136,6 +138,7 @@ export function calculateDamage(
       attacker: options.attackerBattlePokemon,
       movePower: move.power,
       isPhysical,
+      moveName: move.name,
     });
     if (atkMod !== 1) {
       atk = Math.floor(atk * atkMod);
@@ -188,7 +191,7 @@ export function calculateDamage(
     }
   }
 
-  const level = 50;
+  const level = options?.attackerLevel ?? 50;
   const baseDamage =
     (((2 * level) / 5 + 2) * move.power * (atk / def)) / 50 + 2;
 
@@ -279,4 +282,59 @@ export function getEffectivenessText(effectiveness: number): string {
   if (effectiveness < 1) return "not very effective";
   if (effectiveness > 1) return "super effective!";
   return "neutral";
+}
+
+export interface KOResult {
+  hpPercent: { min: number; max: number };
+  koText: string;
+}
+
+export function calculateKO(
+  damageMin: number,
+  damageMax: number,
+  defenderMaxHP: number
+): KOResult {
+  if (defenderMaxHP <= 0 || (damageMin === 0 && damageMax === 0)) {
+    return {
+      hpPercent: { min: 0, max: 0 },
+      koText: "Does not KO",
+    };
+  }
+
+  const minPercent = (damageMin / defenderMaxHP) * 100;
+  const maxPercent = (damageMax / defenderMaxHP) * 100;
+
+  let koText: string;
+
+  if (damageMin >= defenderMaxHP) {
+    koText = "Guaranteed OHKO";
+  } else if (damageMax >= defenderMaxHP) {
+    const range = damageMax - damageMin + 1;
+    const koRolls = damageMax - defenderMaxHP + 1;
+    const chance = Math.min(100, Math.round((koRolls / range) * 100));
+    koText = `${chance}% chance to OHKO`;
+  } else if (damageMin * 2 >= defenderMaxHP) {
+    koText = "Guaranteed 2HKO";
+  } else if (damageMax * 2 >= defenderMaxHP) {
+    koText = "Possible 2HKO";
+  } else {
+    const guaranteedHits = Math.ceil(defenderMaxHP / damageMin);
+    const bestCaseHits = Math.ceil(defenderMaxHP / damageMax);
+
+    if (guaranteedHits <= 3) {
+      koText = `${guaranteedHits}HKO`;
+    } else if (bestCaseHits <= 3) {
+      koText = `${bestCaseHits}-${guaranteedHits}HKO`;
+    } else {
+      koText = `${bestCaseHits}HKO+`;
+    }
+  }
+
+  return {
+    hpPercent: {
+      min: Math.round(minPercent * 10) / 10,
+      max: Math.round(maxPercent * 10) / 10,
+    },
+    koText,
+  };
 }

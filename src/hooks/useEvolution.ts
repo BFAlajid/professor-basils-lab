@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import { PCBoxPokemon, Pokemon } from "@/types";
 import {
@@ -13,23 +13,29 @@ export function useEvolution() {
   const [loading, setLoading] = useState(false);
   const [chain, setChain] = useState<EvolutionNode | null>(null);
   const [options, setOptions] = useState<EvolutionOption[]>([]);
+  const requestIdRef = useRef(0);
 
   const checkEvolution = useCallback(async (pokemon: PCBoxPokemon) => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setOptions([]);
     try {
       const evoChain = await fetchEvolutionChain(pokemon.pokemon.id);
+      if (requestIdRef.current !== requestId) return;
       setChain(evoChain);
       if (evoChain) {
         const available = getAvailableEvolutions(pokemon.pokemon.id, pokemon.level, evoChain);
         setOptions(available);
       }
     } catch (e) {
+      if (requestIdRef.current !== requestId) return;
       silentWarn("checkEvolution", e);
       setChain(null);
       setOptions([]);
     } finally {
-      setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+      }
     }
   }, []);
 

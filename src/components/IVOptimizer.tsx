@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Pokemon, IVSpread } from "@/types";
-import { calculateAllStats, DEFAULT_EVS } from "@/utils/stats";
+import { calculateAllStats, DEFAULT_EVS } from "@/utils/statsWasm";
 import { extractBaseStats } from "@/utils/damage";
 import { formatName } from "@/utils/format";
 

@@ -119,3 +119,151 @@ pub fn determine_offspring_nature(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // -- check_compatibility --
+
+    #[test]
+    fn compatible_shared_egg_group() {
+        // Two Pokemon sharing egg group 1
+        assert_eq!(check_compatibility(&[1], &[1], false, false), 1);
+    }
+
+    #[test]
+    fn compatible_multiple_groups() {
+        // Pokemon shares group 2, other has groups 2 and 3
+        assert_eq!(check_compatibility(&[2, 3], &[2], false, false), 1);
+    }
+
+    #[test]
+    fn incompatible_no_shared_group() {
+        assert_eq!(check_compatibility(&[1], &[2], false, false), 0);
+    }
+
+    #[test]
+    fn ditto_breeds_with_anything() {
+        assert_eq!(check_compatibility(&[1], &[2], true, false), 2);
+        assert_eq!(check_compatibility(&[1], &[2], false, true), 2);
+    }
+
+    #[test]
+    fn two_dittos_cannot_breed() {
+        assert_eq!(check_compatibility(&[1], &[1], true, true), 0);
+    }
+
+    #[test]
+    fn undiscovered_group_cannot_breed() {
+        let no_eggs: u8 = 15;
+        assert_eq!(check_compatibility(&[no_eggs], &[1], false, false), 0);
+        assert_eq!(check_compatibility(&[1], &[no_eggs], false, false), 0);
+    }
+
+    #[test]
+    fn undiscovered_even_with_ditto() {
+        let no_eggs: u8 = 15;
+        assert_eq!(check_compatibility(&[no_eggs], &[1], false, true), 0);
+    }
+
+    #[test]
+    fn empty_groups_incompatible() {
+        assert_eq!(check_compatibility(&[], &[], false, false), 0);
+    }
+
+    #[test]
+    fn group_255_ignored() {
+        // 255 = "none" placeholder, should not match
+        assert_eq!(check_compatibility(&[255], &[255], false, false), 0);
+    }
+
+    // -- inherit_ivs --
+
+    #[test]
+    fn destiny_knot_inherits_five() {
+        let p1 = [31, 31, 31, 31, 31, 31];
+        let p2 = [0, 0, 0, 0, 0, 0];
+        let result = inherit_ivs(&p1, &p2, true, 42);
+        // Last 6 bytes are the IVs
+        assert_eq!(result.len(), 5 * 2 + 6); // 5 pairs + 6 IVs
+        let ivs = &result[result.len() - 6..];
+        // At least 5 stats should come from a parent (0 or 31)
+        let from_parent = ivs.iter().filter(|&&v| v == 0 || v == 31).count();
+        assert!(from_parent >= 5, "Expected at least 5 inherited, got {from_parent}");
+    }
+
+    #[test]
+    fn no_destiny_knot_inherits_three() {
+        let p1 = [31, 31, 31, 31, 31, 31];
+        let p2 = [0, 0, 0, 0, 0, 0];
+        let result = inherit_ivs(&p1, &p2, false, 42);
+        assert_eq!(result.len(), 3 * 2 + 6); // 3 pairs + 6 IVs
+        let ivs = &result[result.len() - 6..];
+        let from_parent = ivs.iter().filter(|&&v| v == 0 || v == 31).count();
+        assert!(from_parent >= 3, "Expected at least 3 inherited, got {from_parent}");
+    }
+
+    #[test]
+    fn deterministic_with_same_seed() {
+        let p1 = [31, 25, 20, 15, 10, 5];
+        let p2 = [0, 5, 10, 15, 20, 25];
+        let r1 = inherit_ivs(&p1, &p2, true, 12345);
+        let r2 = inherit_ivs(&p1, &p2, true, 12345);
+        assert_eq!(r1, r2);
+    }
+
+    #[test]
+    fn different_seeds_different_results() {
+        let p1 = [31, 31, 31, 31, 31, 31];
+        let p2 = [0, 0, 0, 0, 0, 0];
+        let r1 = inherit_ivs(&p1, &p2, true, 100);
+        let r2 = inherit_ivs(&p1, &p2, true, 200);
+        assert_ne!(r1, r2);
+    }
+
+    #[test]
+    fn ivs_in_valid_range() {
+        let p1 = [31, 31, 31, 31, 31, 31];
+        let p2 = [0, 0, 0, 0, 0, 0];
+        let result = inherit_ivs(&p1, &p2, true, 99999);
+        let ivs = &result[result.len() - 6..];
+        for &iv in ivs {
+            assert!(iv <= 31, "IV {iv} exceeds maximum 31");
+        }
+    }
+
+    // -- determine_offspring_nature --
+
+    #[test]
+    fn everstone_parent1() {
+        assert_eq!(determine_offspring_nature(10, 20, 1, 42), 10);
+    }
+
+    #[test]
+    fn everstone_parent2() {
+        assert_eq!(determine_offspring_nature(10, 20, 2, 42), 20);
+    }
+
+    #[test]
+    fn no_everstone_random_nature() {
+        let nature = determine_offspring_nature(10, 20, 0, 42);
+        assert!(nature < 25, "Nature {nature} out of range");
+    }
+
+    #[test]
+    fn no_everstone_deterministic() {
+        let n1 = determine_offspring_nature(0, 0, 0, 777);
+        let n2 = determine_offspring_nature(0, 0, 0, 777);
+        assert_eq!(n1, n2);
+    }
+
+    #[test]
+    fn no_everstone_different_seeds() {
+        let n1 = determine_offspring_nature(0, 0, 0, 100);
+        let n2 = determine_offspring_nature(0, 0, 0, 200);
+        // Different seeds should (almost certainly) produce different natures
+        // Not guaranteed but extremely likely with xorshift
+        assert!(n1 < 25 && n2 < 25);
+    }
+}

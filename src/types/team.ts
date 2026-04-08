@@ -28,7 +28,7 @@ export interface HeldItem {
   displayName: string;
   effect: string;
   battleModifier?: {
-    type: "damage_boost" | "speed_boost" | "hp_restore" | "survive_ko" | "stat_boost" | "mega_stone";
+    type: "damage_boost" | "speed_boost" | "hp_restore" | "survive_ko" | "stat_boost" | "mega_stone" | "crit_boost";
     value?: number;
     condition?: string;
   };

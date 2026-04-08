@@ -122,6 +122,9 @@ export interface SideConditions {
   stickyWeb: boolean;
   reflect: number;            // turns remaining (0 = inactive)
   lightScreen: number;        // turns remaining (0 = inactive)
+  tailwind: number;           // turns remaining (0 = inactive)
+  wishPending: number;        // 0 = none, 2 = just used, 1 = resolves next turn end
+  wishAmount: number;         // HP to heal when wish resolves
 }
 
 export interface FieldState {
@@ -129,6 +132,7 @@ export interface FieldState {
   weatherTurnsLeft: number;
   terrain: TerrainType | null;
   terrainTurnsLeft: number;
+  trickRoom: number;          // turns remaining (0 = inactive)
   player1Side: SideConditions;
   player2Side: SideConditions;
 }

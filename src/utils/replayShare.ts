@@ -18,6 +18,15 @@ export function encodeReplay(replay: BattleReplay): string {
 export function decodeReplay(code: string): BattleReplay | null {
   try {
     const data = JSON.parse(atob(code));
+    if (typeof data !== "object" || data === null) return null;
+    if (typeof data.id !== "string") return null;
+    if (typeof data.date !== "string") return null;
+    if (!Array.isArray(data.p1) || !data.p1.every((v: unknown) => typeof v === "string")) return null;
+    if (!Array.isArray(data.p2) || !data.p2.every((v: unknown) => typeof v === "string")) return null;
+    if (data.winner !== "player1" && data.winner !== "player2" && data.winner !== null) return null;
+    if (typeof data.mode !== "string") return null;
+    if (typeof data.turns !== "number" || !Number.isFinite(data.turns)) return null;
+    if (!Array.isArray(data.snapshots)) return null;
     return {
       id: data.id,
       date: data.date,
