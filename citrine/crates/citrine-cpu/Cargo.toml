@@ -1,0 +1,14 @@
+[package]
+name = "citrine-cpu"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "ARM11 (ARMv6K) interpreter for Citrine"
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+# When enabled, every executed instruction is logged via the trace callback.
+trace = []

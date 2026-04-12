@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Citrine Phase 1 — ARM11 + HLE Kernel</title>
+    <style>
+      :root {
+        --bg: #0f1016;
+        --panel: #1a1c2c;
+        --panel-2: #262b44;
+        --border: #3a4466;
+        --fg: #f0f0e8;
+        --muted: #8b9bb4;
+        --accent: #e8433f;
+        --ok: #38b764;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+        font-size: 13px;
+      }
+      header {
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      header h1 {
+        margin: 0;
+        font-size: 16px;
+        color: var(--accent);
+        letter-spacing: 1px;
+      }
+      header .tag {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      main {
+        padding: 16px 20px;
+        display: grid;
+        grid-template-columns: 320px 1fr 1fr;
+        gap: 16px;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 12px 14px;
+      }
+      .panel h2 {
+        margin: 0 0 8px 0;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--muted);
+      }
+      button {
+        background: var(--panel-2);
+        color: var(--fg);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 12px;
+      }
+      button:hover { border-color: var(--accent); }
+      button:disabled { opacity: 0.4; cursor: not-allowed; }
+      input[type="number"], input[type="text"] {
+        background: var(--panel-2);
+        color: var(--fg);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-family: inherit;
+        font-size: 12px;
+        width: 100%;
+      }
+      label { color: var(--muted); font-size: 11px; display: block; margin-bottom: 2px; }
+      .field { margin-bottom: 10px; }
+      .regs {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 4px 12px;
+        font-size: 12px;
+      }
+      .regs div { display: flex; justify-content: space-between; }
+      .regs .name { color: var(--muted); }
+      .regs .val { color: var(--fg); }
+      .regs .changed { color: var(--ok); font-weight: bold; }
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        font-size: 11px;
+        color: var(--muted);
+        max-height: 360px;
+        overflow: auto;
+      }
+      .log-entry { padding: 1px 0; }
+      .log-entry .pc { color: var(--accent); }
+      .log-entry .ins { color: var(--fg); }
+      .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+      .flags { display: flex; gap: 8px; font-size: 11px; color: var(--muted); margin-top: 6px; }
+      .flag-on { color: var(--accent); font-weight: bold; }
+      .mem {
+        font-size: 11px;
+        white-space: pre;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>CITRINE</h1>
+      <span class="tag">Phase 1 · ARM11 + HLE kernel · wasm</span>
+      <span id="status" class="tag">loading wasm…</span>
+    </header>
+
+    <main>
+      <section class="panel">
+        <h2>Program</h2>
+        <div class="field">
+          <label>Flat ARM binary (.bin)</label>
+          <input type="file" id="file-input" accept=".bin,.arm,.raw" />
+        </div>
+        <div class="field">
+          <label>Base address (hex)</label>
+          <input type="text" id="base-addr" value="0x00100000" />
+        </div>
+        <div class="field">
+          <label>Max steps</label>
+          <input type="number" id="max-steps" value="64" min="1" max="1000000" />
+        </div>
+        <div class="controls">
+          <button id="btn-load" disabled>Load</button>
+          <button id="btn-step" disabled>Step</button>
+          <button id="btn-run" disabled>Run</button>
+          <button id="btn-reset" disabled>Reset</button>
+        </div>
+        <div class="field">
+          <label>Or load 3DS homebrew (.3dsx)</label>
+          <input type="file" id="homebrew-input" accept=".3dsx" />
+        </div>
+        <div class="controls">
+          <button id="btn-load-homebrew" disabled>Load Homebrew</button>
+          <button id="btn-step-hle" disabled>Step HLE</button>
+          <button id="btn-run-hle" disabled>Run HLE</button>
+        </div>
+        <div class="field">
+          <label>Memory viewer base (hex)</label>
+          <input type="text" id="mem-base" value="0x00100000" />
+        </div>
+        <div class="field">
+          <label>Memory viewer length</label>
+          <input type="number" id="mem-len" value="64" min="1" max="4096" />
+        </div>
+        <button id="btn-mem">Refresh memory</button>
+      </section>
+
+      <section class="panel">
+        <h2>Registers</h2>
+        <div id="regs" class="regs"></div>
+        <div id="flags" class="flags"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Execution log</h2>
+        <pre id="log"></pre>
+        <h2 style="margin-top: 14px;">Memory</h2>
+        <pre id="mem" class="mem"></pre>
+        <h2 style="margin-top: 14px;">Kernel debug log</h2>
+        <pre id="debug-log" class="mem"></pre>
+        <button id="btn-clear-log">Clear log</button>
+      </section>
+
+      <section class="panel" style="grid-column: 1 / -1;">
+        <h2>Screens</h2>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <canvas id="top-canvas" width="400" height="240"
+            style="image-rendering: pixelated; border: 1px solid var(--border); width: 400px; height: 240px;"></canvas>
+          <canvas id="bot-canvas" width="320" height="240"
+            style="image-rendering: pixelated; border: 1px solid var(--border); width: 320px; height: 240px;"></canvas>
+        </div>
+        <div class="controls" style="margin-top: 12px;">
+          <button id="btn-vsync">Vsync</button>
+          <button id="btn-frame-loop">Start frame loop</button>
+          <button id="btn-fill-test">Fill test pattern</button>
+        </div>
+        <div class="field" style="margin-top: 8px;">
+          <label>Frame: <span id="frame-count">0</span></label>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./index.js"></script>
+  </body>
+</html>

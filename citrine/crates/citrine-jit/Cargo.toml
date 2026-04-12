@@ -1,0 +1,12 @@
+[package]
+name = "citrine-jit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Tiered JIT skeleton for Citrine — runtime WASM compilation of hot ARM basic blocks"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+citrine-cpu = { path = "../citrine-cpu" }

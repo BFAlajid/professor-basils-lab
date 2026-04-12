@@ -1,0 +1,9 @@
+[package]
+name = "citrine-gpu"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PICA200 GPU model + framebuffer scanout for Citrine"
+
+[lib]
+crate-type = ["rlib"]

@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/citrine-cpu",
+    "crates/citrine-core",
+    "crates/citrine-gpu",
+    "crates/citrine-jit",
+    "crates/citrine-kernel",
+    "crates/citrine-web",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["Citrine Contributors"]
+description = "Citrine — clean-room Nintendo 3DS emulator in Rust/WASM (Phase 0)"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.dev]
+opt-level = 1
