@@ -1,4 +1,4 @@
-import type { Pokemon, TypeName, TeraConfig } from "./pokemon";
+import type { Pokemon, TypeName, TeraConfig, StatusCondition } from "./pokemon";
 
 // --- Natures ---
 export type StatKey = "attack" | "defense" | "spAtk" | "spDef" | "speed";
@@ -31,6 +31,9 @@ export interface HeldItem {
     type: "damage_boost" | "speed_boost" | "hp_restore" | "survive_ko" | "stat_boost" | "mega_stone" | "crit_boost";
     value?: number;
     condition?: string;
+    statusCure?: StatusCondition | "confusion" | "any";
+    pinchHeal?: { threshold: number; healFraction: number };
+    typeResist?: string;
   };
   megaTarget?: string;
   formeApiName?: string;

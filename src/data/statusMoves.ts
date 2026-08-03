@@ -20,6 +20,23 @@ export interface StatusMoveEffect {
   substitute?: boolean;
   wish?: boolean;
   yawn?: boolean;
+  // Volatile status effects
+  leechSeed?: boolean;
+  binding?: boolean;
+  taunt?: number;
+  encore?: number;
+  disable?: boolean;
+  torment?: boolean;
+  aquaRing?: boolean;
+  ingrain?: boolean;
+  auroraVeil?: number;
+  futureAttack?: string;
+  perishSong?: boolean;
+  curse?: boolean;
+  healBlock?: number;
+  batonPass?: boolean;
+  painSplit?: boolean;
+  endeavor?: boolean;
 }
 
 export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
@@ -122,4 +139,32 @@ export const STATUS_MOVE_EFFECTS: Record<string, StatusMoveEffect> = {
 
   // Substitute
   "substitute": { substitute: true },
+
+  // Leech Seed
+  "leech-seed": { leechSeed: true },
+
+  // Disruption moves
+  "taunt": { taunt: 3 },
+  "encore": { encore: 3 },
+  "disable": { disable: true },
+  "torment": { torment: true },
+
+  // Self-buff moves
+  "aqua-ring": { aquaRing: true },
+  "ingrain": { ingrain: true },
+  "aurora-veil": { auroraVeil: 5 },
+
+  // Delayed attack moves
+  "future-sight": { futureAttack: "future-sight" },
+  "doom-desire": { futureAttack: "doom-desire" },
+
+  // Other
+  "perish-song": { perishSong: true },
+  "curse": { curse: true },
+  "heal-block": { healBlock: 5 },
+
+  // Baton Pass / HP manipulation
+  "baton-pass": { batonPass: true },
+  "pain-split": { painSplit: true },
+  "endeavor": { endeavor: true },
 };

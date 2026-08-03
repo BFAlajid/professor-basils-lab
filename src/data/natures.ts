@@ -1,4 +1,5 @@
 import { Nature, StatKey } from "@/types";
+import { capitalize } from "@/utils/format";
 
 export const NATURES: Nature[] = [
   { name: "adamant", increased: "attack", decreased: "spAtk" },
@@ -44,7 +45,7 @@ export function getNatureModifier(nature: Nature, stat: StatKey): number {
 }
 
 export function getNatureLabel(nature: Nature): string {
-  const name = nature.name.charAt(0).toUpperCase() + nature.name.slice(1);
+  const name = capitalize(nature.name);
   if (!nature.increased || !nature.decreased) return `${name} (Neutral)`;
   return `${name} (+${STAT_DISPLAY[nature.increased]} / -${STAT_DISPLAY[nature.decreased]})`;
 }

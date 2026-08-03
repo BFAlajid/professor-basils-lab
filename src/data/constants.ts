@@ -101,3 +101,4 @@ export const CONTACT_MOVES = new Set([
 
 // Rate limiting
 export const SHARE_RATE_LIMIT_PER_HOUR = 10;
+export const POKEAPI_RATE_LIMIT_PER_HOUR = 300;

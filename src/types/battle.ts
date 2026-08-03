@@ -24,6 +24,8 @@ export interface BattlePokemon {
   turnsOnField: number;
   isProtected: boolean;
   lastMoveUsed: string | null;
+  /** Turn `lastMoveUsed` was set on — lets applyMoveLocks tell "moved this turn" apart from a stale value left over from before a bail (paralysis/sleep/etc.) or a switch. */
+  lastMoveTurn: number;
   consecutiveProtects: number;
   isFlinched: boolean;
   choiceLockedMove: string | null;
@@ -48,6 +50,27 @@ export interface BattlePokemon {
   hasDynamaxed: boolean;
   roostActive: boolean;
   yawnTurns: number;
+  // Volatile status conditions
+  isSeeded: boolean;
+  seededBy: "player1" | "player2" | null;
+  bindingTurns: number;
+  bindingMove: string | null;
+  boundBy: "player1" | "player2" | null;
+  taunted: number;
+  encored: number;
+  encoredMove: string | null;
+  disabledMove: string | null;
+  disabledTurns: number;
+  tormented: boolean;
+  perishCount: number;
+  aquaRing: boolean;
+  ingrain: boolean;
+  cursed: boolean;
+  lockInMove: string | null;
+  lockInTurns: number;
+  healBlocked: number;
+  embargoed: number;
+  itemConsumed: boolean;
 }
 
 export interface BattleTeam {
@@ -131,11 +154,20 @@ export interface BattleState {
   currentTurnPlayer: "player1" | "player2";
   field: FieldState;
   pendingPivotSwitch: "player1" | "player2" | null;
+  // True when the pending pivot switch is specifically from Baton Pass (as
+  // opposed to U-turn/Volt Switch, which share `pendingPivotSwitch` but do
+  // NOT transfer stat stages/volatile status) — read once, by the FORCE_SWITCH
+  // reducer case, to decide whether to transfer the outgoing Pokemon's
+  // statStages/focusEnergy/substituteHp/aquaRing/ingrain to the replacement
+  // instead of clearing them as a normal switch does.
+  pendingBatonPass: boolean;
   spreadDamageModifier?: number;
+  /** Shared seed for online PvP determinism. Unset for local/AI battles (falls back to Math.random). */
+  rngSeed?: number;
 }
 
 export type BattleAction =
-  | { type: "START_BATTLE"; player1Team: TeamSlot[]; player2Team: TeamSlot[]; mode: BattleMode; format?: BattleFormat; difficulty?: DifficultyLevel; player1Mechanic?: GenerationalMechanic; player2Mechanic?: GenerationalMechanic; megaFormeCache?: Map<string, AltFormeData> }
+  | { type: "START_BATTLE"; player1Team: TeamSlot[]; player2Team: TeamSlot[]; mode: BattleMode; format?: BattleFormat; difficulty?: DifficultyLevel; player1Mechanic?: GenerationalMechanic; player2Mechanic?: GenerationalMechanic; megaFormeCache?: Map<string, AltFormeData>; rngSeed?: number }
   | { type: "EXECUTE_TURN"; player1Action: BattleTurnAction; player2Action: BattleTurnAction; player1Action2?: BattleTurnAction; player2Action2?: BattleTurnAction }
   | { type: "FORCE_SWITCH"; player: "player1" | "player2"; pokemonIndex: number; slot?: 0 | 1 }
   | { type: "RESET_BATTLE" };

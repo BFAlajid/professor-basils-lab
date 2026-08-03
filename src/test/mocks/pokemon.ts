@@ -3,13 +3,8 @@ import {
   TeamSlot,
   BattlePokemon,
   BattleState,
-  BattleTeam,
-  BattleLogEntry,
   StatStages,
   SideConditions,
-  FieldState,
-  StatusCondition,
-  TypeName,
 } from "@/types";
 
 export const mockCharizard: Pokemon = {
@@ -150,6 +145,7 @@ export function createMockBattlePokemon(
     turnsOnField: 0,
     isProtected: false,
     lastMoveUsed: null,
+    lastMoveTurn: 0,
     consecutiveProtects: 0,
     isFlinched: false,
     choiceLockedMove: null,
@@ -171,6 +167,7 @@ export function createMockBattlePokemon(
     hasTerastallized: false,
     hasDynamaxed: false,
     roostActive: false,
+    itemConsumed: false,
     ...overrides,
   };
 }
@@ -213,6 +210,7 @@ export function createMockBattleState(
       player2Side: defaultSideConditions(),
     },
     pendingPivotSwitch: null,
+    pendingBatonPass: false,
     ...stateOverrides,
   };
 }

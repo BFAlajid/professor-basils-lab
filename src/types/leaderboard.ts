@@ -1,6 +1,6 @@
 export interface LeaderboardEntry {
   trainerName: string;
-  trainerId: string; // 5-digit localStorage ID
+  trainerId: string; // 5-10 digit localStorage ID
   score: number;
   teamPokemon: string[]; // up to 6 names
   timestamp: string; // ISO 8601

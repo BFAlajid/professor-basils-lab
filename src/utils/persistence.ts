@@ -1,11 +1,16 @@
 /**
- * Unified persistence layer for all localStorage operations.
+ * Unified persistence layer for localStorage operations.
  *
  * Provides: central key registry, type-safe read/write with error handling,
  * quota monitoring, full-data export/import, and a persisted reducer hook.
  *
- * Existing hooks are NOT modified — this is new infrastructure for
- * incremental migration.
+ * This is the intended source for localStorage access — hooks should read and
+ * write through `readStorage`/`writeStorage` (or the `usePersistedState`/
+ * `usePersistedReducer` wrappers) using a key from `STORAGE_KEYS`, not a raw
+ * string literal or a direct `localStorage.*` call. Migration is incomplete,
+ * not enforced: `usePokedex`, `useTeam`, and `useBattleFactory` still read
+ * and write localStorage directly with their own local key constants, so
+ * export/import and quota monitoring here don't see their data.
  */
 
 import { silentWarn } from "@/utils/silentWarn";
@@ -25,6 +30,7 @@ export const STORAGE_KEYS = {
   trainerName: "pokemon-trainer-name",
   trainerId: "pokemon-trainer-id",
   trainerFirstSave: "pokemon-trainer-first-save",
+  deviceKey: "pokemon-device-key",
 
   // Achievements & Stats
   achievements: "pokemon-achievements",
@@ -55,6 +61,13 @@ export const STORAGE_KEYS = {
 
   // Emulator
   keybinds: "emulator-keybinds",
+
+  // Upcoming features (pre-registered so export/import/quota see them from
+  // the moment the owning feature starts writing — see revamp architecture
+  // Wave 4: F2 Damage Trainer, F3 Shiny Hunting, F4 Daily Challenge)
+  damageQuizBest: "pokemon-damage-quiz-best",
+  shinyHunts: "pokemon-shiny-hunts",
+  dailyLast: "pokemon-daily-last",
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
@@ -113,6 +126,39 @@ export function writeStorage<T>(key: string, value: T): boolean {
     return true;
   } catch (e) {
     silentWarn(`writeStorage("${key}")`, e);
+    return false;
+  }
+}
+
+/**
+ * Read a raw (non-JSON) string from localStorage, returning `fallback` on
+ * any failure. Some keys (trainer name/id, device key) have always stored
+ * plain, un-quoted strings — running them through `JSON.parse` would throw
+ * on anything but a bare number, silently discarding existing users' data.
+ * Use this instead of `readStorage` for those keys.
+ */
+export function readStorageString(key: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw !== null ? raw : fallback;
+  } catch (e) {
+    silentWarn(`readStorageString("${key}")`, e);
+    return fallback;
+  }
+}
+
+/**
+ * Write a raw (non-JSON) string to localStorage. Pairs with
+ * `readStorageString` — see its docs for why some keys skip JSON encoding.
+ */
+export function writeStorageString(key: string, value: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    silentWarn(`writeStorageString("${key}")`, e);
     return false;
   }
 }

@@ -85,13 +85,29 @@ export interface AbilityHooks {
     attacker: BattlePokemon;
     defender: BattlePokemon;
   }) => ContactResult | null;
+
+  /** Modify speed — weather-based doublers, Unburden, etc. */
+  modifySpeed?: (context: {
+    pokemon: BattlePokemon;
+    weather?: WeatherType;
+  }) => { multiplier: number } | null;
+
+  /** Triggered when this Pokemon faints — e.g. Aftermath deals recoil to the attacker */
+  onFaint?: (context: {
+    attacker: BattlePokemon;
+    wasContact: boolean;
+  }) => { damage: { fraction: number }; message: string } | null;
+
+  /** Ability ignores the target's defensive abilities (Mold Breaker, Teravolt, Turboblaze) */
+  moldBreaker?: boolean;
 }
 
 // --- Result Types ---
 
 export interface ContactResult {
-  status: StatusCondition;
-  chance: number; // 0-1 probability
+  status?: StatusCondition;
+  chance?: number; // 0-1 probability
+  damage?: { fraction: number }; // fraction of attacker's max HP dealt as recoil
   message?: string;
 }
 
@@ -321,6 +337,15 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
     },
   },
 
+  // NOTE: "knock-off" is a move, not an ability. Its 1.5x power boost when the
+  // defender holds an item is implemented here as a modifyAttackStat hook for
+  // consistency with the move-based power modifiers (Sheer Force, Reckless, etc.).
+  // The hook context does not include defender info — the consumer must verify
+  // the defender holds an item before applying this multiplier.
+  "knock-off": {
+    modifyAttackStat: () => 1.5,
+  },
+
   // === modifySTAB abilities ===
 
   adaptability: {
@@ -536,10 +561,14 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
   },
 
   analytic: {
-    // 1.3x power if moving last — approximated via modifyAttackStat
-    // TODO: Consumer needs to pass turn order info for accurate check;
-    // for now always applies since AI moves second in most scenarios
-    modifyAttackStat: () => 1.3,
+    // 1.3x power if moving last. The damage-calc consumer doesn't currently thread
+    // real move-order through here, so default to no boost rather than always-on
+    // (previous `?? true` fallback made Analytic apply every turn regardless of order).
+    modifyAttackStat: (context) => {
+      const movedLast = (context as { movedLast?: boolean }).movedLast;
+      if (movedLast) return 1.3;
+      return 1;
+    },
   },
 
   "mega-launcher": {
@@ -602,8 +631,12 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
           message: `${defender.slot.pokemon.name}'s Dry Skin absorbed the water!`,
         };
       }
-      // TODO: Fire takes 1.25x damage — consumer damage loop only handles multiplier < 1;
-      // needs update to applyDamageLoop to also apply multiplier > 1
+      if (moveType === "fire") {
+        return {
+          multiplier: 1.25,
+          message: `${defender.slot.pokemon.name}'s Dry Skin intensified the fire damage!`,
+        };
+      }
       return null;
     },
   },
@@ -695,6 +728,32 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
     }),
   },
 
+  "rough-skin": {
+    onContact: ({ defender }) => ({
+      damage: { fraction: 1 / 8 },
+      message: `${defender.slot.pokemon.name} was hurt by Rough Skin!`,
+    }),
+  },
+
+  "iron-barbs": {
+    onContact: ({ defender }) => ({
+      damage: { fraction: 1 / 8 },
+      message: `${defender.slot.pokemon.name} was hurt by Iron Barbs!`,
+    }),
+  },
+
+  // === onFaint abilities ===
+
+  aftermath: {
+    onFaint: ({ wasContact }) => {
+      if (!wasContact) return null;
+      return {
+        damage: { fraction: 1 / 4 },
+        message: "The attacker was hurt by Aftermath!",
+      };
+    },
+  },
+
   // === Status/Utility abilities ===
 
   // Prankster: +1 priority to status moves (implemented in battleHelpers.ts getMovePriority)
@@ -709,10 +768,18 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
   // Serene Grace: doubles secondary effect chance — handled in battleExecutionDamage.ts applySecondaryEffects
   "serene-grace": {},
 
-  // Mold Breaker: ignores opponent's defensive abilities
-  // TODO: Consumer in damage.ts and battleExecutionDamage.ts need to check attacker ability
-  // and skip defender ability hooks when this is active
-  "mold-breaker": {},
+  // Mold Breaker family: ignores opponent's defensive abilities
+  "mold-breaker": {
+    moldBreaker: true,
+  },
+
+  teravolt: {
+    moldBreaker: true,
+  },
+
+  turboblaze: {
+    moldBreaker: true,
+  },
 
   // === Switch-out abilities ===
 
@@ -734,6 +801,33 @@ const ABILITY_REGISTRY: Record<string, AbilityHooks> = {
       }
       return null;
     },
+  },
+
+  // === Weather speed abilities (modifySpeed) ===
+
+  "swift-swim": {
+    modifySpeed: ({ weather }) =>
+      weather === "rain" ? { multiplier: 2 } : null,
+  },
+
+  chlorophyll: {
+    modifySpeed: ({ weather }) =>
+      weather === "sun" ? { multiplier: 2 } : null,
+  },
+
+  "sand-rush": {
+    modifySpeed: ({ weather }) =>
+      weather === "sandstorm" ? { multiplier: 2 } : null,
+  },
+
+  "slush-rush": {
+    modifySpeed: ({ weather }) =>
+      weather === "hail" ? { multiplier: 2 } : null,
+  },
+
+  unburden: {
+    // Doubles speed when held item is consumed; placeholder returns no boost
+    modifySpeed: () => null,
   },
 };
 

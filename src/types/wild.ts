@@ -1,5 +1,5 @@
 import type { Pokemon, TypeName, StatusCondition, StatStages } from "./pokemon";
-import type { Nature, IVSpread } from "./team";
+import type { Nature, IVSpread, EVSpread } from "./team";
 
 export type BallType =
   | "poke-ball" | "great-ball" | "ultra-ball" | "master-ball"
@@ -82,6 +82,10 @@ export interface PCBoxPokemon {
   ivs: IVSpread;
   ability: string;
   isShiny?: boolean;
+  gender?: "male" | "female" | "genderless";
+  friendship?: number;
+  evs?: EVSpread;
+  isHyperTrained?: Partial<Record<keyof IVSpread, boolean>>;
 }
 
 export type WildEncounterAction =
@@ -99,4 +103,5 @@ export type PCBoxAction =
   | { type: "ADD_POKEMON"; pokemon: PCBoxPokemon }
   | { type: "REMOVE_POKEMON"; index: number }
   | { type: "SET_NICKNAME"; index: number; nickname: string }
+  | { type: "UPDATE_POKEMON"; index: number; updates: Partial<PCBoxPokemon> }
   | { type: "LOAD_BOX"; pokemon: PCBoxPokemon[] };

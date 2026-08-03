@@ -40,6 +40,8 @@ export interface OnlineState {
   lastPing: number;
   error: string | null;
   trade: LinkTradeState;
+  /** Shared battle RNG seed — host-generated, sent in the READY handshake. Null until known. */
+  rngSeed: number | null;
 }
 
 // --- Wonder Trade ---
