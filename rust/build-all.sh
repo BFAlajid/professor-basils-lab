@@ -23,7 +23,8 @@ for crate in "${CRATES[@]}"; do
   wasm-pack build --target web --release --out-dir pkg
   snake=$(echo "$crate" | tr '-' '_')
   cp "pkg/${snake}_bg.wasm" "$PUBLIC_WASM/"
-  echo "  -> deployed ${snake}_bg.wasm"
+  cp "pkg/${snake}.js" "$PUBLIC_WASM/"
+  echo "  -> deployed ${snake}_bg.wasm + ${snake}.js"
 done
 
 echo ""

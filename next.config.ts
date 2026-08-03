@@ -15,9 +15,16 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   async headers() {
+    // React's dev-mode debugging tools (e.g. component stack traces) require
+    // eval(). Only allow it in development — production CSP must never carry
+    // 'unsafe-eval'.
+    const scriptSrc =
+      process.env.NODE_ENV === "development"
+        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'"
+        : "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'";
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+      scriptSrc,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' raw.githubusercontent.com *.public.blob.vercel-storage.com data:",
       "connect-src 'self' pokeapi.co *.pokeapi.co 0.peerjs.com *.public.blob.vercel-storage.com",
@@ -45,6 +52,20 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+        ],
+      },
+      // mGBA pthread worker support. Under COEP `require-corp`, every subresource
+      // (including module workers) must present CORP, and the worker script itself
+      // must carry COEP to be allowed as a module worker of an isolated embedder.
+      // mGBA spawns `new Worker(new URL('mgba.js', import.meta.url), {type:'module'})`
+      // which re-fetches /mgba/mgba.js as the worker script; without these headers
+      // Chrome silently blocks the worker and the pthread pool `Promise.all` never
+      // resolves, causing the 30s init timeout.
+      {
+        source: "/mgba/:path*",
+        headers: [
+          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
         ],
       },
       // Prevent browsers/CDN from serving stale HTML after deployments

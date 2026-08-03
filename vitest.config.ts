@@ -10,8 +10,15 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text-summary"],
-      include: ["src/utils/**", "src/hooks/**", "src/lib/**"],
-      exclude: ["**/*.test.*", "**/test/**", "**/__tests__/**"],
+      include: ["src/utils/**", "src/hooks/**", "src/lib/**", "src/components/**", "src/app/api/**"],
+      exclude: [
+        "**/*.test.*",
+        "**/test/**",
+        "**/__tests__/**",
+        "**/*Wasm.ts",
+        "src/utils/wasmLoader.ts",
+        "src/utils/createWasmWrapper.ts",
+      ],
     },
   },
   resolve: {

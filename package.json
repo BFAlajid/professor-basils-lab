@@ -26,7 +26,7 @@
     "@vercel/edge-config": "^1.4.3",
     "@vercel/kv": "^3.0.0",
     "framer-motion": "^12.34.3",
-    "next": "16.1.6",
+    "next": "^16.2.12",
     "peerjs": "^1.5.5",
     "qrcode": "^1.5.4",
     "react": "19.2.3",
@@ -45,11 +45,15 @@
     "@types/react-dom": "^19",
     "concurrently": "^9.2.1",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "^16.2.12",
     "jsdom": "^28.1.0",
     "peer": "^1.0.2",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.18"
+  },
+  "overrides": {
+    "sharp": "^0.35.3",
+    "postcss": "^8.5.25"
   }
 }
