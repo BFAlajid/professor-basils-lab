@@ -15,8 +15,7 @@ import { NATURES } from "@/data/natures";
 import { generateRandomIVs } from "@/utils/wildBattle";
 import { fetchPokemonData } from "@/utils/pokeApiClient";
 import { shuffleArray } from "@/utils/random";
-
-const WONDER_TRADE_KEY = "pokemon-wonder-trade";
+import { STORAGE_KEYS, readStorage, writeStorage } from "@/utils/persistence";
 
 const initialState: WonderTradeState = {
   phase: "idle",
@@ -60,32 +59,21 @@ export function useWonderTrade() {
   const initialized = useRef(false);
   const tradeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load history from localStorage
+  // Load history from storage
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
 
-    try {
-      const saved = localStorage.getItem(WONDER_TRADE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          dispatch({ type: "LOAD", history: parsed });
-        }
-      }
-    } catch (e) {
-      silentWarn("loadWonderTradeHistory", e);
+    const history = readStorage<unknown>(STORAGE_KEYS.wonderTrade, []);
+    if (Array.isArray(history)) {
+      dispatch({ type: "LOAD", history: history as WonderTradeRecord[] });
     }
   }, []);
 
-  // Save history to localStorage
+  // Save history to storage
   useEffect(() => {
     if (!initialized.current) return;
-    try {
-      localStorage.setItem(WONDER_TRADE_KEY, JSON.stringify(state.history));
-    } catch (e) {
-      silentWarn("saveWonderTradeHistory", e);
-    }
+    writeStorage(STORAGE_KEYS.wonderTrade, state.history);
   }, [state.history]);
 
   // Clean up trade timer on unmount

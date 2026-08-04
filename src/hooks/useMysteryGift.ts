@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useEffect, useCallback, useRef, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import {
   MysteryGiftState,
@@ -14,13 +14,24 @@ import { getTodaysGift } from "@/data/mysteryGifts";
 import { NATURES } from "@/data/natures";
 import { generateRandomIVs } from "@/utils/wildBattle";
 import { fetchPokemonData } from "@/utils/pokeApiClient";
-
-const STORAGE_KEY = "pokemon-mystery-gift";
+import { usePersistedReducer } from "@/hooks/usePersistedReducer";
+import { STORAGE_KEYS } from "@/utils/persistence";
 
 const initialState: MysteryGiftState = {
   claimedDates: [],
   totalClaimed: 0,
 };
+
+function validateMysteryGiftState(raw: unknown): MysteryGiftState | null {
+  if (raw == null || typeof raw !== "object") return null;
+  const r = raw as { claimedDates?: unknown; totalClaimed?: unknown };
+  if (!Array.isArray(r.claimedDates)) return null;
+  const claimedDates = r.claimedDates.filter((d): d is string => typeof d === "string");
+  return {
+    claimedDates,
+    totalClaimed: typeof r.totalClaimed === "number" ? r.totalClaimed : claimedDates.length,
+  };
+}
 
 function mysteryGiftReducer(
   state: MysteryGiftState,
@@ -43,41 +54,13 @@ function mysteryGiftReducer(
 }
 
 export function useMysteryGift() {
-  const [state, dispatch] = useReducer(mysteryGiftReducer, initialState);
-  const initialized = useRef(false);
+  const [state, dispatch] = usePersistedReducer(
+    STORAGE_KEYS.mysteryGift,
+    mysteryGiftReducer,
+    initialState,
+    validateMysteryGiftState,
+  );
   const claimingRef = useRef(false);
-
-  // Load from localStorage
-  useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && Array.isArray(parsed.claimedDates)) {
-          dispatch({
-            type: "LOAD",
-            claimedDates: parsed.claimedDates,
-            totalClaimed: parsed.totalClaimed ?? parsed.claimedDates.length,
-          });
-        }
-      }
-    } catch (e) {
-      silentWarn("loadMysteryGift", e);
-    }
-  }, []);
-
-  // Save to localStorage on state change
-  useEffect(() => {
-    if (!initialized.current) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (e) {
-      silentWarn("saveMysteryGift", e);
-    }
-  }, [state]);
 
   const [dateKey, setDateKey] = useState(() => new Date().toISOString().slice(0, 10));
 
@@ -100,6 +83,9 @@ export function useMysteryGift() {
       silentWarn("getTodaysGift", e);
       return null;
     }
+  // dateKey is a deliberate recompute trigger (date rollover), not a value
+  // read inside the callback.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey]);
 
   const isClaimedToday = useMemo<boolean>(() => {
@@ -169,7 +155,7 @@ export function useMysteryGift() {
     } finally {
       claimingRef.current = false;
     }
-  }, [state.claimedDates]);
+  }, [state.claimedDates, dispatch]);
 
   return {
     state,

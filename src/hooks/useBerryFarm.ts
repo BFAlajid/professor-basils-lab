@@ -1,7 +1,8 @@
 "use client";
-import { useReducer, useEffect, useCallback, useRef } from "react";
-import { silentWarn } from "@/utils/silentWarn";
+import { useCallback } from "react";
 import { BERRIES } from "@/data/berries";
+import { usePersistedReducer } from "@/hooks/usePersistedReducer";
+import { STORAGE_KEYS } from "@/utils/persistence";
 
 export interface BerryPlot {
   id: number;
@@ -22,7 +23,6 @@ type BerryFarmAction =
   | { type: "HARVEST"; plotId: number }
   | { type: "LOAD"; state: BerryFarmState };
 
-const STORAGE_KEY = "pokemon-berry-farm";
 const PLOT_COUNT = 6;
 
 function createEmptyPlots(): BerryPlot[] {
@@ -37,6 +37,13 @@ function createEmptyPlots(): BerryPlot[] {
 
 function initialState(): BerryFarmState {
   return { plots: createEmptyPlots(), inventory: {} };
+}
+
+function validateBerryFarmState(raw: unknown): BerryFarmState | null {
+  if (raw == null || typeof raw !== "object") return null;
+  const r = raw as Partial<BerryFarmState>;
+  if (!r.plots || !r.inventory) return null;
+  return { plots: r.plots, inventory: r.inventory };
 }
 
 function reducer(state: BerryFarmState, action: BerryFarmAction): BerryFarmState {
@@ -90,42 +97,24 @@ function reducer(state: BerryFarmState, action: BerryFarmAction): BerryFarmState
 }
 
 export function useBerryFarm() {
-  const [state, dispatch] = useReducer(reducer, undefined, initialState);
-  const initialized = useRef(false);
-
-  useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as BerryFarmState;
-        if (parsed.plots && parsed.inventory) {
-          dispatch({ type: "LOAD", state: parsed });
-        }
-      }
-    } catch (e) {
-      silentWarn("loadBerryFarm", e);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!initialized.current) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+  const [state, dispatch] = usePersistedReducer(
+    STORAGE_KEYS.berryFarm,
+    reducer,
+    initialState(),
+    validateBerryFarmState,
+  );
 
   const plant = useCallback((plotId: number, berryType: string) => {
     dispatch({ type: "PLANT", plotId, berryType });
-  }, []);
+  }, [dispatch]);
 
   const water = useCallback((plotId: number) => {
     dispatch({ type: "WATER", plotId });
-  }, []);
+  }, [dispatch]);
 
   const harvest = useCallback((plotId: number) => {
     dispatch({ type: "HARVEST", plotId });
-  }, []);
+  }, [dispatch]);
 
   const getGrowthProgress = useCallback((plot: BerryPlot): number => {
     if (!plot.plantedAt || !plot.berryType) return 0;

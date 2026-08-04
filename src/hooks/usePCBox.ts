@@ -1,13 +1,14 @@
 "use client";
 
-import { useReducer, useEffect, useCallback, useRef, useState } from "react";
+import { useReducer, useEffect, useCallback, useState, useRef } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import { PCBoxPokemon, PCBoxAction, BallType, TeamSlot } from "@/types";
 import { DEFAULT_BALL_INVENTORY } from "@/data/pokeBalls";
-import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
-
-const PC_BOX_KEY = "pokemon-team-builder-pc-box";
-const BALL_INVENTORY_KEY = "pokemon-team-builder-ball-inventory";
+import { DEFAULT_EVS } from "@/utils/stats";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
+import { STORAGE_KEYS, readStorage, readStorageValidated, writeStorage } from "@/utils/persistence";
+import { useDebouncedPersist } from "@/hooks/useDebouncedPersist";
+import { toSlimBoxEntry, fromSlimBoxEntry, isLegacyBoxEntry, normalizeStoredBoxEntry, SlimBoxEntry } from "@/utils/pcBoxStorage";
 
 function pcBoxReducer(state: PCBoxPokemon[], action: PCBoxAction): PCBoxPokemon[] {
   switch (action.type) {
@@ -19,6 +20,10 @@ function pcBoxReducer(state: PCBoxPokemon[], action: PCBoxAction): PCBoxPokemon[
       return state.map((p, i) =>
         i === action.index ? { ...p, nickname: action.nickname } : p
       );
+    case "UPDATE_POKEMON":
+      return state.map((p, i) =>
+        i === action.index ? { ...p, ...action.updates } : p
+      );
     case "LOAD_BOX":
       return action.pokemon;
     default:
@@ -26,57 +31,94 @@ function pcBoxReducer(state: PCBoxPokemon[], action: PCBoxAction): PCBoxPokemon[
   }
 }
 
+function validateBallInventory(raw: unknown): Record<BallType, number> | null {
+  if (raw == null || typeof raw !== "object") return null;
+  return { ...DEFAULT_BALL_INVENTORY, ...(raw as Record<BallType, number>) };
+}
+
 export function usePCBox() {
   const [box, dispatch] = useReducer(pcBoxReducer, []);
-  const [ballInventory, setBallInventory] = useState<Record<BallType, number>>({ ...DEFAULT_BALL_INVENTORY });
-  const initialized = useRef(false);
+  const [ballInventory, setBallInventory] = useState<Record<BallType, number>>(() =>
+    readStorageValidated(STORAGE_KEYS.ballInventory, { ...DEFAULT_BALL_INVENTORY }, validateBallInventory)
+  );
 
-  // Load from localStorage
+  // Whether the box has finished its initial load (see the hydration effect
+  // below). Gates the debounced persist effect so it can't schedule a write
+  // of the empty placeholder state ahead of the real loaded data — see
+  // useDebouncedPersist's `enabled` docs.
+  const [isHydrated, setIsHydrated] = useState(false);
+  const startedHydration = useRef(false);
+
+  // Slim form of entries whose hydration fetch failed (e.g. a transient PokeAPI
+  // error or a proxy rate-limit), paired with their index in the raw stored
+  // array. Kept here — separate from `box`, which only ever holds
+  // fully-hydrated entries — so the persist effect below can re-serialize them
+  // untouched instead of silently dropping them, AND splice them back at their
+  // original position instead of appending at the tail (a tail-append reorders
+  // the box on every failed-hydration session and makes isAlreadyCaught()/
+  // box.length blind to the missing species). Cleared implicitly: a future
+  // reload retries the fetch for whatever's still stored.
+  const unhydratedEntriesRef = useRef<{ index: number; entry: SlimBoxEntry }[]>([]);
+
+  // Load + migrate the box on mount. Box entries used to persist the FULL
+  // PokeAPI Pokemon object (20-100KB, re-serialized on every catch) — new
+  // entries persist only `pokemonId` and rehydrate the full object from
+  // pokeApiClient's in-memory cache. Old-format entries already embed the
+  // full object (no fetch needed); new-format entries need one fetch each.
   useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
+    if (startedHydration.current) return;
+    startedHydration.current = true;
 
-    try {
-      const savedBox = localStorage.getItem(PC_BOX_KEY);
-      if (savedBox) {
-        const parsed = JSON.parse(savedBox);
-        if (Array.isArray(parsed)) {
-          dispatch({ type: "LOAD_BOX", pokemon: parsed });
+    const raw = readStorage<unknown[]>(STORAGE_KEYS.pcBox, []);
+    const entriesToHydrate = Array.isArray(raw) ? raw : [];
+
+    Promise.all(
+      entriesToHydrate.map(async (entry, index): Promise<PCBoxPokemon | null> => {
+        if (isLegacyBoxEntry(entry)) return entry;
+        const slim = normalizeStoredBoxEntry(entry);
+        if (!slim) return null;
+        try {
+          const pokemon = await fetchPokemonData(slim.pokemonId);
+          return fromSlimBoxEntry(slim, pokemon);
+        } catch (e) {
+          silentWarn("hydratePCBoxEntry", e);
+          // Keep it around (verbatim, with its original slot index) so the
+          // next persist doesn't erase it or silently move it to the tail.
+          unhydratedEntriesRef.current.push({ index, entry: slim });
+          return null;
         }
-      }
-    } catch (e) {
-      silentWarn("loadPCBox", e);
-    }
-
-    try {
-      const savedBalls = localStorage.getItem(BALL_INVENTORY_KEY);
-      if (savedBalls) {
-        const parsed = JSON.parse(savedBalls);
-        setBallInventory({ ...DEFAULT_BALL_INVENTORY, ...parsed });
-      }
-    } catch (e) {
-      silentWarn("loadBallInventory", e);
-    }
+      })
+    ).then((entries) => {
+      const valid = entries.filter((p): p is PCBoxPokemon => p !== null);
+      if (valid.length > 0) dispatch({ type: "LOAD_BOX", pokemon: valid });
+      setIsHydrated(true);
+    });
   }, []);
 
-  // Save box to localStorage
-  useEffect(() => {
-    if (!initialized.current) return;
-    try {
-      localStorage.setItem(PC_BOX_KEY, JSON.stringify(box));
-    } catch (e) {
-      silentWarn("savePCBox", e);
-    }
-  }, [box]);
+  // Persist box (slimmed), debounced so rapid catches don't each
+  // re-serialize the full Pokemon payload of every box entry. Entries that
+  // failed to hydrate are spliced back in at their original stored index
+  // (lowest index first, so each splice position is already correct once the
+  // lower-indexed entries are in place) instead of being appended untouched
+  // at the tail — a tail-append silently reorders the box and makes it look
+  // like those species were never caught.
+  useDebouncedPersist(
+    box,
+    useCallback((current: PCBoxPokemon[]) => {
+      const merged: SlimBoxEntry[] = current.map(toSlimBoxEntry);
+      const failed = [...unhydratedEntriesRef.current].sort((a, b) => a.index - b.index);
+      for (const { index, entry } of failed) {
+        merged.splice(Math.min(index, merged.length), 0, entry);
+      }
+      writeStorage(STORAGE_KEYS.pcBox, merged);
+    }, []),
+    undefined,
+    isHydrated,
+  );
 
-  // Save balls to localStorage
+  // Save balls to storage
   useEffect(() => {
-    if (!initialized.current) return;
-    try {
-      localStorage.setItem(BALL_INVENTORY_KEY, JSON.stringify(ballInventory));
-    } catch (e) {
-      silentWarn("saveBallInventory", e);
-    }
+    writeStorage(STORAGE_KEYS.ballInventory, ballInventory);
   }, [ballInventory]);
 
   const addToBox = useCallback((pokemon: PCBoxPokemon) => {
@@ -89,6 +131,10 @@ export function usePCBox() {
 
   const setNickname = useCallback((index: number, nickname: string) => {
     dispatch({ type: "SET_NICKNAME", index, nickname });
+  }, []);
+
+  const updatePokemon = useCallback((index: number, updates: Partial<PCBoxPokemon>) => {
+    dispatch({ type: "UPDATE_POKEMON", index, updates });
   }, []);
 
   const moveToTeam = useCallback((index: number): TeamSlot | null => {
@@ -106,6 +152,10 @@ export function usePCBox() {
       selectedMoves: [],
     };
   }, [box]);
+
+  const addBalls = useCallback((ball: BallType, qty: number) => {
+    setBallInventory((prev) => ({ ...prev, [ball]: (prev[ball] ?? 0) + qty }));
+  }, []);
 
   const useBall = useCallback((ball: BallType): boolean => {
     let success = false;
@@ -127,7 +177,9 @@ export function usePCBox() {
     addToBox,
     removeFromBox,
     setNickname,
+    updatePokemon,
     moveToTeam,
+    addBalls,
     useBall,
     isAlreadyCaught,
   };

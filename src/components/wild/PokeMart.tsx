@@ -6,7 +6,7 @@ import { POKEMART_ITEMS, type ShopItem } from "@/data/pokeMart";
 import { BallType } from "@/types";
 import ItemSprite from "@/components/ItemSprite";
 
-type ShopCategory = "ball" | "medicine" | "held-item" | "special";
+type ShopCategory = "ball" | "medicine" | "held-item" | "special" | "competitive" | "mint";
 
 interface PokeMartProps {
   money: number;
@@ -21,6 +21,8 @@ const CATEGORY_LABELS: Record<ShopCategory, string> = {
   medicine: "Medicine",
   "held-item": "Held Items",
   special: "Special",
+  competitive: "Competitive",
+  mint: "Mints",
 };
 
 const CATEGORY_COLORS: Record<ShopCategory, string> = {
@@ -28,6 +30,8 @@ const CATEGORY_COLORS: Record<ShopCategory, string> = {
   medicine: "#38b764",
   "held-item": "#4a90d9",
   special: "#f7a838",
+  competitive: "#a855f7",
+  mint: "#22c55e",
 };
 
 export default function PokeMart({ money, onBuy, ballInventory, battleItemInventory, ownedItems }: PokeMartProps) {
@@ -155,7 +159,7 @@ export default function PokeMart({ money, onBuy, ballInventory, battleItemInvent
                   <button
                     onClick={() => handleBuy(item)}
                     disabled={!canAfford}
-                    className="px-2 py-0.5 text-[9px] font-pixel rounded bg-[#38b764] text-[#f0f0e8] hover:bg-[#2a9654] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="min-w-[44px] min-h-[44px] px-2 text-[9px] font-pixel rounded bg-[#38b764] text-[#f0f0e8] hover:bg-[#2a9654] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Buy
                   </button>

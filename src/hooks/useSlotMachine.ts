@@ -1,7 +1,7 @@
 "use client";
 import { useReducer, useEffect, useRef } from "react";
-import { silentWarn } from "@/utils/silentWarn";
 import { SLOT_SYMBOLS, calculatePayout } from "@/data/slotSymbols";
+import { STORAGE_KEYS, readStorage, writeStorage } from "@/utils/persistence";
 
 export interface SlotMachineState {
   reels: [number, number, number];
@@ -17,8 +17,6 @@ type SlotAction =
   | { type: "SET_BET"; bet: number }
   | { type: "ADD_COINS"; amount: number }
   | { type: "LOAD"; coins: number };
-
-const STORAGE_KEY = "pokemon-slot-coins";
 
 function initialState(): SlotMachineState {
   return { reels: [0, 0, 0], spinning: false, coins: 100, bet: 1, lastWin: 0 };
@@ -69,20 +67,13 @@ export function useSlotMachine() {
     if (initialized.current) return;
     initialized.current = true;
 
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const coins = parseInt(saved, 10);
-        if (!isNaN(coins)) dispatch({ type: "LOAD", coins });
-      }
-    } catch (e) {
-      silentWarn("loadSlotMachineCoins", e);
-    }
+    const coins = readStorage(STORAGE_KEYS.slotCoins, 0);
+    if (coins > 0) dispatch({ type: "LOAD", coins });
   }, []);
 
   useEffect(() => {
     if (!initialized.current) return;
-    localStorage.setItem(STORAGE_KEY, String(state.coins));
+    writeStorage(STORAGE_KEYS.slotCoins, state.coins);
   }, [state.coins]);
 
   // Clean up spin timer on unmount

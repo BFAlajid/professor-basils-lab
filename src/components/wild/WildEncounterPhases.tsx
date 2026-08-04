@@ -5,6 +5,7 @@ import { TeamSlot, BallType, WildEncounterState } from "@/types";
 import WildBattle from "./WildBattle";
 import CatchAnimation from "./CatchAnimation";
 import CatchResult from "./CatchResult";
+import { formatName } from "@/utils/format";
 
 interface WildEncounterPhasesProps {
   encounter: WildEncounterState;
@@ -71,7 +72,7 @@ export default function WildEncounterPhases({
           >
             A wild{" "}
             <span className="text-[#f7a838]">
-              {encounter.wildPokemon.name.charAt(0).toUpperCase() + encounter.wildPokemon.name.slice(1)}
+              {formatName(encounter.wildPokemon.name)}
             </span>{" "}
             appeared!
           </motion.p>
@@ -143,7 +144,7 @@ export default function WildEncounterPhases({
             ball={encounter.selectedBall}
             shakeCount={encounter.shakeCount}
             isCaught={encounter.isCaught}
-            pokemonName={encounter.wildPokemon.name.charAt(0).toUpperCase() + encounter.wildPokemon.name.slice(1)}
+            pokemonName={formatName(encounter.wildPokemon.name)}
             onComplete={onCatchAnimComplete}
           />
         </motion.div>

@@ -1,4 +1,6 @@
 import { vi } from "vitest";
+import { Pokemon } from "@/types";
+import { PokemonSpeciesData } from "@/utils/pokeApiClient";
 
 vi.mock("@/utils/pokeApiClient", () => ({
   fetchPokemonData: vi.fn(),
@@ -28,7 +30,7 @@ describe("fetchEggMoves", () => {
               ],
             },
           ],
-        } as any;
+        } as unknown as Pokemon;
       }
       // Parent "dragonite" learns dragon-dance by level-up
       if (nameOrId === "dragonite") {
@@ -43,9 +45,9 @@ describe("fetchEggMoves", () => {
               ],
             },
           ],
-        } as any;
+        } as unknown as Pokemon;
       }
-      return { id: 0, name: String(nameOrId), moves: [] } as any;
+      return { id: 0, name: String(nameOrId), moves: [] } as unknown as Pokemon;
     });
 
     vi.mocked(fetchSpeciesData).mockResolvedValue({
@@ -56,7 +58,7 @@ describe("fetchEggMoves", () => {
       ],
       evolution_chain: null,
       varieties: [],
-    } as any);
+    } as PokemonSpeciesData);
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
@@ -73,6 +75,9 @@ describe("fetchEggMoves", () => {
     expect(result[0].moveName).toBe("dragon-dance");
     expect(result[0].parents.length).toBeGreaterThanOrEqual(1);
     expect(result[0].parents[0].speciesName).toBe("dragonite");
+    // Regression: speciesId must come from the fetched parent data (id: 149),
+    // not be parsed out of a species-name URL (which previously always yielded 0).
+    expect(result[0].parents[0].speciesId).toBe(149);
   });
 
   it("returns empty array when no egg moves exist", async () => {
@@ -87,7 +92,7 @@ describe("fetchEggMoves", () => {
           ],
         },
       ],
-    } as any);
+    } as unknown as Pokemon);
 
     const result = await fetchEggMoves(25);
     expect(result).toEqual([]);

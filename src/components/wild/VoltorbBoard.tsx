@@ -110,11 +110,11 @@ function HintBadge({ total, voltorbs }: { total: number; voltorbs: number }) {
 export default function VoltorbBoard({ state, isPlaying, onFlip }: VoltorbBoardProps) {
   return (
     <div className="flex justify-center">
-      <div className="inline-block">
+      <div className="w-full max-w-[324px]">
         {/* Main grid with right-side row hints */}
         <div className="flex gap-1">
           {/* 5x5 tile grid */}
-          <div className="grid grid-cols-5 gap-1" style={{ width: 220 }}>
+          <div className="grid grid-cols-5 gap-1 w-full max-w-[280px]">
             {state.board.map((row, ri) =>
               row.map((val, ci) => (
                 <TileCell
@@ -131,7 +131,7 @@ export default function VoltorbBoard({ state, isPlaying, onFlip }: VoltorbBoardP
           </div>
 
           {/* Row hints (right side) */}
-          <div className="flex flex-col gap-1" style={{ width: 40 }}>
+          <div className="flex flex-col gap-1 w-10 flex-shrink-0">
             {state.rowHints.map((hint, i) => (
               <HintBadge key={`rh-${i}`} total={hint.total} voltorbs={hint.voltorbs} />
             ))}
@@ -140,13 +140,13 @@ export default function VoltorbBoard({ state, isPlaying, onFlip }: VoltorbBoardP
 
         {/* Column hints (bottom) */}
         <div className="flex gap-1 mt-1">
-          <div className="grid grid-cols-5 gap-1" style={{ width: 220 }}>
+          <div className="grid grid-cols-5 gap-1 w-full max-w-[280px]">
             {state.colHints.map((hint, i) => (
               <HintBadge key={`ch-${i}`} total={hint.total} voltorbs={hint.voltorbs} />
             ))}
           </div>
           {/* Empty corner space to align with row hints */}
-          <div style={{ width: 40 }} />
+          <div className="w-10 flex-shrink-0" />
         </div>
       </div>
     </div>

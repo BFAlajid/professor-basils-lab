@@ -11,6 +11,7 @@ import EvolutionScreen from "./EvolutionScreen";
 import WildToolbar from "./WildToolbar";
 import WildPanelRouter from "./WildPanelRouter";
 import WildEncounterPhases from "./WildEncounterPhases";
+import { formatName } from "@/utils/format";
 
 interface WildTabProps {
   team: TeamSlot[];
@@ -84,7 +85,7 @@ function WildTabContent() {
                 }}
                 nuzlockeEnabled={nuzlocke.enabled}
                 onToggleNuzlocke={() => nuzlocke.enabled ? disableNuzlocke() : enableNuzlocke()}
-                teamLeadName={team[0].pokemon.name.charAt(0).toUpperCase() + team[0].pokemon.name.slice(1)}
+                teamLeadName={formatName(team[0].pokemon.name)}
                 fossilCount={Object.values(fossilInventory).reduce((a, b) => a + b, 0)}
                 money={stats.money}
                 boxCount={box.length}

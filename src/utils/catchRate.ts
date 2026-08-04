@@ -31,7 +31,7 @@ export function calculateCatchProbability(
     return { shakeChecks: [true, true, true, true], isCaught: true };
   }
 
-  const shakeProbability = 65536 / Math.pow(255 / modifiedRate, 0.1875);
+  const shakeProbability = 65536 / Math.pow(255 / modifiedRate, 0.25);
 
   const shakeChecks: boolean[] = [];
   for (let i = 0; i < 4; i++) {

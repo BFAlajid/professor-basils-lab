@@ -6,6 +6,7 @@ import { Pokemon, BallType } from "@/types";
 import { POKE_BALLS } from "@/data/pokeBalls";
 import Image from "@/components/PokeImage";
 import ItemSprite from "@/components/ItemSprite";
+import { formatName } from "@/utils/format";
 
 interface CatchResultProps {
   pokemon: Pokemon;
@@ -29,7 +30,7 @@ export default function CatchResult({
   const [nickname, setNickname] = useState("");
   const ballData = POKE_BALLS[ball];
   const spriteUrl = pokemon.sprites.other?.["official-artwork"]?.front_default ?? pokemon.sprites.front_default;
-  const displayName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
+  const displayName = formatName(pokemon.name);
 
   if (!isCaught) {
     return (

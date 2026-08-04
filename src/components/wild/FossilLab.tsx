@@ -7,20 +7,24 @@ import { FOSSILS, Fossil } from "@/data/fossils";
 
 interface FossilLabProps {
   fossilInventory: Record<string, number>;
-  onRevive: (fossilId: string) => void;
+  onRevive: (fossilId: string) => Promise<void>;
   onClose: () => void;
 }
 
 export default function FossilLab({ fossilInventory, onRevive, onClose }: FossilLabProps) {
   const [revivingId, setRevivingId] = useState<string | null>(null);
 
-  const handleRevive = (fossilId: string) => {
+  const handleRevive = async (fossilId: string) => {
     setRevivingId(fossilId);
-    // Brief animation delay before calling parent handler
-    setTimeout(() => {
-      onRevive(fossilId);
+    try {
+      // Brief animation delay before calling parent handler
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      // Keep the button disabled through the actual (async) revive too, not
+      // just the animation, so a second click can't fire while it's in flight.
+      await onRevive(fossilId);
+    } finally {
       setRevivingId(null);
-    }, 800);
+    }
   };
 
   return (

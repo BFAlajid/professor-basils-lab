@@ -1,11 +1,9 @@
 "use client";
 
-import { useReducer, useCallback, useState, useRef } from "react";
+import { useReducer, useCallback, useState, useRef, useEffect } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import { SHINY_RATE } from "@/data/constants";
 import {
-  SafariPhase,
-  SafariAction,
   SafariPokemonState,
   SafariCaughtEntry,
   SafariZoneState,
@@ -43,7 +41,8 @@ type ReducerAction =
   | { type: "RUN" }
   | { type: "CONTINUE" }
   | { type: "EXIT_SAFARI" }
-  | { type: "RESET" };
+  | { type: "RESET" }
+  | { type: "MARK_COLLECTED" };
 
 // ── Initial state ───────────────────────────────────────────────────────
 
@@ -58,6 +57,7 @@ const initialState: InternalSafariState = {
   isCaught: false,
   isFled: false,
   region: "kanto",
+  collected: false,
 };
 
 // ── Weighted random selection from encounter pool ───────────────────────
@@ -265,6 +265,9 @@ function safariReducer(
     case "RESET":
       return { ...initialState };
 
+    case "MARK_COLLECTED":
+      return { ...state, collected: true };
+
     default:
       return state;
   }
@@ -276,7 +279,9 @@ export function useSafariZone() {
   const [state, dispatch] = useReducer(safariReducer, initialState);
   const [isSearching, setIsSearching] = useState(false);
   const stateRef = useRef(state);
-  stateRef.current = state;
+  useEffect(() => {
+    stateRef.current = state;
+  });
 
   const enterSafari = useCallback((region: string) => {
     dispatch({ type: "ENTER_SAFARI", region });
@@ -372,6 +377,10 @@ export function useSafariZone() {
     dispatch({ type: "RESET" });
   }, []);
 
+  const markCollected = useCallback(() => {
+    dispatch({ type: "MARK_COLLECTED" });
+  }, []);
+
   // Expose state cast to the public SafariZoneState type
   const publicState = state as SafariZoneState;
 
@@ -387,5 +396,6 @@ export function useSafariZone() {
     continueAfterResult,
     exitSafari,
     reset,
+    markCollected,
   };
 }

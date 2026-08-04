@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { PCBoxPokemon } from "@/types";
@@ -8,9 +8,10 @@ import { useDayCare } from "@/hooks/useDayCare";
 
 interface DayCareProps {
   box: PCBoxPokemon[];
+  onAddToBox: (pokemon: PCBoxPokemon) => void;
 }
 
-export default function DayCare({ box }: DayCareProps) {
+export default function DayCare({ box, onAddToBox }: DayCareProps) {
   const { state, isCheckingCompat, setPair, clearPair, collectEgg, hatchEgg, removeEgg } = useDayCare(box);
   const [selectedSlot, setSelectedSlot] = useState<1 | 2>(1);
   const [showSelector, setShowSelector] = useState(false);
@@ -20,10 +21,20 @@ export default function DayCare({ box }: DayCareProps) {
   const parent1 = state.currentPair ? box[state.currentPair.parent1Index] : (pendingParent1 >= 0 ? box[pendingParent1] : null);
   const parent2 = state.currentPair ? box[state.currentPair.parent2Index] : (pendingParent2 >= 0 ? box[pendingParent2] : null);
 
-  const readyToHatch = useMemo(
-    () => state.eggs.filter((e) => !e.isHatched && e.stepsCompleted >= e.stepsRequired),
-    [state.eggs]
-  );
+  const handleAddToBox = (index: number) => {
+    const egg = state.eggs[index];
+    if (!egg?.hatchedPokemon) return;
+    onAddToBox(egg.hatchedPokemon);
+    removeEgg(index);
+  };
+
+  const handleRemoveEgg = (index: number) => {
+    const egg = state.eggs[index];
+    const label = egg?.isHatched && egg.hatchedPokemon ? egg.speciesName : "this egg";
+    if (window.confirm(`Discard ${label}? This cannot be undone.`)) {
+      removeEgg(index);
+    }
+  };
 
   const handleSelectParent = (boxIndex: number) => {
     if (selectedSlot === 1) {
@@ -119,9 +130,17 @@ export default function DayCare({ box }: DayCareProps) {
                         Hatch!
                       </button>
                     )}
+                    {egg.isHatched && egg.hatchedPokemon && (
+                      <button
+                        onClick={() => handleAddToBox(index)}
+                        className="text-[10px] font-pixel text-[#38b764] hover:text-[#f0f0e8] transition-colors"
+                      >
+                        Add to Box
+                      </button>
+                    )}
                     {egg.isHatched && (
                       <button
-                        onClick={() => removeEgg(index)}
+                        onClick={() => handleRemoveEgg(index)}
                         className="text-[10px] text-[#e8433f] hover:text-[#f0f0e8] transition-colors"
                       >
                         Remove

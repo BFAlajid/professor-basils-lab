@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Pokemon, BallType, StatusCondition, TeamSlot } from "@/types";
 import Image from "@/components/PokeImage";
 import WildActionPanel from "./WildActionPanel";
+import { formatName } from "@/utils/format";
 
 interface WildBattleProps {
   wildPokemon: Pokemon;
@@ -84,8 +85,8 @@ export default function WildBattle({
 }: WildBattleProps) {
   const wildSprite = wildPokemon.sprites.other?.["official-artwork"]?.front_default ?? wildPokemon.sprites.front_default;
   const playerSprite = playerSlot.pokemon.sprites.other?.["official-artwork"]?.front_default ?? playerSlot.pokemon.sprites.front_default;
-  const wildName = wildPokemon.name.charAt(0).toUpperCase() + wildPokemon.name.slice(1);
-  const playerName = playerSlot.pokemon.name.charAt(0).toUpperCase() + playerSlot.pokemon.name.slice(1);
+  const wildName = formatName(wildPokemon.name);
+  const playerName = formatName(playerSlot.pokemon.name);
 
   return (
     <div className="space-y-3">

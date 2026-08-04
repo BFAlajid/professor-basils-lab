@@ -1,4 +1,4 @@
-import { fetchPokemonData, fetchSpeciesData, type PokemonSpeciesData } from "@/utils/pokeApiClient";
+import { fetchPokemonData, fetchSpeciesData } from "@/utils/pokeApiClient";
 import { silentWarn } from "@/utils/silentWarn";
 import { formatName } from "@/utils/format";
 
@@ -21,11 +21,6 @@ interface PokeAPIMoveEntry {
 interface PokeAPIEggGroupMember {
   name: string;
   url: string;
-}
-
-function extractId(url: string): number {
-  const parts = url.replace(/\/$/, "").split("/");
-  return parseInt(parts[parts.length - 1], 10);
 }
 
 export async function fetchEggMoves(pokemonId: number): Promise<EggMoveChain[]> {
@@ -58,14 +53,14 @@ export async function fetchEggMoves(pokemonId: number): Promise<EggMoveChain[]> 
     }
 
     const results: EggMoveChain[] = [];
-    const checkedParents = new Map<string, PokeAPIMoveEntry[]>();
+    const checkedParents = new Map<string, { id: number; moves: PokeAPIMoveEntry[] }>();
 
     const parentSample = Array.from(eggGroupMembers).slice(0, 20);
     const parentFetches = await Promise.allSettled(
       parentSample.map((name) =>
         fetchPokemonData(name)
           .then((data) => {
-            if (data) checkedParents.set(name, data.moves as PokeAPIMoveEntry[]);
+            if (data) checkedParents.set(name, { id: data.id, moves: data.moves as PokeAPIMoveEntry[] });
           })
       )
     );
@@ -75,8 +70,8 @@ export async function fetchEggMoves(pokemonId: number): Promise<EggMoveChain[]> 
       const moveName = eggMove.move.name;
       const parents: EggMoveChain["parents"] = [];
 
-      for (const [parentName, parentMoves] of checkedParents) {
-        const parentMove = parentMoves.find(
+      for (const [parentName, parentData] of checkedParents) {
+        const parentMove = parentData.moves.find(
           (m: PokeAPIMoveEntry) => m.move.name === moveName
         );
         if (!parentMove) continue;
@@ -92,11 +87,7 @@ export async function fetchEggMoves(pokemonId: number): Promise<EggMoveChain[]> 
               d.move_learn_method.name === "level-up" || d.move_learn_method.name === "machine"
           );
           parents.push({
-            speciesId: extractId(
-              parentMoves === checkedParents.get(parentName)
-                ? `https://pokeapi.co/api/v2/pokemon-species/${parentName}/`
-                : ""
-            ) || 0,
+            speciesId: parentData.id,
             speciesName: parentName,
             learnMethod: method
               ? formatName(method.move_learn_method.name)

@@ -8,6 +8,7 @@ import { usePCBox } from "@/hooks/usePCBox";
 import { usePokedexContext } from "@/contexts/PokedexContext";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { STORAGE_KEYS } from "@/utils/persistence";
 import { useNuzlocke } from "@/hooks/useNuzlocke";
 import { useOnlineBattle } from "@/hooks/useOnlineBattle";
 import { useSafariZone } from "@/hooks/useSafariZone";
@@ -41,6 +42,7 @@ export interface WildInventoryContextValue {
   addToBox: (p: PCBoxPokemon) => void;
   removeFromBox: (index: number) => void;
   setNickname: (index: number, nickname: string) => void;
+  updatePokemon: (index: number, updates: Partial<PCBoxPokemon>) => void;
   moveToTeam: (index: number) => void;
   useBall: (ball: BallType) => boolean;
   isAlreadyCaught: (pokemonId: number) => boolean;
@@ -144,7 +146,7 @@ export function WildTabProvider({ team, onAddToTeam, onSetEvs, onSetMoves, child
   } = useWildEncounter(team);
 
   const {
-    box, ballInventory, addToBox, removeFromBox, setNickname, moveToTeam, useBall, isAlreadyCaught,
+    box, ballInventory, addToBox, removeFromBox, setNickname, updatePokemon, moveToTeam, addBalls, useBall, isAlreadyCaught,
   } = usePCBox();
 
   const { markSeen, markCaught } = usePokedexContext();
@@ -164,16 +166,16 @@ export function WildTabProvider({ team, onAddToTeam, onSetEvs, onSetMoves, child
   const [evolvingPokemon, setEvolvingPokemon] = useState<PCBoxPokemon | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [showCatchFailure, setShowCatchFailure] = useState(false);
-  const [fossilInventory, setFossilInventory] = usePersistedState<Record<string, number>>("pokemon-fossil-inventory", {});
-  const [ownedItems, setOwnedItems] = usePersistedState<Record<string, number>>("pokemon-owned-items", {});
-  const [battleItemInventory, setBattleItemInventory] = usePersistedState<Record<string, number>>("pokemon-battle-items", DEFAULT_BATTLE_ITEMS);
+  const [fossilInventory, setFossilInventory] = usePersistedState<Record<string, number>>(STORAGE_KEYS.fossilInventory, {});
+  const [ownedItems, setOwnedItems] = usePersistedState<Record<string, number>>(STORAGE_KEYS.ownedItems, {});
+  const [battleItemInventory, setBattleItemInventory] = usePersistedState<Record<string, number>>(STORAGE_KEYS.battleItems, DEFAULT_BATTLE_ITEMS);
 
   const {
     handleReviveFossil, handleGameCornerPurchase, handlePokeMartBuy,
     handleStartEncounter, handleThrowBall, handleAddToBox, handleMoveToTeam,
   } = useWildActions({
     encounter, startEncounter, throwBall, returnToMap,
-    addToBox, moveToTeam, useBall, isAlreadyCaught, onAddToTeam,
+    addToBox, removeFromBox, moveToTeam, addBalls, useBall, isAlreadyCaught, onAddToTeam,
     markCaught, incrementStat, addUniqueBall, addUniqueType, addKantoSpecies,
     spendMoney, money: stats.money, fossilInventory, setFossilInventory,
     setBattleItemInventory, setOwnedItems, setIsSearching,
@@ -246,15 +248,16 @@ export function WildTabProvider({ team, onAddToTeam, onSetEvs, onSetMoves, child
   ]);
 
   const inventoryValue = useMemo<WildInventoryContextValue>(() => ({
-    box, ballInventory, addToBox, removeFromBox, setNickname, moveToTeam, useBall, isAlreadyCaught,
+    box, ballInventory, addToBox, removeFromBox, setNickname, updatePokemon, moveToTeam, useBall, isAlreadyCaught,
     fossilInventory, setFossilInventory, ownedItems, setOwnedItems,
     battleItemInventory, setBattleItemInventory,
     stats, incrementStat, addUniqueBall, addUniqueType, addKantoSpecies, addMoney, spendMoney,
     markSeen, markCaught,
     handleReviveFossil, handleGameCornerPurchase, handlePokeMartBuy, handleMoveToTeam,
   }), [
-    box, ballInventory, addToBox, removeFromBox, setNickname, moveToTeam, useBall, isAlreadyCaught,
-    fossilInventory, ownedItems, battleItemInventory,
+    box, ballInventory, addToBox, removeFromBox, setNickname, updatePokemon, moveToTeam, useBall, isAlreadyCaught,
+    fossilInventory, setFossilInventory, ownedItems, setOwnedItems,
+    battleItemInventory, setBattleItemInventory,
     stats, incrementStat, addUniqueBall, addUniqueType, addKantoSpecies, addMoney, spendMoney,
     markSeen, markCaught,
     handleReviveFossil, handleGameCornerPurchase, handlePokeMartBuy, handleMoveToTeam,

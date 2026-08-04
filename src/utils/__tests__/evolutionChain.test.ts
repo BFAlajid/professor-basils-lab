@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+import { PokemonSpeciesData } from "@/utils/pokeApiClient";
 
 vi.mock("@/utils/pokeApiClient", () => ({
   fetchSpeciesData: vi.fn(),
@@ -147,7 +148,7 @@ describe("fetchEvolutionChain", () => {
       egg_groups: [],
       evolution_chain: { url: "https://pokeapi.co/api/v2/evolution-chain/1/" },
       varieties: [],
-    } as any);
+    } as PokemonSpeciesData);
 
     const mockChainData = {
       chain: {
@@ -194,7 +195,7 @@ describe("fetchEvolutionChain", () => {
       egg_groups: [],
       evolution_chain: null,
       varieties: [],
-    } as any);
+    } as PokemonSpeciesData);
 
     const result = await fetchEvolutionChain(132);
     expect(result).toBeNull();

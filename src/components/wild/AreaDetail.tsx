@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { RouteArea } from "@/types";
 import Image from "@/components/PokeImage";
+import { capitalize } from "@/utils/format";
 
 interface AreaDetailProps {
   area: RouteArea;
@@ -33,7 +34,7 @@ export default function AreaDetail({ area, onStartEncounter, isLoading }: AreaDe
         <h3 className="text-base font-pixel text-[#f0f0e8]">{area.name}</h3>
         <p className="text-sm text-[#8b9bb4] mt-1">{area.description}</p>
         <p className="text-xs text-[#8b9bb4] mt-1">
-          Levels {minLevel}–{maxLevel} · {area.theme.charAt(0).toUpperCase() + area.theme.slice(1)}
+          Levels {minLevel}–{maxLevel} · {capitalize(area.theme)}
         </p>
       </div>
 

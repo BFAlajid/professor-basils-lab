@@ -5,7 +5,7 @@
 import type { Nature, BallType, PCBoxPokemon } from "@/types";
 import { silentWarn } from "@/utils/silentWarn";
 import type { Gen3Pokemon } from "./gen3PokemonDecryptor";
-import { fetchPokemon } from "@/hooks/usePokemon";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 
 /**
  * Gen 3 Nature order (PID % 25)
@@ -70,7 +70,7 @@ function getNatureFromPID(pid: number): Nature {
  * Fetches data from PokeAPI for the sprite and ability info
  */
 export async function mapGen3ToAppPokemon(gen3: Gen3Pokemon): Promise<PCBoxPokemon> {
-  const pokemon = await fetchPokemon(gen3.species);
+  const pokemon = await fetchPokemonData(gen3.species);
   const nature = getNatureFromPID(gen3.pid);
 
   // Determine ability from ability slot

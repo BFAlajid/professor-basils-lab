@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { BallType, BattlePokemon } from "@/types";
+import { BallType } from "@/types";
 import BallSelector from "./BallSelector";
 
 interface WildActionPanelProps {
