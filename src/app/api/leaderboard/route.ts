@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { submitScore, getLeaderboard, getPlayerRank, checkRateLimit } from "@/lib/kv";
+import {
+  submitScore,
+  getLeaderboard,
+  getPlayerRank,
+  LeaderboardOwnershipError,
+} from "@/lib/kv";
+import { checkRateLimit } from "@/lib/rateLimit";
+import { getTrustedClientIp } from "@/lib/ip";
 import {
   LEADERBOARD_MAX_NAME_LENGTH,
   LEADERBOARD_MAX_ELO,
@@ -13,6 +20,11 @@ import type {
 } from "@/types/leaderboard";
 
 export const runtime = "nodejs";
+
+// deviceKey is a client-generated random secret (see trainerIdentity.ts);
+// bounds are generous enough for a hex-encoded 32-byte key with headroom.
+const MIN_DEVICE_KEY_LENGTH = 16;
+const MAX_DEVICE_KEY_LENGTH = 128;
 
 const VALID_TYPES = new Set<LeaderboardType>([
   "battle-tower",
@@ -30,7 +42,11 @@ const SCORE_CAPS: Record<LeaderboardType, number> = {
   "pokedex-completion": LEADERBOARD_MAX_STREAK,
 };
 
-const TRAINER_ID_PATTERN = /^\d{5}$/;
+// Accepts both the legacy 5-digit id (~90k values, collision-prone) and the
+// wider 9-digit id issued by newer clients (see trainerIdentity.ts) — old
+// stored ids must keep validating so upgrading never resets a player's
+// identity.
+const TRAINER_ID_PATTERN = /^\d{5,10}$/;
 
 function sanitizeName(str: string): string {
   // Allowlist: alphanumeric, spaces, hyphens, periods, apostrophes
@@ -65,7 +81,7 @@ function validateEntry(
 
   // trainerId
   if (typeof e.trainerId !== "string" || !TRAINER_ID_PATTERN.test(e.trainerId)) {
-    return { valid: false, error: "trainerId must be exactly 5 digits" };
+    return { valid: false, error: "trainerId must be 5-10 digits" };
   }
 
   // score
@@ -139,12 +155,13 @@ export async function GET(request: Request) {
 
     const response: LeaderboardResponse = { entries, playerRank };
 
-    const cacheScope = trainerId ? "private" : "public";
-    return NextResponse.json(response, {
-      headers: {
-        "Cache-Control": `${cacheScope}, s-maxage=60, stale-while-revalidate=30`,
-      },
-    });
+    // Personalized (trainerId-scoped) responses must never be cached by
+    // shared caches; the anonymous variant is safe to cache publicly.
+    const headers = trainerId
+      ? { "Cache-Control": "private, max-age=0, no-store" }
+      : { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=30" };
+
+    return NextResponse.json(response, { headers });
   } catch (err) {
     console.error("Leaderboard GET failed:", err instanceof Error ? err.message : "Unknown error");
     return NextResponse.json(
@@ -156,7 +173,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   // Rate limit by IP
-  const ip = request.headers.get("x-real-ip") || request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
+  const ip = getTrustedClientIp(request);
 
   try {
     const allowed = await checkRateLimit(ip, LEADERBOARD_RATE_LIMIT_PER_HOUR);
@@ -198,10 +215,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
+  // deviceKey binds this write to the submitting device — required so an
+  // anonymous client can't overwrite another player's trainerId entry.
+  const deviceKey = b.deviceKey;
+  if (
+    typeof deviceKey !== "string" ||
+    deviceKey.length < MIN_DEVICE_KEY_LENGTH ||
+    deviceKey.length > MAX_DEVICE_KEY_LENGTH
+  ) {
+    return NextResponse.json({ error: "Invalid device key" }, { status: 400 });
+  }
+
   try {
-    const { rank } = await submitScore(b.type, validation.cleaned);
+    const { rank } = await submitScore(b.type, validation.cleaned, deviceKey);
     return NextResponse.json({ rank }, { status: 201 });
   } catch (err) {
+    if (err instanceof LeaderboardOwnershipError) {
+      return NextResponse.json(
+        { error: "This trainer ID is registered to a different device" },
+        { status: 403 }
+      );
+    }
     console.error("Leaderboard POST failed:", err instanceof Error ? err.message : "Unknown error");
     return NextResponse.json(
       { error: "Failed to submit score" },

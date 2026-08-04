@@ -11,7 +11,7 @@ vi.mock("@/lib/blob", () => ({
   uploadShareMeta: mockUploadShareMeta,
 }));
 
-vi.mock("@/lib/kv", () => ({
+vi.mock("@/lib/rateLimit", () => ({
   checkRateLimit: mockCheckRateLimit,
 }));
 
@@ -25,10 +25,10 @@ vi.mock("@/data/constants", () => ({
 
 import { POST } from "../share/route";
 
-function makeRequest(body: unknown) {
+function makeRequest(body: unknown, headers: Record<string, string> = {}) {
   return new Request("http://localhost:3000/api/share", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -276,5 +276,30 @@ describe("POST /api/share", () => {
     );
 
     expect(response.status).toBe(201);
+  });
+
+  it("rate-limits by the trusted IP, not a spoofed leftmost x-forwarded-for entry", async () => {
+    await POST(
+      makeRequest(validPayload(), {
+        "x-forwarded-for": "1.2.3.4, 203.0.113.9",
+      })
+    );
+
+    // Vercel appends the real client IP as the last XFF entry — the
+    // attacker-controlled leftmost entry (1.2.3.4) must never be used as
+    // the rate-limit bucket key.
+    expect(mockCheckRateLimit).toHaveBeenCalledWith("share:203.0.113.9", 10);
+    expect(mockCheckRateLimit).not.toHaveBeenCalledWith("share:1.2.3.4", 10);
+  });
+
+  it("prefers x-real-ip over x-forwarded-for for the rate-limit key", async () => {
+    await POST(
+      makeRequest(validPayload(), {
+        "x-real-ip": "203.0.113.9",
+        "x-forwarded-for": "1.2.3.4",
+      })
+    );
+
+    expect(mockCheckRateLimit).toHaveBeenCalledWith("share:203.0.113.9", 10);
   });
 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { uploadShare, uploadShareMeta } from "@/lib/blob";
-import { checkRateLimit } from "@/lib/kv";
+import { checkRateLimit } from "@/lib/rateLimit";
+import { getTrustedClientIp } from "@/lib/ip";
 import {
   SHARE_MAX_TRAINER_CARD,
   SHARE_MAX_REPLAY,
@@ -56,7 +57,7 @@ function isValidPayload(body: unknown): body is SharePayload {
 
 export async function POST(request: Request) {
   // Rate limit by IP
-  const ip = request.headers.get("x-real-ip") || request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
+  const ip = getTrustedClientIp(request);
   try {
     const allowed = await checkRateLimit(`share:${ip}`, SHARE_RATE_LIMIT_PER_HOUR);
     if (!allowed) {

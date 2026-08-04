@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { silentWarn } from "@/utils/silentWarn";
+import { getDeviceKey, regenerateTrainerId } from "@/utils/trainerIdentity";
+import { STORAGE_KEYS, readStorageString } from "@/utils/persistence";
 import type {
   LeaderboardEntry,
   LeaderboardType,
@@ -18,7 +20,7 @@ export function useLeaderboard(type: LeaderboardType) {
     let cancelled = false;
     async function load() {
       try {
-        const trainerId = localStorage.getItem("pokemon-trainer-id") || "";
+        const trainerId = readStorageString(STORAGE_KEYS.trainerId, "");
         const params = new URLSearchParams({ type, limit: "50" });
         if (trainerId) params.set("trainerId", trainerId);
 
@@ -46,12 +48,24 @@ export function useLeaderboard(type: LeaderboardType) {
 
   const submitScore = useCallback(
     async (entry: LeaderboardEntry): Promise<number | null> => {
-      try {
-        const res = await fetch("/api/leaderboard", {
+      const post = (e: LeaderboardEntry) =>
+        fetch("/api/leaderboard", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type, entry }),
+          body: JSON.stringify({ type, entry: e, deviceKey: getDeviceKey() }),
         });
+
+      try {
+        let res = await post(entry);
+
+        // 403 means this trainerId is already claimed by a different device
+        // (an id collision) — regenerate and retry once instead of leaving
+        // the player permanently locked out of this leaderboard.
+        if (res.status === 403) {
+          const retryEntry = { ...entry, trainerId: regenerateTrainerId() };
+          res = await post(retryEntry);
+        }
+
         if (!res.ok) {
           const data = await res.json();
           throw new Error(data.error || "Submit failed");
@@ -60,7 +74,7 @@ export function useLeaderboard(type: LeaderboardType) {
         setPlayerRank(rank);
 
         // Refresh the leaderboard after submission
-        const trainerId = localStorage.getItem("pokemon-trainer-id") || "";
+        const trainerId = readStorageString(STORAGE_KEYS.trainerId, "");
         const params = new URLSearchParams({ type, limit: "50" });
         if (trainerId) params.set("trainerId", trainerId);
         const refreshRes = await fetch(`/api/leaderboard?${params}`);

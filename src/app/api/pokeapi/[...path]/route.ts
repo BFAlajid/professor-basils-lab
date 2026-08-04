@@ -1,3 +1,7 @@
+import { checkRateLimit } from "@/lib/rateLimit";
+import { getTrustedClientIp } from "@/lib/ip";
+import { POKEAPI_RATE_LIMIT_PER_HOUR } from "@/data/constants";
+
 export const runtime = "edge";
 
 const ALLOWED_RESOURCES = new Set([
@@ -35,6 +39,20 @@ export async function GET(
     if (!SEGMENT_PATTERN.test(segment)) {
       return Response.json({ error: "Invalid path segment" }, { status: 400 });
     }
+  }
+
+  // Rate limit by trusted IP. This is a read-only cached proxy that most of
+  // the app depends on, so fail OPEN on KV errors rather than taking down
+  // core data fetching if the KV store hiccups (unlike the write endpoints,
+  // which fail closed).
+  const ip = getTrustedClientIp(request);
+  try {
+    const allowed = await checkRateLimit(`pokeapi:${ip}`, POKEAPI_RATE_LIMIT_PER_HOUR);
+    if (!allowed) {
+      return Response.json({ error: "Rate limit exceeded" }, { status: 429 });
+    }
+  } catch {
+    // KV unavailable — allow the request through
   }
 
   const ALLOWED_PARAMS = new Set(["limit", "offset"]);

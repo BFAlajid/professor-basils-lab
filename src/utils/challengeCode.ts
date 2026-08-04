@@ -1,4 +1,4 @@
-import { TeamSlot, GenerationalMechanic } from "@/types";
+import { GenerationalMechanic } from "@/types";
 import { silentWarn } from "@/utils/silentWarn";
 
 export interface ChallengeData {

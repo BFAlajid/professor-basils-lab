@@ -5,7 +5,7 @@ const capturedCalls: Array<{ jsx: unknown; options: unknown }> = [];
 vi.mock("next/og", () => {
   // Must be a constructor (used with `new`)
   class MockImageResponse extends Response {
-    constructor(jsx: unknown, options: any = {}) {
+    constructor(jsx: unknown, options: Record<string, unknown> = {}) {
       super("image", {
         headers: { "content-type": "image/png" },
         ...options,
@@ -113,7 +113,7 @@ describe("GET /api/og", () => {
   it("includes cache-control header in options", async () => {
     await GET(makeRequest());
 
-    const { options } = capturedCalls[0] as any;
+    const { options } = capturedCalls[0] as { options: Record<string, unknown> };
     expect(options.headers).toHaveProperty("Cache-Control", "public, s-maxage=86400");
   });
 });
