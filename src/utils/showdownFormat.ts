@@ -1,7 +1,7 @@
 import { TeamSlot, EVSpread, IVSpread, Nature, TypeName } from "@/types";
 import { silentWarn } from "@/utils/silentWarn";
 import { NATURES } from "@/data/natures";
-import { fetchPokemon } from "@/hooks/usePokemon";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 import { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { capitalize } from "./format";
 import { STAT_KEYS } from "@/data/constants";
@@ -242,7 +242,7 @@ async function parseBlock(
   // ── Fetch Pokemon from PokeAPI ──────────────────────────────────────
   let pokemon;
   try {
-    pokemon = await fetchPokemon(apiName);
+    pokemon = await fetchPokemonData(apiName);
   } catch (e) {
     silentWarn("importShowdownFetchPokemon", e);
     return null;
@@ -318,18 +318,31 @@ function parseSpread<T extends EVSpread | IVSpread>(
   raw: string,
   base: T
 ): T {
+  const isEV = "hp" in base && (base as unknown as EVSpread).hp >= 0;
+  const maxPerStat = isEV ? 252 : 31;
   const spread = { ...base };
   const parts = raw.split("/").map((p) => p.trim());
 
   for (const part of parts) {
     const match = part.match(/^(\d+)\s+(\w+)$/);
     if (match) {
-      const value = parseInt(match[1], 10);
+      const value = Math.min(Math.max(0, parseInt(match[1], 10)), maxPerStat);
       const abbrev = match[2];
       const key = SHOWDOWN_TO_STAT[abbrev];
       if (key) {
         (spread as unknown as Record<string, number>)[key] = value;
       }
+    }
+  }
+
+  // Clamp total EVs to 510
+  if (isEV) {
+    const s = spread as unknown as Record<string, number>;
+    const stats = ["hp", "attack", "defense", "spAtk", "spDef", "speed"];
+    const total = stats.reduce((sum, k) => sum + (s[k] ?? 0), 0);
+    if (total > 510) {
+      const scale = 510 / total;
+      for (const k of stats) s[k] = Math.floor((s[k] ?? 0) * scale);
     }
   }
 

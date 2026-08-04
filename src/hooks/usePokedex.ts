@@ -32,6 +32,7 @@ type PokedexAction =
 
 const TOTAL_POKEMON = 1025;
 const STORAGE_KEY = "pokemon-pokedex";
+const PERSIST_DEBOUNCE_MS = 500;
 
 // --- Helpers ---
 
@@ -149,17 +150,49 @@ export function usePokedex() {
     }
   }, []);
 
-  // Persist to localStorage on state changes
+  // Keep a ref to the latest state so flush() can always write the most
+  // current entries, independent of debounce/effect timing.
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const flush = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateRef.current));
+    } catch (e) {
+      silentWarn("savePokedex", e);
+    }
+  }, []);
+
+  // Persist to localStorage on state changes, debounced so rapid
+  // markSeen/markCaught calls (e.g. a team mount loop or a wild encounter
+  // burst) don't each re-serialize the full entries map.
   useEffect(() => {
     if (!initialized.current) return;
     if (typeof window === "undefined") return;
 
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (e) {
-      silentWarn("savePokedex", e);
-    }
-  }, [state]);
+    const timeoutId = setTimeout(flush, PERSIST_DEBOUNCE_MS);
+    return () => clearTimeout(timeoutId);
+  }, [state, flush]);
+
+  // Flush any pending debounced write before the tab is hidden/closed or
+  // this hook unmounts, so a write never gets silently dropped.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      flush();
+    };
+  }, [flush]);
 
   // --- Public API ---
 

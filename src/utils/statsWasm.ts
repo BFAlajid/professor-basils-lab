@@ -20,8 +20,9 @@ type StatsWasmModule = {
 };
 
 const wrapper = createWasmWrapper<StatsWasmModule>("pkmn-stats", async () => {
-  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-stats/pkg/pkmn_stats.js");
+  // @ts-ignore -- dynamic WASM import
+  const wasmModulePath = "/wasm/pkmn_stats.js";
+  const mod = await import(/* webpackIgnore: true */ /* @vite-ignore */ wasmModulePath);
   await mod.default("/wasm/pkmn_stats_bg.wasm");
   return {
     calculate_hp: mod.calculate_hp,

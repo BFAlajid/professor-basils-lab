@@ -106,6 +106,15 @@ describe("formatName", () => {
   it("handles a three-word hyphenated name", () => {
     expect(formatName("double-edge-attack")).toBe("Double Edge Attack");
   });
+
+  it("formats a hyphenated move name", () => {
+    expect(formatName("swords-dance")).toBe("Swords Dance");
+  });
+
+  it("formats a hyphenated team archetype without an override", () => {
+    expect(formatName("trick-room")).toBe("Trick Room");
+    expect(formatName("bulky-offense")).toBe("Bulky Offense");
+  });
 });
 
 // ---------------------------------------------------------------------------

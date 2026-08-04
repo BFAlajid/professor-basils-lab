@@ -1,71 +1,48 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { silentWarn } from "@/utils/silentWarn";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { readStorage, readStorageValidated, writeStorage, type StorageKey } from "@/utils/persistence";
 
+/**
+ * `useState` + localStorage persistence, routed through persistence.ts's
+ * registry-typed read/write primitives — same SSR guard, validate contract,
+ * and error path as `usePersistedReducer`.
+ */
 export function usePersistedState<T>(
-  key: string,
+  key: StorageKey,
   defaultValue: T,
   validate?: (raw: unknown) => T | null,
 ): [T, React.Dispatch<React.SetStateAction<T>>] {
-  const [state, setState] = useState<T>(() => {
-    if (typeof window === "undefined") return defaultValue;
-    try {
-      const saved = localStorage.getItem(key);
-      if (!saved) return defaultValue;
-      const parsed = JSON.parse(saved);
-      if (validate) {
-        const validated = validate(parsed);
-        return validated !== null ? validated : defaultValue;
-      }
-      return parsed;
-    } catch (e) {
-      silentWarn(`usePersistedState: failed to read key "${key}"`, e);
-      return defaultValue;
-    }
-  });
+  const readValue = useCallback((): T => {
+    return validate
+      ? readStorageValidated(key, defaultValue, validate)
+      : readStorage(key, defaultValue);
+  // Only `key` should retrigger a read — `defaultValue`/`validate` are
+  // expected to be referentially stable per call site (or the caller wants
+  // the initial-mount value only, matching the previous behavior).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  const [state, setState] = useState<T>(readValue);
 
   const initialized = useRef(false);
   const prevKeyRef = useRef(key);
 
-  // Reset state from localStorage when key changes
+  // Reset state from storage when key changes
   useEffect(() => {
     if (prevKeyRef.current === key && initialized.current) return;
     prevKeyRef.current = key;
     initialized.current = false;
-
-    try {
-      const saved = localStorage.getItem(key);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (validate) {
-          const validated = validate(parsed);
-          setState(validated !== null ? validated : defaultValue);
-        } else {
-          setState(parsed);
-        }
-      } else {
-        setState(defaultValue);
-      }
-    } catch (e) {
-      silentWarn(`usePersistedState: failed to read key "${key}"`, e);
-      setState(defaultValue);
-    }
-
+    setState(readValue());
     initialized.current = true;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, readValue]);
 
   useEffect(() => {
     if (!initialized.current) {
       initialized.current = true;
       return;
     }
-    try {
-      localStorage.setItem(key, JSON.stringify(state));
-    } catch (error) {
-      silentWarn(`usePersistedState: failed to write key "${key}"`, error);
-    }
+    writeStorage(key, state);
   }, [key, state]);
 
   return [state, setState];

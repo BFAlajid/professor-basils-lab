@@ -13,8 +13,9 @@ async function initWasm(): Promise<boolean> {
   if (wasmFailed) return false;
 
   try {
-    // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-    const mod = await import(/* webpackIgnore: true */ "../../rust/gen3-parser/pkg/gen3_parser.js");
+    // @ts-ignore -- dynamic WASM import
+    const wasmModulePath = "/wasm/gen3_parser.js";
+    const mod = await import(/* webpackIgnore: true */ /* @vite-ignore */ wasmModulePath);
     await mod.default("/wasm/gen3_parser_bg.wasm");
     wasmModule = {
       parseGen3Save: mod.parseGen3Save,

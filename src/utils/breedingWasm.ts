@@ -30,8 +30,9 @@ type BreedingWasmModule = {
 };
 
 const wrapper = createWasmWrapper<BreedingWasmModule>("pkmn-breeding", async () => {
-  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-breeding/pkg/pkmn_breeding.js");
+  // @ts-ignore -- dynamic WASM import
+  const wasmModulePath = "/wasm/pkmn_breeding.js";
+  const mod = await import(/* webpackIgnore: true */ /* @vite-ignore */ wasmModulePath);
   await mod.default("/wasm/pkmn_breeding_bg.wasm");
   return {
     check_compatibility: mod.check_compatibility,

@@ -1,4 +1,4 @@
-import type { Pokemon, Move, TypeName, BattlePokemon } from "@/types";
+import type { Pokemon, Move, TypeName } from "@/types";
 import { silentWarn } from "@/utils/silentWarn";
 import { getDefensiveMultiplier } from "@/data/typeChart";
 import { typeToIndex } from "./typeChartWasm";
@@ -37,8 +37,9 @@ type DamageWasmModule = {
 };
 
 const wrapper = createWasmWrapper<DamageWasmModule>("pkmn-damage", async () => {
-  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-damage/pkg/pkmn_damage.js");
+  // @ts-ignore -- dynamic WASM import
+  const wasmModulePath = "/wasm/pkmn_damage.js";
+  const mod = await import(/* webpackIgnore: true */ /* @vite-ignore */ wasmModulePath);
   await mod.default("/wasm/pkmn_damage_bg.wasm");
   return { calculate_damage: mod.calculate_damage };
 });

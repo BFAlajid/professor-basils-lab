@@ -7,7 +7,7 @@ import {
   getOffensiveCoverage,
 } from "../teamAnalysis";
 import { mockCharizard, mockBlastoise, mockVenusaur, createMockTeamSlot } from "@/test/mocks/pokemon";
-import { Pokemon, TeamSlot, Move } from "@/types";
+import { Pokemon, TeamSlot, Move, TypeName } from "@/types";
 
 // Mock getCachedMove for tests that verify move-type coverage
 vi.mock("../pokeApiClient", () => ({
@@ -17,7 +17,7 @@ import { getCachedMove } from "../pokeApiClient";
 const mockGetCachedMove = getCachedMove as ReturnType<typeof vi.fn>;
 
 // Helper to create a mono-type mock Pokemon
-function mockMonoType(name: string, typeName: string, id: number = 1): Pokemon {
+function mockMonoType(name: string, typeName: TypeName, id: number = 1): Pokemon {
   return {
     id,
     name,
@@ -30,18 +30,18 @@ function mockMonoType(name: string, typeName: string, id: number = 1): Pokemon {
       { base_stat: 80, stat: { name: "special-defense" } },
       { base_stat: 80, stat: { name: "speed" } },
     ],
-    types: [{ slot: 1, type: { name: typeName as any } }],
+    types: [{ slot: 1, type: { name: typeName } }],
     moves: [{ move: { name: "tackle", url: "" } }],
     abilities: [{ ability: { name: "overgrow", url: "" }, is_hidden: false, slot: 1 }],
   };
 }
 
-function mockDualType(name: string, type1: string, type2: string, id: number = 1): Pokemon {
+function mockDualType(name: string, type1: TypeName, type2: TypeName, id: number = 1): Pokemon {
   return {
     ...mockMonoType(name, type1, id),
     types: [
-      { slot: 1, type: { name: type1 as any } },
-      { slot: 2, type: { name: type2 as any } },
+      { slot: 1, type: { name: type1 } },
+      { slot: 2, type: { name: type2 } },
     ],
   };
 }
@@ -289,7 +289,7 @@ describe("getOffensiveCoverage", () => {
 // --- Move-type integration in computeOffensiveCoverage ---
 
 describe("analyzeTeam with move types", () => {
-  function makeMoveStub(name: string, typeName: string, damageClass: string): Move {
+  function makeMoveStub(name: string, typeName: TypeName, damageClass: "physical" | "special" | "status"): Move {
     return {
       id: 1,
       name,
@@ -297,8 +297,8 @@ describe("analyzeTeam with move types", () => {
       accuracy: 100,
       pp: 15,
       priority: 0,
-      type: { name: typeName as any },
-      damage_class: { name: damageClass as any },
+      type: { name: typeName },
+      damage_class: { name: damageClass },
     };
   }
 

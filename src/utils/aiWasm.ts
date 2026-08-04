@@ -1,10 +1,10 @@
-import type { BattleState, BattleTurnAction, BattlePokemon, BattleTeam, DifficultyLevel, TypeName } from "@/types";
+import type { BattleState, BattleTurnAction, BattlePokemon, DifficultyLevel, TypeName } from "@/types";
 import { silentWarn } from "@/utils/silentWarn";
 import { getAbilityHooks } from "@/data/abilities";
 import { randomSeed } from "./random";
 import { typeToIndex } from "./typeChartWasm";
 import { selectAIAction as selectAIAction_JS, getBestSwitchIn as getBestSwitchIn_JS } from "./ai";
-import { getActivePokemon, getCachedMoves, getEffectiveTypes } from "./battle";
+import { getActivePokemon, getCachedMoves } from "./battle";
 import { createWasmWrapper } from "./createWasmWrapper";
 
 type AIWasmModule = {
@@ -17,8 +17,9 @@ type AIWasmModule = {
 };
 
 const wrapper = createWasmWrapper<AIWasmModule>("pkmn-battle", async () => {
-  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-battle/pkg/pkmn_battle.js");
+  // @ts-ignore — dynamic WASM import
+  const wasmModulePath = "/wasm/pkmn_battle.js";
+  const mod = await import(/* webpackIgnore: true */ /* @vite-ignore */ wasmModulePath);
   await mod.default("/wasm/pkmn_battle_bg.wasm");
   return {
     score_move: mod.score_move,
@@ -73,7 +74,7 @@ export function selectAIAction(state: BattleState): BattleTurnAction {
     const [defT1, defT2] = getTypePair(opponentActive);
 
     const cachedMoves = getCachedMoves();
-    let moveScores = new Float64Array(moves.length);
+    const moveScores = new Float64Array(moves.length);
     for (let i = 0; i < moves.length; i++) {
       const moveData = cachedMoves.get(moves[i]);
       if (!moveData) {

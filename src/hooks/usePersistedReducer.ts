@@ -1,11 +1,13 @@
 "use client";
 
 import { useReducer, useEffect, useRef } from "react";
-import { readStorage, readStorageValidated, writeStorage } from "@/utils/persistence";
+import { readStorage, readStorageValidated, writeStorage, type StorageKey } from "@/utils/persistence";
 import { silentWarn } from "@/utils/silentWarn";
 
 /**
- * `useReducer` + localStorage persistence.
+ * `useReducer` + localStorage persistence, routed through persistence.ts's
+ * registry-typed read/write primitives — same SSR guard, validate contract,
+ * and error path as `usePersistedState`.
  *
  * On mount, hydrates state from the given `key`. On every state change
  * after initialization, writes the new state back.
@@ -15,7 +17,7 @@ import { silentWarn } from "@/utils/silentWarn";
  * `initialState`.
  */
 export function usePersistedReducer<S, A>(
-  key: string,
+  key: StorageKey,
   reducer: (state: S, action: A) => S,
   initialState: S,
   validate?: (data: unknown) => S | null,

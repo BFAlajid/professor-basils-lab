@@ -26,8 +26,9 @@ type CatchRateWasmModule = {
 };
 
 const wrapper = createWasmWrapper<CatchRateWasmModule>("pkmn-catch-rate", async () => {
-  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-catch-rate/pkg/pkmn_catch_rate.js");
+  // @ts-ignore -- dynamic WASM import
+  const wasmModulePath = "/wasm/pkmn_catch_rate.js";
+  const mod = await import(/* webpackIgnore: true */ /* @vite-ignore */ wasmModulePath);
   await mod.default("/wasm/pkmn_catch_rate_bg.wasm");
   return {
     calculate_catch_probability: mod.calculate_catch_probability,

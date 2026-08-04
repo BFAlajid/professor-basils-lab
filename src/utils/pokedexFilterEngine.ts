@@ -58,7 +58,7 @@ export function applyFilters(
   config: PokedexFilterConfig,
   dataMap: Map<number, PokemonBaseData>,
 ): number[] {
-  let result = ids.filter((id) => {
+  const result = ids.filter((id) => {
     const data = dataMap.get(id);
     if (!data) return false;
 

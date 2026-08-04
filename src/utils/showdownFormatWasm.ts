@@ -1,11 +1,10 @@
 import type { TeamSlot, EVSpread, IVSpread, Nature, TypeName } from "@/types";
 import { silentWarn } from "@/utils/silentWarn";
 import { NATURES } from "@/data/natures";
-import { fetchPokemon } from "@/hooks/usePokemon";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 import { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import {
   exportToShowdown as exportToShowdown_JS,
-  exportSlotToShowdown as exportSlotToShowdown_JS,
   importFromShowdown as importFromShowdown_JS,
 } from "./showdownFormat";
 import { STAT_KEYS } from "@/data/constants";
@@ -18,8 +17,9 @@ type ShowdownWasmModule = {
 };
 
 const wrapper = createWasmWrapper<ShowdownWasmModule>("pkmn-showdown", async () => {
-  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-showdown/pkg/pkmn_showdown.js");
+  // @ts-ignore -- dynamic WASM import
+  const wasmModulePath = "/wasm/pkmn_showdown.js";
+  const mod = await import(/* webpackIgnore: true */ /* @vite-ignore */ wasmModulePath);
   await mod.default("/wasm/pkmn_showdown_bg.wasm");
   return {
     parse_showdown_paste: mod.parse_showdown_paste,
@@ -55,7 +55,7 @@ export async function importFromShowdown(text: string): Promise<TeamSlot[]> {
 
         let pokemon;
         try {
-          pokemon = await fetchPokemon(p.species);
+          pokemon = await fetchPokemonData(p.species);
         } catch (e) {
           silentWarn("wasmImportShowdownFetchPokemon", e);
           continue;

@@ -1,5 +1,14 @@
 import type { Pokemon, Move, PokemonListItem } from "@/types";
-import type { AbilityData } from "@/hooks/useAbility";
+
+export interface AbilityData {
+  id: number;
+  name: string;
+  effect_entries: {
+    effect: string;
+    short_effect: string;
+    language: { name: string };
+  }[];
+}
 
 // Route through Vercel Edge proxy for CDN caching; fall back to direct PokeAPI in dev
 function getBase(): string {

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Pokemon } from "@/types";
 
 // Mock dependencies before importing the module under test
 vi.mock("@/utils/pokeApiClient", () => ({
@@ -51,15 +52,15 @@ describe("generateTournamentBracket", () => {
 
     // Default: fetchPokemonData returns a fake pokemon
     mockFetchPokemonData.mockImplementation(async (id) =>
-      makeFakePokemon(id as number) as any
+      makeFakePokemon(id as number) as unknown as Pokemon
     );
 
     // Default: createWildTeamSlot returns a minimal slot
-    mockCreateWildTeamSlot.mockImplementation((pokemon: any, level: any) => ({
+    mockCreateWildTeamSlot.mockImplementation((pokemon: unknown, level: unknown) => ({
       pokemon,
       position: 0,
       level,
-    }) as any);
+    }) as unknown as ReturnType<typeof createWildTeamSlot>);
   });
 
   it("generates exactly 8 trainers", async () => {
@@ -112,7 +113,7 @@ describe("generateTournamentBracket", () => {
       callCount++;
       // Fail every other call
       if (callCount % 2 === 0) throw new Error("Network error");
-      return makeFakePokemon(id as number) as any;
+      return makeFakePokemon(id as number) as unknown as Pokemon;
     });
 
     const trainers = await generateTournamentBracket();

@@ -15,13 +15,16 @@ type SuggestionWasmModule = {
 };
 
 const wrapper = createWasmWrapper<SuggestionWasmModule>("pkmn-analysis", async () => {
-  // @ts-ignore
-  const mod: any = await import(/* webpackIgnore: true */ "../../rust/pkmn-analysis/pkg/pkmn_analysis.js");
+  // @ts-ignore -- dynamic WASM import
+  const wasmModulePath = "/wasm/pkmn_analysis.js";
+  const mod = await import(/* webpackIgnore: true */ /* @vite-ignore */ wasmModulePath);
   await mod.default("/wasm/pkmn_analysis_bg.wasm");
+  // @ts-ignore -- function added to Rust crate; .d.ts updates on next wasm-pack build
   if (typeof mod.suggest_team_fillers !== "function") {
     throw new Error("suggest_team_fillers not found in WASM module — rebuild needed");
   }
   return {
+    // @ts-ignore -- same as above
     suggest_team_fillers: mod.suggest_team_fillers,
   };
 });
