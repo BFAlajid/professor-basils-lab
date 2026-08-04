@@ -57,3 +57,12 @@ export function unregister(type: EmulatorType): void {
     activeCallbacks = null;
   }
 }
+
+// Pause/resume the active emulator in place (state + WASM stay alive, unlike shutdown)
+export function pauseActive(): void {
+  activeCallbacks?.pause();
+}
+
+export function resumeActive(): void {
+  activeCallbacks?.resume();
+}

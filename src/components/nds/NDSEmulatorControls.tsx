@@ -14,6 +14,8 @@ interface NDSEmulatorControlsProps {
   onSetVolume: (v: number) => void;
   onScreenshot: () => void;
   onOpenKeyRemap: () => void;
+  cursorMode?: boolean;
+  onToggleCursorMode?: () => void;
   gamepadConnected?: boolean;
   gamepadName?: string | null;
 }
@@ -30,6 +32,8 @@ export default function NDSEmulatorControls({
   onSetVolume,
   onScreenshot,
   onOpenKeyRemap,
+  cursorMode = false,
+  onToggleCursorMode,
   gamepadConnected = false,
   gamepadName = null,
 }: NDSEmulatorControlsProps) {
@@ -101,6 +105,22 @@ export default function NDSEmulatorControls({
       >
         Remap
       </button>
+
+      {/* Stylus cursor toggle — routes D-pad/A through on-canvas crosshair */}
+      {onToggleCursorMode && (
+        <button
+          onClick={onToggleCursorMode}
+          aria-pressed={cursorMode}
+          title="Toggle stylus cursor (F1)"
+          className={`px-3 py-1.5 rounded border text-xs font-pixel transition-colors ${
+            cursorMode
+              ? "bg-[#3a4466] text-[#e8433f] border-[#e8433f]"
+              : "bg-[#3a4466] text-[#f0f0e8] border-transparent hover:bg-[#4a5577]"
+          }`}
+        >
+          Stylus
+        </button>
+      )}
 
       {/* Gamepad indicator */}
       {gamepadConnected && (

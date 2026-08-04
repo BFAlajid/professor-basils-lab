@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { getActiveEmulator, pauseActive, resumeActive } from "@/utils/emulatorManager";
 
 const GBAEmulatorTab = dynamic(() => import("@/components/gba/GBAEmulatorTab"), {
   ssr: false,
@@ -33,7 +34,12 @@ function detectROMType(filename: string): EmulatorMode {
   return "select";
 }
 
-export default function UnifiedEmulatorTab() {
+interface UnifiedEmulatorTabProps {
+  /** True while this is the active app tab — drives pause-on-leave/resume-on-return. */
+  isActiveTab?: boolean;
+}
+
+export default function UnifiedEmulatorTab({ isActiveTab = true }: UnifiedEmulatorTabProps = {}) {
   const [mode, setMode] = useState<EmulatorMode>("select");
   const [romFile, setRomFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -42,17 +48,28 @@ export default function UnifiedEmulatorTab() {
   // Track which emulator modes have been activated (lazy mount)
   const [mountedModes, setMountedModes] = useState<Set<EmulatorMode>>(new Set());
 
-  // When mode changes to a specific emulator, add it to mounted set
+  // Switch to a specific emulator and mark it mounted (set together, not in an effect,
+  // so this doesn't trigger an extra render pass)
+  const activateMode = useCallback((next: EmulatorMode) => {
+    setMode(next);
+    setMountedModes((prev) => (prev.has(next) ? prev : new Set(prev).add(next)));
+  }, []);
+
+  // Pause the active emulator (stops audio too) when the app navigates away from this
+  // tab; resume only if this effect was the one that paused it, so a manual in-emulator
+  // pause isn't clobbered by switching tabs and back.
+  const pausedByTabSwitchRef = useRef(false);
   useEffect(() => {
-    if (mode !== "select") {
-      setMountedModes((prev) => {
-        if (prev.has(mode)) return prev;
-        const next = new Set(prev);
-        next.add(mode);
-        return next;
-      });
+    if (!isActiveTab) {
+      if (getActiveEmulator()) {
+        pauseActive();
+        pausedByTabSwitchRef.current = true;
+      }
+    } else if (pausedByTabSwitchRef.current) {
+      resumeActive();
+      pausedByTabSwitchRef.current = false;
     }
-  }, [mode]);
+  }, [isActiveTab]);
 
   // Prevent browser from navigating when files are dropped anywhere on the page
   useEffect(() => {
@@ -69,8 +86,8 @@ export default function UnifiedEmulatorTab() {
     const detected = detectROMType(file.name);
     if (detected === "select") return;
     setRomFile(file);
-    setMode(detected);
-  }, []);
+    activateMode(detected);
+  }, [activateMode]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -149,13 +166,13 @@ export default function UnifiedEmulatorTab() {
 
               <div className="flex gap-3 mt-2">
                 <button
-                  onClick={() => setMode("gba")}
+                  onClick={() => activateMode("gba")}
                   className="px-4 py-2 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
                 >
                   Open GBA Emulator
                 </button>
                 <button
-                  onClick={() => setMode("nds")}
+                  onClick={() => activateMode("nds")}
                   className="px-4 py-2 rounded-lg bg-[#3a4466] text-[#f0f0e8] text-xs font-pixel hover:bg-[#4a5577] transition-colors"
                 >
                   Open NDS Emulator

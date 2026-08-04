@@ -20,38 +20,41 @@ const BIT_TO_KEY: Record<number, { key: string; code: string; keyCode: number }>
 
 /**
  * Sub-hook for NDS virtual button input.
- * Dispatches keyboard events to the persistent canvas so RetroArch receives them.
+ * Dispatches keyboard events on window — RetroArch's libretro/Emscripten build
+ * registers its key callbacks with EMSCRIPTEN_EVENT_TARGET_WINDOW (sentinel 2),
+ * so dispatching anywhere else relies on bubbling and is fragile.
  */
-export function useNDSInput(canvasRef: { current: HTMLCanvasElement | null }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function useNDSInput(_canvasRef: { current: HTMLCanvasElement | null }) {
   const buttonPress = useCallback((bit: number) => {
     const kv = BIT_TO_KEY[bit];
-    if (!kv) return;
-    const target = canvasRef.current || document;
-    target.dispatchEvent(
+    if (!kv || typeof window === "undefined") return;
+    window.dispatchEvent(
       new KeyboardEvent("keydown", {
         key: kv.key,
         code: kv.code,
         keyCode: kv.keyCode,
+        which: kv.keyCode,
         bubbles: true,
         cancelable: true,
       })
     );
-  }, [canvasRef]);
+  }, []);
 
   const buttonUnpress = useCallback((bit: number) => {
     const kv = BIT_TO_KEY[bit];
-    if (!kv) return;
-    const target = canvasRef.current || document;
-    target.dispatchEvent(
+    if (!kv || typeof window === "undefined") return;
+    window.dispatchEvent(
       new KeyboardEvent("keyup", {
         key: kv.key,
         code: kv.code,
         keyCode: kv.keyCode,
+        which: kv.keyCode,
         bubbles: true,
         cancelable: true,
       })
     );
-  }, [canvasRef]);
+  }, []);
 
   // RetroArch handles pointer events on canvas natively
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

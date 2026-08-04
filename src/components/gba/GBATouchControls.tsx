@@ -12,6 +12,9 @@ interface GBATouchControlsProps {
   onTouchEnd: (btn: string) => (e: React.TouchEvent | React.MouseEvent) => void;
 }
 
+// touchAction:"none" stops the browser from stealing touchstart for scroll/pinch.
+const BUTTON_POINTER_STYLE = { touchAction: "none" } as React.CSSProperties;
+
 export default function GBATouchControls({ onTouchStart, onTouchEnd }: GBATouchControlsProps) {
   return (
     <div
@@ -23,12 +26,14 @@ export default function GBATouchControls({ onTouchStart, onTouchEnd }: GBATouchC
         {(["L", "R"] as const).map((btn) => (
           <button
             key={btn}
+            type="button"
             onMouseDown={onTouchStart(btn)}
             onMouseUp={onTouchEnd(btn)}
             onMouseLeave={onTouchEnd(btn)}
             onTouchStart={onTouchStart(btn)}
             onTouchEnd={onTouchEnd(btn)}
-            className="px-8 py-2 bg-[#3a4466] text-[#f0f0e8] rounded-lg font-pixel text-sm active:bg-[#4a5577] select-none"
+            style={BUTTON_POINTER_STYLE}
+            className="flex min-w-[44px] min-h-[44px] items-center justify-center px-8 bg-[#3a4466] text-[#f0f0e8] rounded-lg font-pixel text-sm active:bg-[#4a5577] select-none"
           >
             {btn}
           </button>
@@ -38,19 +43,21 @@ export default function GBATouchControls({ onTouchStart, onTouchEnd }: GBATouchC
       {/* D-Pad + A/B row */}
       <div className="flex items-center justify-between">
         {/* D-Pad */}
-        <div className="grid grid-cols-3 grid-rows-3 w-[7.5rem] h-[7.5rem] gap-0.5">
+        <div className="grid grid-cols-3 grid-rows-3 w-36 h-36 gap-0.5">
           {DPAD_BUTTONS.map((btn) => (
             <button
               key={btn.name}
+              type="button"
               onMouseDown={onTouchStart(btn.name)}
               onMouseUp={onTouchEnd(btn.name)}
               onMouseLeave={onTouchEnd(btn.name)}
               onTouchStart={onTouchStart(btn.name)}
               onTouchEnd={onTouchEnd(btn.name)}
-              className="bg-[#3a4466] text-[#f0f0e8] rounded-lg text-xl active:bg-[#4a5577] select-none"
+              className="min-w-[44px] min-h-[44px] bg-[#3a4466] text-[#f0f0e8] rounded-lg text-xl active:bg-[#4a5577] select-none"
               style={{
                 gridColumn: btn.x + 1,
                 gridRow: btn.y + 1,
+                touchAction: "none",
               }}
             >
               {btn.label}
@@ -59,23 +66,27 @@ export default function GBATouchControls({ onTouchStart, onTouchEnd }: GBATouchC
         </div>
 
         {/* A/B buttons — GBA layout: B left, A right, A slightly higher */}
-        <div className="relative w-[7.5rem] h-[7.5rem]">
+        <div className="relative w-36 h-36">
           <button
+            type="button"
             onMouseDown={onTouchStart("B")}
             onMouseUp={onTouchEnd("B")}
             onMouseLeave={onTouchEnd("B")}
             onTouchStart={onTouchStart("B")}
             onTouchEnd={onTouchEnd("B")}
+            style={BUTTON_POINTER_STYLE}
             className="absolute left-0 bottom-2 w-14 h-14 rounded-full bg-[#3a6050] text-[#f0f0e8] font-pixel text-base font-bold active:brightness-125 select-none"
           >
             B
           </button>
           <button
+            type="button"
             onMouseDown={onTouchStart("A")}
             onMouseUp={onTouchEnd("A")}
             onMouseLeave={onTouchEnd("A")}
             onTouchStart={onTouchStart("A")}
             onTouchEnd={onTouchEnd("A")}
+            style={BUTTON_POINTER_STYLE}
             className="absolute right-0 top-2 w-14 h-14 rounded-full bg-[#e8433f] text-[#f0f0e8] font-pixel text-base font-bold active:brightness-125 select-none"
           >
             A
@@ -88,12 +99,14 @@ export default function GBATouchControls({ onTouchStart, onTouchEnd }: GBATouchC
         {(["Select", "Start"] as const).map((btn) => (
           <button
             key={btn}
+            type="button"
             onMouseDown={onTouchStart(btn)}
             onMouseUp={onTouchEnd(btn)}
             onMouseLeave={onTouchEnd(btn)}
             onTouchStart={onTouchStart(btn)}
             onTouchEnd={onTouchEnd(btn)}
-            className="px-5 py-2 bg-[#3a4466] text-[#8b9bb4] rounded-full text-xs font-pixel active:bg-[#4a5577] select-none"
+            style={BUTTON_POINTER_STYLE}
+            className="flex min-w-[44px] min-h-[44px] items-center justify-center px-5 bg-[#3a4466] text-[#8b9bb4] rounded-full text-xs font-pixel active:bg-[#4a5577] select-none"
           >
             {btn}
           </button>

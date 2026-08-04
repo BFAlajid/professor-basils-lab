@@ -2,11 +2,13 @@
 
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { useNDSEmulator, NDS_KEYS } from "@/hooks/useNDSEmulator";
+import { useNDSStylusCursor } from "@/hooks/useNDSStylusCursor";
 import { useGamepad, type GBAButton } from "@/hooks/useGamepad";
 import { loadKeybinds, getButtonToKey } from "@/utils/keybinds";
 import NDSEmulatorControls from "./NDSEmulatorControls";
 import NDSTouchControls from "./NDSTouchControls";
 import NDSRomOverlay from "./NDSRomOverlay";
+import NDSStylusCursorOverlay from "./NDSStylusCursorOverlay";
 import KeyRemapDialog from "@/components/emulator/KeyRemapDialog";
 
 /** Map GBA-style button names from useGamepad to NDS key bit positions */
@@ -65,7 +67,18 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
     buttonUnpress,
     takeScreenshot,
     setContainerRef,
+    getCanvas,
   } = useNDSEmulator();
+
+  // Stylus cursor mode: when enabled, D-pad moves an on-screen crosshair over
+  // the bottom NDS screen and A dispatches a synthetic click at that position.
+  const {
+    cursorMode,
+    cursorPos,
+    toggle: toggleCursorMode,
+    handleDpad: handleStylusDpad,
+    handleTap: handleStylusTap,
+  } = useNDSStylusCursor(getCanvas);
 
   // Gamepad support
   const handleGamepadPress = useCallback(
@@ -110,27 +123,77 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
       return tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable;
     };
 
+    // In cursor mode, D-pad moves the crosshair. A/B stay as face buttons so
+    // in-game A-button shortcuts still work; stylus tap is bound to Space.
+    const routeToStylus = (emButton: string, pressed: boolean): boolean => {
+      switch (emButton) {
+        case "UP": return handleStylusDpad("up", pressed);
+        case "DOWN": return handleStylusDpad("down", pressed);
+        case "LEFT": return handleStylusDpad("left", pressed);
+        case "RIGHT": return handleStylusDpad("right", pressed);
+        default: return false;
+      }
+    };
+
+    // Skip synthetic events — useNDSInput re-dispatches keydown/keyup to drive
+    // RetroArch, and catching those here would recurse into buttonPress.
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!e.isTrusted) return;
       if (isTyping()) return;
+
+      // F1 toggles cursor mode. Intercept only while the emulator runs to
+      // minimize conflict with browser's default F1 help binding.
+      if (e.key === "F1") {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleCursorMode();
+        return;
+      }
+
+      // Space taps the stylus at cursor position when cursor mode is on.
+      if (cursorMode && e.key === " ") {
+        e.preventDefault();
+        e.stopPropagation();
+        handleStylusTap(true);
+        return;
+      }
+
       const emButton = binds[e.key.toLowerCase()];
       if (emButton) {
         const bit = BUTTON_TO_NDS_BIT[emButton];
         if (bit !== undefined) {
           e.preventDefault();
           e.stopPropagation();
+          if (cursorMode && routeToStylus(emButton, true)) return;
           buttonPress(bit);
         }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (!e.isTrusted) return;
       if (isTyping()) return;
+
+      if (e.key === "F1") {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      if (cursorMode && e.key === " ") {
+        e.preventDefault();
+        e.stopPropagation();
+        handleStylusTap(false);
+        return;
+      }
+
       const emButton = binds[e.key.toLowerCase()];
       if (emButton) {
         const bit = BUTTON_TO_NDS_BIT[emButton];
         if (bit !== undefined) {
           e.preventDefault();
           e.stopPropagation();
+          if (cursorMode && routeToStylus(emButton, false)) return;
           buttonUnpress(bit);
         }
       }
@@ -149,7 +212,20 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
       window.removeEventListener("keyup", handleKeyUp, true);
       window.removeEventListener("keybinds-changed", onKeybindsChanged);
     };
-  }, [state.isRunning, state.isPaused, buttonPress, buttonUnpress]);
+  }, [
+    state.isRunning,
+    state.isPaused,
+    buttonPress,
+    buttonUnpress,
+    cursorMode,
+    handleStylusDpad,
+    handleStylusTap,
+    toggleCursorMode,
+  ]);
+
+  // Cursor mode is toggled only via the Stylus button or F1. No auto-exit on
+  // canvas mousedown — that was too aggressive and killed the mode the moment
+  // the user clicked anywhere to interact.
 
   const handleCloseRemap = useCallback(() => {
     setShowRemap(false);
@@ -210,20 +286,38 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
     a.click();
   }, [takeScreenshot]);
 
+  // In cursor mode, only D-pad is routed to the crosshair; A/B remain face
+  // buttons. Stylus tap is bound to Space or the on-screen "Tap" button.
+  const routeBitToStylus = useCallback(
+    (bit: number, pressed: boolean): boolean => {
+      if (!cursorMode) return false;
+      switch (bit) {
+        case NDS_KEYS.UP: return handleStylusDpad("up", pressed);
+        case NDS_KEYS.DOWN: return handleStylusDpad("down", pressed);
+        case NDS_KEYS.LEFT: return handleStylusDpad("left", pressed);
+        case NDS_KEYS.RIGHT: return handleStylusDpad("right", pressed);
+        default: return false;
+      }
+    },
+    [cursorMode, handleStylusDpad]
+  );
+
   const handleBtnDown = useCallback(
     (bit: number) => (e: React.TouchEvent | React.MouseEvent) => {
       e.preventDefault();
+      if (routeBitToStylus(bit, true)) return;
       buttonPress(bit);
     },
-    [buttonPress]
+    [buttonPress, routeBitToStylus]
   );
 
   const handleBtnUp = useCallback(
     (bit: number) => (e: React.TouchEvent | React.MouseEvent) => {
       e.preventDefault();
+      if (routeBitToStylus(bit, false)) return;
       buttonUnpress(bit);
     },
-    [buttonUnpress]
+    [buttonUnpress, routeBitToStylus]
   );
 
   return (
@@ -248,6 +342,8 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
         onSetVolume={setVolume}
         onScreenshot={handleScreenshot}
         onOpenKeyRemap={() => setShowRemap(true)}
+        cursorMode={cursorMode}
+        onToggleCursorMode={toggleCursorMode}
         gamepadConnected={gamepadConnected}
         gamepadName={gamepadName}
       />
@@ -279,6 +375,8 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
               imageRendering: "pixelated",
             } as React.CSSProperties}
           />
+
+          <NDSStylusCursorOverlay visible={cursorMode && state.isRunning} x={cursorPos.x} y={cursorPos.y} />
 
           <NDSRomOverlay
             isReady={state.isReady}
@@ -313,8 +411,27 @@ export default function NDSEmulatorTab({ initialFile }: NDSEmulatorTabProps) {
               {" | "}
               <span className="text-[#f0f0e8]">{keybindDisplay.R}</span> = R
             </p>
-            <p className="text-[#8b9bb4]/60">Click or tap bottom screen for touch input</p>
+            <p className="text-[#8b9bb4]/60">
+              {cursorMode
+                ? "Stylus mode: D-pad moves cursor, Space taps (Esc/F1 to exit)"
+                : "Click or tap bottom screen for touch input"}
+            </p>
           </div>
+        )}
+
+        {state.isRunning && cursorMode && (
+          <button
+            type="button"
+            aria-label="Tap at cursor"
+            onPointerDown={(e) => { e.preventDefault(); handleStylusTap(true); }}
+            onPointerUp={(e) => { e.preventDefault(); handleStylusTap(false); }}
+            onPointerLeave={() => handleStylusTap(false)}
+            onPointerCancel={() => handleStylusTap(false)}
+            style={{ touchAction: "none" }}
+            className="w-full max-w-xs px-6 py-3 rounded-lg bg-[#e8433f] text-[#f0f0e8] font-pixel text-sm active:brightness-125 select-none border-2 border-[#f0f0e8]"
+          >
+            TAP (Space)
+          </button>
         )}
 
         {state.isRunning && (
