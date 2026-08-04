@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, useRef, memo } from "react";
 import { TOAST_DURATION } from "@/data/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamSlot, Pokemon, Nature, EVSpread, IVSpread, TypeName } from "@/types";
 import PokemonCard from "./PokemonCard";
 import PokemonSearch from "./PokemonSearch";
 import PokemonDetailPanel from "./PokemonDetailPanel";
-import { exportToShowdown, exportSlotToShowdown, importFromShowdown } from "@/utils/showdownFormatWasm";
+import { exportToShowdown, importFromShowdown } from "@/utils/showdownFormatWasm";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { useFeatureFlagsContext } from "@/contexts/FeatureFlagsContext";
 import { TEAM_PRESETS } from "@/data/teamPresets";
@@ -54,9 +54,25 @@ export default memo(function TeamRoster({
   const [showPresets, setShowPresets] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [clipboardCopied, setClipboardCopied] = useState(false);
+  const dragSrcIdx = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const emptySlots = Math.max(0, 6 - team.length);
   const { incrementStat } = useAchievementsContext();
   const { features } = useFeatureFlagsContext();
+
+  // Stable per-position click handlers so PokemonCard's memo isn't defeated
+  // for every card each time expandedPosition changes (a fresh inline arrow
+  // would otherwise be created for all 6 cards on every render).
+  const cardClickHandlers = useRef<Map<number, () => void>>(new Map());
+  const getCardClickHandler = useCallback((position: number) => {
+    let handler = cardClickHandlers.current.get(position);
+    if (!handler) {
+      handler = () =>
+        setExpandedPosition((prev) => (prev === position ? null : position));
+      cardClickHandlers.current.set(position, handler);
+    }
+    return handler;
+  }, []);
 
   const handleLoadPreset = useCallback(async (paste: string) => {
     if (!onSetTeam) return;
@@ -64,13 +80,33 @@ export default memo(function TeamRoster({
     try {
       const slots = await importFromShowdown(paste);
       if (slots.length > 0) {
+        if (
+          team.length > 0 &&
+          !window.confirm(
+            "Replace your current team? This will discard your current Pokemon and their configured movesets, EVs, and items."
+          )
+        ) {
+          return;
+        }
         onSetTeam(slots);
         setShowPresets(false);
       }
     } finally {
       setIsImporting(false);
     }
-  }, [onSetTeam]);
+  }, [onSetTeam, team]);
+
+  // Keyboard-accessible reorder — independent of the drag-and-drop handlers below.
+  const moveSlot = useCallback(
+    (from: number, to: number) => {
+      if (!onSetTeam || to < 0 || to >= team.length || from === to) return;
+      const reordered = [...team];
+      const [moved] = reordered.splice(from, 1);
+      reordered.splice(to, 0, moved);
+      onSetTeam(reordered.map((s, i) => ({ ...s, position: i })));
+    },
+    [team, onSetTeam]
+  );
 
   const expandedSlot = team.find((s) => s.position === expandedPosition);
 
@@ -277,18 +313,60 @@ export default memo(function TeamRoster({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <AnimatePresence mode="popLayout">
-          {team.map((slot) => (
-            <PokemonCard
+          {team.map((slot, idx) => (
+            <motion.div
               key={slot.pokemon.id}
-              slot={slot}
-              onRemove={onRemove}
-              onClick={() =>
-                setExpandedPosition(
-                  expandedPosition === slot.position ? null : slot.position
-                )
-              }
-              isExpanded={expandedPosition === slot.position}
-            />
+              layout
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              draggable
+              onDragStart={() => { dragSrcIdx.current = idx; }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
+              onDragLeave={() => { if (dragOverIdx === idx) setDragOverIdx(null); }}
+              onDrop={() => {
+                const from = dragSrcIdx.current;
+                if (from !== null && from !== idx && onSetTeam) {
+                  const reordered = [...team];
+                  const [moved] = reordered.splice(from, 1);
+                  reordered.splice(idx, 0, moved);
+                  onSetTeam(reordered.map((s, i) => ({ ...s, position: i })));
+                }
+                dragSrcIdx.current = null;
+                setDragOverIdx(null);
+              }}
+              onDragEnd={() => { dragSrcIdx.current = null; setDragOverIdx(null); }}
+              className={`rounded-xl transition-all ${dragOverIdx === idx ? "ring-2 ring-[#f7a838]" : ""}`}
+            >
+              {onSetTeam && team.length > 1 && (
+                <div className="flex items-center justify-end gap-1 mb-1">
+                  <button
+                    type="button"
+                    onClick={() => moveSlot(idx, idx - 1)}
+                    disabled={idx === 0}
+                    aria-label={`Move ${slot.pokemon.name} up in team order`}
+                    className="flex h-6 w-6 items-center justify-center rounded bg-[#3a4466] text-[10px] text-[#f0f0e8] hover:bg-[#4a5577] disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-[#e8433f]"
+                  >
+                    &#9650;
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveSlot(idx, idx + 1)}
+                    disabled={idx === team.length - 1}
+                    aria-label={`Move ${slot.pokemon.name} down in team order`}
+                    className="flex h-6 w-6 items-center justify-center rounded bg-[#3a4466] text-[10px] text-[#f0f0e8] hover:bg-[#4a5577] disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-[#e8433f]"
+                  >
+                    &#9660;
+                  </button>
+                </div>
+              )}
+              <PokemonCard
+                slot={slot}
+                onRemove={onRemove}
+                onClick={getCardClickHandler(slot.position)}
+                isExpanded={expandedPosition === slot.position}
+              />
+            </motion.div>
           ))}
         </AnimatePresence>
 
@@ -300,11 +378,12 @@ export default memo(function TeamRoster({
               key={`empty-${i}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
+              aria-label="Add Pokemon to team"
               className="flex h-[340px] items-center justify-center rounded-xl border-2 border-dashed border-[#3a4466] bg-[#262b44]/50 hover:border-[#e8433f] hover:bg-[#262b44] transition-colors"
               onClick={() => !isFull && setSearchOpen(true)}
             >
               <div className="text-center">
-                <span className="block text-4xl text-[#3a4466]">+</span>
+                <span className="block text-4xl text-[#3a4466]" aria-hidden="true">+</span>
                 <span className="mt-2 block text-sm text-[#8b9bb4]">
                   Add Pokemon
                 </span>

@@ -60,6 +60,7 @@ export default function EVEditor({ evs, onChange }: EVEditorProps) {
               step={4}
               value={evs[key]}
               onChange={(e) => handleChange(key, parseInt(e.target.value))}
+              aria-label={`${label} EV`}
               className="flex-1 h-1.5 accent-[#e8433f] cursor-pointer"
             />
             <input
@@ -68,6 +69,7 @@ export default function EVEditor({ evs, onChange }: EVEditorProps) {
               max={MAX_SINGLE_EV}
               value={evs[key]}
               onChange={(e) => handleChange(key, parseInt(e.target.value) || 0)}
+              aria-label={`${label} EV`}
               className="w-14 rounded border border-[#3a4466] bg-[#1a1c2c] px-2 py-1 text-xs text-[#f0f0e8] text-right outline-none focus:border-[#e8433f]"
             />
           </div>

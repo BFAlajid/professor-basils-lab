@@ -3,9 +3,16 @@
 import { useState, memo, useCallback } from "react";
 import { TOAST_DURATION } from "@/data/constants";
 import { TEAM_TEMPLATES, TeamTemplate } from "@/data/teamTemplates";
+import { formatName } from "@/utils/format";
 
 interface TeamTemplatesProps {
   onLoadTeam: (showdownPaste: string) => void;
+  /**
+   * Whether the caller currently has a non-empty team. When omitted, a
+   * confirmation is always shown before overwriting since we can't verify
+   * the team is safely empty from within this component.
+   */
+  hasExistingTeam?: boolean;
 }
 
 const SPRITE_BASE = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
@@ -23,13 +30,6 @@ const ARCHETYPE_STYLES: Record<string, { icon: string; color: string; bg: string
 
 function getStyle(archetype: string) {
   return ARCHETYPE_STYLES[archetype] ?? { icon: "\u25CF", color: "#8b9bb4", bg: "rgba(139,155,180,0.15)" };
-}
-
-function formatArchetype(archetype: string): string {
-  return archetype
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 }
 
 const TemplateCard = memo(function TemplateCard({
@@ -62,7 +62,7 @@ const TemplateCard = memo(function TemplateCard({
           style={{ backgroundColor: style.bg, color: style.color, border: `1px solid ${style.color}33` }}
         >
           <span aria-hidden="true">{style.icon} </span>
-          {formatArchetype(template.archetype)}
+          {formatName(template.archetype)}
         </span>
       </div>
 
@@ -122,19 +122,27 @@ const TemplateCard = memo(function TemplateCard({
   );
 });
 
-export default function TeamTemplates({ onLoadTeam }: TeamTemplatesProps) {
+export default function TeamTemplates({ onLoadTeam, hasExistingTeam }: TeamTemplatesProps) {
   const [loadedName, setLoadedName] = useState<string | null>(null);
   const [loadingName, setLoadingName] = useState<string | null>(null);
 
   const handleLoad = useCallback(
     (template: TeamTemplate) => {
+      if (
+        hasExistingTeam !== false &&
+        !window.confirm(
+          `Load "${template.name}"? This will replace your current team and discard its configuration.`
+        )
+      ) {
+        return;
+      }
       setLoadingName(template.name);
       onLoadTeam(template.showdownPaste);
       setLoadingName(null);
       setLoadedName(template.name);
       setTimeout(() => setLoadedName(null), TOAST_DURATION);
     },
-    [onLoadTeam],
+    [onLoadTeam, hasExistingTeam],
   );
 
   return (

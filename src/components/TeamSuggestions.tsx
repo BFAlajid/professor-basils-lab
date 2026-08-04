@@ -39,12 +39,14 @@ export default function TeamSuggestions({ team, onAddPokemon }: TeamSuggestionsP
   const [candidatePool, setCandidatePool] = useState<Pokemon[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [highlightedIdx, setHighlightedIdx] = useState<number | null>(null);
 
   const loadCandidates = useCallback(async () => {
     if (loaded || loading) return;
     setLoading(true);
+    setLoadError(false);
     try {
       const results = await Promise.allSettled(
         CANDIDATE_IDS.map((id) => fetchPokemonData(id))
@@ -52,6 +54,12 @@ export default function TeamSuggestions({ team, onAddPokemon }: TeamSuggestionsP
       const pokemon = results
         .filter((r): r is PromiseFulfilledResult<Pokemon> => r.status === "fulfilled")
         .map((r) => r.value);
+      if (pokemon.length === 0) {
+        // Every fetch failed — distinct from "no strong suggestions", so
+        // don't mark loaded (that would show the false "great coverage" message).
+        setLoadError(true);
+        return;
+      }
       setCandidatePool(pokemon);
       setLoaded(true);
     } finally {
@@ -59,12 +67,13 @@ export default function TeamSuggestions({ team, onAddPokemon }: TeamSuggestionsP
     }
   }, [loaded, loading]);
 
-  // Auto-load when section is expanded
+  // Auto-load when section is expanded (not after a failure — retry is manual
+  // via the button so we don't hammer the API in a tight loop).
   useEffect(() => {
-    if (expanded && !loaded && !loading) {
+    if (expanded && !loaded && !loading && !loadError) {
       loadCandidates();
     }
-  }, [expanded, loaded, loading, loadCandidates]);
+  }, [expanded, loaded, loading, loadError, loadCandidates]);
 
   const suggestions = useMemo(() => {
     if (candidatePool.length === 0) return [];

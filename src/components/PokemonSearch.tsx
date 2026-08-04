@@ -9,6 +9,7 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { Pokemon, TypeName, PokemonListItem } from "@/types";
 import { TYPE_LIST } from "@/data/typeChart";
 import { fetchTypePokemonNames } from "@/utils/pokeApiClient";
+import { capitalize } from "@/utils/format";
 import LoadingSpinner from "./LoadingSpinner";
 
 // Generation ranges by national dex ID
@@ -316,7 +317,7 @@ export default function PokemonSearch({
                     <option value="">Any</option>
                     {TYPE_LIST.map((t) => (
                       <option key={t} value={t}>
-                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                        {capitalize(t)}
                       </option>
                     ))}
                   </select>
@@ -334,7 +335,7 @@ export default function PokemonSearch({
                     <option value="">Any</option>
                     {TYPE_LIST.map((t) => (
                       <option key={t} value={t}>
-                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                        {capitalize(t)}
                       </option>
                     ))}
                   </select>

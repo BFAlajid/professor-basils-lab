@@ -1,5 +1,6 @@
 "use client";
 
+import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { TeamSlot, Pokemon, Move } from "@/types";
@@ -65,7 +66,29 @@ function getDamageLabel(percent: number): string {
   return "3HKO+";
 }
 
-export default function DamageGrid({ team, threats, teamMoves }: DamageGridProps) {
+interface RowResult {
+  slot: TeamSlot;
+  cells: ({ percent: number; moveName: string } | null)[];
+}
+
+function DamageGrid({ team, threats, teamMoves }: DamageGridProps) {
+  // Recomputing the full team x threats matrix runs several calculateDamage
+  // calls per cell — memoize so unrelated parent re-renders (e.g. typing in
+  // the threat search box) don't redo the work.
+  const rows = useMemo<RowResult[]>(() => {
+    return team.map((slot) => {
+      const moves = teamMoves.get(slot.pokemon.id) ?? [];
+      const hasMoves = slot.selectedMoves && slot.selectedMoves.length > 0;
+
+      const cells = threats.map((threat) => {
+        if (!hasMoves || moves.length === 0) return null;
+        return calcBestDamagePercent(slot, threat.pokemon, moves);
+      });
+
+      return { slot, cells };
+    });
+  }, [team, threats, teamMoves]);
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-xs">
@@ -99,80 +122,74 @@ export default function DamageGrid({ team, threats, teamMoves }: DamageGridProps
           </tr>
         </thead>
         <tbody>
-          {team.map((slot) => {
-            const moves = teamMoves.get(slot.pokemon.id) ?? [];
-            const hasMoves =
-              slot.selectedMoves && slot.selectedMoves.length > 0;
+          {rows.map(({ slot, cells }) => (
+            <tr key={slot.pokemon.id}>
+              <td className="px-2 py-1.5 border-b border-[#3a4466]/40">
+                <div className="flex items-center gap-1.5">
+                  {slot.pokemon.sprites.front_default && (
+                    <Image
+                      src={slot.pokemon.sprites.front_default}
+                      alt={slot.pokemon.name}
+                      width={28}
+                      height={28}
+                      unoptimized
+                      className="pixelated"
+                    />
+                  )}
+                  <span className="capitalize text-[#f0f0e8] truncate">
+                    {formatName(slot.pokemon.name)}
+                  </span>
+                </div>
+              </td>
+              {threats.map((threat, i) => {
+                const cell = cells[i];
 
-            return (
-              <tr key={slot.pokemon.id}>
-                <td className="px-2 py-1.5 border-b border-[#3a4466]/40">
-                  <div className="flex items-center gap-1.5">
-                    {slot.pokemon.sprites.front_default && (
-                      <Image
-                        src={slot.pokemon.sprites.front_default}
-                        alt={slot.pokemon.name}
-                        width={28}
-                        height={28}
-                        unoptimized
-                        className="pixelated"
-                      />
-                    )}
-                    <span className="capitalize text-[#f0f0e8] truncate">
-                      {formatName(slot.pokemon.name)}
-                    </span>
-                  </div>
-                </td>
-                {threats.map((threat) => {
-                  if (!hasMoves || moves.length === 0) {
-                    return (
-                      <td
-                        key={threat.pokemon.id}
-                        className="text-center px-2 py-1.5 border-b border-[#3a4466]/40 text-[#8b9bb4]"
-                      >
-                        --
-                      </td>
-                    );
-                  }
-
-                  const { percent, moveName } = calcBestDamagePercent(
-                    slot,
-                    threat.pokemon,
-                    moves
-                  );
-
+                if (!cell) {
                   return (
                     <td
                       key={threat.pokemon.id}
-                      className="text-center px-2 py-1.5 border-b border-[#3a4466]/40"
+                      className="text-center px-2 py-1.5 border-b border-[#3a4466]/40 text-[#8b9bb4]"
                     >
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="flex flex-col items-center gap-0.5"
-                        title={`${formatName(moveName)}: ${percent}% of max HP`}
-                      >
-                        <span
-                          className="text-sm font-bold tabular-nums"
-                          style={{ color: getDamageColor(percent) }}
-                        >
-                          {percent}%
-                        </span>
-                        <span
-                          className="text-[9px] font-bold uppercase"
-                          style={{ color: getDamageColor(percent) }}
-                        >
-                          {getDamageLabel(percent)}
-                        </span>
-                      </motion.div>
+                      --
                     </td>
                   );
-                })}
-              </tr>
-            );
-          })}
+                }
+
+                const { percent, moveName } = cell;
+
+                return (
+                  <td
+                    key={threat.pokemon.id}
+                    className="text-center px-2 py-1.5 border-b border-[#3a4466]/40"
+                  >
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex flex-col items-center gap-0.5"
+                      title={`${formatName(moveName)}: ${percent}% of max HP`}
+                    >
+                      <span
+                        className="text-sm font-bold tabular-nums"
+                        style={{ color: getDamageColor(percent) }}
+                      >
+                        {percent}%
+                      </span>
+                      <span
+                        className="text-[9px] font-bold uppercase"
+                        style={{ color: getDamageColor(percent) }}
+                      >
+                        {getDamageLabel(percent)}
+                      </span>
+                    </motion.div>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
   );
 }
+
+export default memo(DamageGrid);

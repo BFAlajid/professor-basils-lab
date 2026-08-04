@@ -62,7 +62,7 @@ export default function TypeReference() {
           ref={(node) => {
             // @ts-ignore — merge overlay ref and focus trap ref
             overlayRef.current = node;
-            // @ts-ignore
+            // @ts-ignore — assign shared node to focus trap ref
             (focusTrapRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
           }}
           onClick={handleOverlayClick}
