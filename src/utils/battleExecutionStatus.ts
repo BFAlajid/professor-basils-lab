@@ -6,16 +6,18 @@ import {
 } from "@/types";
 import { STATUS_MOVE_EFFECTS } from "@/data/statusMoves";
 import { getAbilityHooks } from "@/data/abilities";
+import { getHeldItem } from "@/data/heldItems";
 import { STAT_STAGE_MIN, STAT_STAGE_MAX, SLEEP_TURN_MIN, SLEEP_TURN_RANGE, CONFUSION_TURN_MIN, CONFUSION_TURN_RANGE } from "@/data/constants";
 import { getStatLabel, getStatChangeText } from "./format";
 import {
   getActivePokemon,
   updatePokemon,
   getStatusText,
+  getEffectiveTypes,
   initStatStages,
-  initSideConditions,
   triggerOnStatDrop,
 } from "./battleHelpers";
+import { battleRandom } from "./battleRng";
 
 const PROTECT_CONSECUTIVE_RATE = 1 / 3;
 
@@ -33,18 +35,19 @@ function handleProtect(
   const consecutiveUses = attacker.consecutiveProtects ?? 0;
   const successChance = consecutiveUses === 0 ? 1 : Math.pow(PROTECT_CONSECUTIVE_RATE, consecutiveUses);
 
-  if (Math.random() < successChance) {
+  if (battleRandom() < successChance) {
     const updated = {
       ...attacker,
       isProtected: true,
       consecutiveProtects: consecutiveUses + 1,
       lastMoveUsed: moveName,
+      lastMoveTurn: state.turn,
     };
     state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, updated);
     log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} protected itself!`, kind: "info" });
   } else {
     log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name}'s Protect failed!`, kind: "info" });
-    const updated = { ...attacker, consecutiveProtects: 0, lastMoveUsed: moveName };
+    const updated = { ...attacker, consecutiveProtects: 0, lastMoveUsed: moveName, lastMoveTurn: state.turn };
     state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, updated);
   }
 
@@ -145,8 +148,8 @@ function handleStatusInfliction(
   if (defender.status) {
     log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} is already affected by a status condition!`, kind: "info" });
   } else {
-    // Type-based status immunities
-    const defenderTypes = defender.slot.pokemon.types.map((t) => t.type.name);
+    // Type-based status immunities (respects Tera/Mega type changes)
+    const defenderTypes = getEffectiveTypes(defender);
     const typeImmune =
       (targetStatus === "burn" && defenderTypes.includes("fire")) ||
       (targetStatus === "freeze" && defenderTypes.includes("ice")) ||
@@ -158,14 +161,44 @@ function handleStatusInfliction(
     } else if (defAbility?.preventStatus && defAbility.preventStatus({ pokemon: defender, status: targetStatus })) {
       log.push({ turn: state.turn, message: `${defender.slot.pokemon.name}'s ability prevented the status condition!`, kind: "status" });
     } else {
-      let newDefender = { ...defender, status: targetStatus };
+      const newDefender = { ...defender, status: targetStatus };
       if (targetStatus === "sleep") {
-        newDefender.sleepTurns = SLEEP_TURN_MIN + Math.floor(Math.random() * SLEEP_TURN_RANGE);
+        newDefender.sleepTurns = SLEEP_TURN_MIN + Math.floor(battleRandom() * SLEEP_TURN_RANGE);
       }
       state = updatePokemon(state, defenderPlayer, defenderTeam.activePokemonIndex, newDefender);
       log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} was ${getStatusText(targetStatus)}!`, kind: "status" });
+
+      // Status-cure berry check
+      state = checkStatusCureBerry(state, defenderPlayer, targetStatus, log);
     }
   }
+
+  return state;
+}
+
+function checkStatusCureBerry(
+  state: BattleState,
+  player: "player1" | "player2",
+  status: StatusCondition,
+  log: BattleLogEntry[],
+): BattleState {
+  const team = state[player];
+  const pokemon = getActivePokemon(team);
+  if (!pokemon.slot.heldItem || pokemon.itemConsumed || pokemon.embargoed > 0 || !status) return state;
+
+  const item = getHeldItem(pokemon.slot.heldItem);
+  if (!item?.battleModifier?.statusCure) return state;
+
+  const cure = item.battleModifier.statusCure;
+  const cures = cure === "any" ||
+    cure === status ||
+    (cure === "poison" && status === "toxic");
+
+  if (!cures) return state;
+
+  const updated = { ...pokemon, status: null as StatusCondition, itemConsumed: true, toxicCounter: 0 };
+  state = updatePokemon(state, player, team.activePokemonIndex, updated);
+  log.push({ turn: state.turn, message: `${pokemon.slot.pokemon.name}'s ${item.displayName} cured its ${getStatusText(status)}!`, kind: "heal" });
 
   return state;
 }
@@ -226,6 +259,7 @@ function handleHazard(
     state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, {
       ...getActivePokemon(state[attackerPlayer]),
       lastMoveUsed: moveName,
+      lastMoveTurn: state.turn,
       consecutiveProtects: 0,
     });
   }
@@ -262,6 +296,7 @@ function handleHazardRemoval(
         ...currentAttacker,
         statStages: { ...currentAttacker.statStages, speed: newSpd },
         lastMoveUsed: moveName,
+        lastMoveTurn: state.turn,
         consecutiveProtects: 0,
       });
       log.push({ turn: state.turn, message: `${currentAttacker.slot.pokemon.name}'s Speed rose!`, kind: "status" });
@@ -305,6 +340,7 @@ function handleHazardRemoval(
     state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, {
       ...atkAfter,
       lastMoveUsed: moveName,
+      lastMoveTurn: state.turn,
       consecutiveProtects: 0,
     });
   }
@@ -347,6 +383,7 @@ function handleScreen(
     state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, {
       ...getActivePokemon(state[attackerPlayer]),
       lastMoveUsed: moveName,
+      lastMoveTurn: state.turn,
       consecutiveProtects: 0,
     });
   }
@@ -364,6 +401,11 @@ function handleHeal(
 ): BattleState {
   const attackerTeam = state[attackerPlayer];
   const attacker = getActivePokemon(attackerTeam);
+
+  if (attacker.healBlocked > 0) {
+    log.push({ turn: state.turn, message: `${attacker.slot.pokemon.name} can't heal due to Heal Block!`, kind: "info" });
+    return state;
+  }
 
   // Weather-dependent recovery: sun = 67%, neutral = 50%, rain/sand/hail = 25%
   let effectivePercent = healPercent;
@@ -427,10 +469,35 @@ function handleConfusion(
     return state;
   }
 
-  const turns = CONFUSION_TURN_MIN + Math.floor(Math.random() * CONFUSION_TURN_RANGE);
+  const turns = CONFUSION_TURN_MIN + Math.floor(battleRandom() * CONFUSION_TURN_RANGE);
   const newDefender = { ...defender, confusionTurns: turns };
   state = updatePokemon(state, defenderPlayer, defenderTeam.activePokemonIndex, newDefender);
   log.push({ turn: state.turn, message: `${defender.slot.pokemon.name} became confused!`, kind: "status" });
+
+  // Confusion-cure berry check (Persim Berry, Lum Berry)
+  state = checkConfusionCureBerry(state, defenderPlayer, log);
+
+  return state;
+}
+
+function checkConfusionCureBerry(
+  state: BattleState,
+  player: "player1" | "player2",
+  log: BattleLogEntry[],
+): BattleState {
+  const team = state[player];
+  const pokemon = getActivePokemon(team);
+  if (!pokemon.slot.heldItem || pokemon.itemConsumed || pokemon.embargoed > 0) return state;
+
+  const item = getHeldItem(pokemon.slot.heldItem);
+  if (!item?.battleModifier?.statusCure) return state;
+
+  const cure = item.battleModifier.statusCure;
+  if (cure !== "confusion" && cure !== "any") return state;
+
+  const updated = { ...pokemon, confusionTurns: 0, itemConsumed: true };
+  state = updatePokemon(state, player, team.activePokemonIndex, updated);
+  log.push({ turn: state.turn, message: `${pokemon.slot.pokemon.name}'s ${item.displayName} cured its confusion!`, kind: "heal" });
 
   return state;
 }
@@ -460,6 +527,7 @@ function handleSubstitute(
     currentHp: attacker.currentHp - cost,
     substituteHp: cost,
     lastMoveUsed: moveName,
+    lastMoveTurn: state.turn,
     consecutiveProtects: 0,
   };
   state = updatePokemon(state, attackerPlayer, attackerTeam.activePokemonIndex, newAttacker);
@@ -553,7 +621,7 @@ function handleForceSwitch(
     return state;
   }
 
-  const target = validTargets[Math.floor(Math.random() * validTargets.length)];
+  const target = validTargets[Math.floor(battleRandom() * validTargets.length)];
   const newPokemon = [...defenderTeam.pokemon];
 
   newPokemon[defenderTeam.activePokemonIndex] = {
@@ -567,6 +635,28 @@ function handleForceSwitch(
     chargingMove: null,
     semiInvulnerable: null,
     yawnTurns: 0,
+    isSeeded: false,
+    seededBy: null,
+    bindingTurns: 0,
+    bindingMove: null,
+    boundBy: null,
+    taunted: 0,
+    encored: 0,
+    encoredMove: null,
+    disabledMove: null,
+    disabledTurns: 0,
+    tormented: false,
+    aquaRing: false,
+    ingrain: false,
+    cursed: false,
+    healBlocked: 0,
+    embargoed: 0,
+    perishCount: 0,
+    consecutiveProtects: 0,
+    isProtected: false,
+    isFlinched: false,
+    lockInMove: null,
+    lockInTurns: 0,
   };
   newPokemon[target.index] = {
     ...newPokemon[target.index],
@@ -691,12 +781,286 @@ export function applyStatusMoveEffect(
     state = handleHeal(state, attackerPlayer, effect.healPercent, effect.targetStatus, moveName, log);
   }
 
+  // --- Volatile status handlers ---
+
+  // Leech Seed
+  if (effect.leechSeed) {
+    const defenderNow = getActivePokemon(state[defenderPlayer]);
+    const defenderTypes = getEffectiveTypes(defenderNow);
+    if (defenderTypes.includes("grass")) {
+      log.push({ turn: state.turn, message: `It doesn't affect ${defenderNow.slot.pokemon.name}...`, kind: "info" });
+    } else if (defenderNow.isSeeded) {
+      log.push({ turn: state.turn, message: `${defenderNow.slot.pokemon.name} is already seeded!`, kind: "info" });
+    } else {
+      state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, {
+        ...defenderNow,
+        isSeeded: true,
+        seededBy: attackerPlayer,
+      });
+      log.push({ turn: state.turn, message: `${defenderNow.slot.pokemon.name} was seeded!`, kind: "status" });
+    }
+  }
+
+  // Binding moves (Wrap, Fire Spin, Whirlpool, etc.)
+  if (effect.binding) {
+    const defenderNow = getActivePokemon(state[defenderPlayer]);
+    if (defenderNow.bindingTurns > 0) {
+      log.push({ turn: state.turn, message: `${defenderNow.slot.pokemon.name} is already trapped!`, kind: "info" });
+    } else {
+      const attackerNow = getActivePokemon(state[attackerPlayer]);
+      const turns = attackerNow.slot.heldItem === "grip-claw" ? 7 : 4 + Math.floor(battleRandom() * 2);
+      state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, {
+        ...defenderNow,
+        bindingTurns: turns,
+        bindingMove: moveName,
+        boundBy: attackerPlayer,
+      });
+      log.push({ turn: state.turn, message: `${defenderNow.slot.pokemon.name} was trapped by ${moveName}!`, kind: "status" });
+    }
+  }
+
+  // Taunt
+  if (effect.taunt) {
+    const defenderNow = getActivePokemon(state[defenderPlayer]);
+    if (defenderNow.taunted > 0) {
+      log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+    } else {
+      state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, {
+        ...defenderNow,
+        taunted: effect.taunt,
+      });
+      log.push({ turn: state.turn, message: `${defenderNow.slot.pokemon.name} fell for the taunt!`, kind: "status" });
+    }
+  }
+
+  // Encore
+  if (effect.encore) {
+    const defenderNow = getActivePokemon(state[defenderPlayer]);
+    if (!defenderNow.lastMoveUsed) {
+      log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+    } else if (defenderNow.encored > 0) {
+      log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+    } else {
+      state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, {
+        ...defenderNow,
+        encored: effect.encore,
+        encoredMove: defenderNow.lastMoveUsed,
+      });
+      log.push({ turn: state.turn, message: `${defenderNow.slot.pokemon.name} received an encore!`, kind: "status" });
+    }
+  }
+
+  // Disable
+  if (effect.disable) {
+    const defenderNow = getActivePokemon(state[defenderPlayer]);
+    if (!defenderNow.lastMoveUsed) {
+      log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+    } else if (defenderNow.disabledMove) {
+      log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+    } else {
+      state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, {
+        ...defenderNow,
+        disabledMove: defenderNow.lastMoveUsed,
+        disabledTurns: 4,
+      });
+      log.push({ turn: state.turn, message: `${defenderNow.slot.pokemon.name}'s ${defenderNow.lastMoveUsed} was disabled!`, kind: "status" });
+    }
+  }
+
+  // Torment
+  if (effect.torment) {
+    const defenderNow = getActivePokemon(state[defenderPlayer]);
+    state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, {
+      ...defenderNow,
+      tormented: true,
+    });
+    log.push({ turn: state.turn, message: `${defenderNow.slot.pokemon.name} was subjected to torment!`, kind: "status" });
+  }
+
+  // Aqua Ring (self-buff)
+  if (effect.aquaRing) {
+    const attackerNow = getActivePokemon(state[attackerPlayer]);
+    state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, {
+      ...attackerNow,
+      aquaRing: true,
+    });
+    log.push({ turn: state.turn, message: `${attackerNow.slot.pokemon.name} surrounded itself with a veil of water!`, kind: "status" });
+  }
+
+  // Ingrain (self-buff)
+  if (effect.ingrain) {
+    const attackerNow = getActivePokemon(state[attackerPlayer]);
+    state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, {
+      ...attackerNow,
+      ingrain: true,
+    });
+    log.push({ turn: state.turn, message: `${attackerNow.slot.pokemon.name} planted its roots!`, kind: "status" });
+  }
+
+  // Aurora Veil (requires hail)
+  if (effect.auroraVeil) {
+    const ownSideKey = attackerPlayer === "player1" ? "player1Side" : "player2Side";
+    const ownSide = state.field[ownSideKey];
+    if (state.field.weather !== "hail") {
+      log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+    } else if (ownSide.auroraVeil > 0) {
+      log.push({ turn: state.turn, message: `Aurora Veil is already active!`, kind: "info" });
+    } else {
+      const updatedSide = { ...ownSide, auroraVeil: effect.auroraVeil };
+      state = { ...state, field: { ...state.field, [ownSideKey]: updatedSide } };
+      const label = attackerPlayer === "player1" ? "Player 1" : "Player 2";
+      log.push({ turn: state.turn, message: `Aurora Veil protected ${label}'s team!`, kind: "status" });
+    }
+  }
+
+  // Future Sight / Doom Desire (delayed attack on defender's side)
+  if (effect.futureAttack) {
+    const targetSideKey = defenderPlayer === "player1" ? "player1Side" : "player2Side";
+    const targetSide = state.field[targetSideKey];
+    if (targetSide.futureAttackTurn > 0) {
+      log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+    } else {
+      const attackerNow = getActivePokemon(state[attackerPlayer]);
+      // Fixed 120 base power, scaled by attacker's Sp. Atk stat
+      const baseStats = attackerNow.slot.pokemon.stats;
+      const spAtk = baseStats?.find((s: { stat: { name: string } }) => s.stat.name === "special-attack")?.base_stat ?? 100;
+      const damage = Math.max(1, Math.floor((120 * spAtk) / 100));
+      const updatedSide = {
+        ...targetSide,
+        futureAttackTurn: state.turn + 2,
+        futureAttackDamage: damage,
+        futureAttackMove: effect.futureAttack,
+      };
+      state = { ...state, field: { ...state.field, [targetSideKey]: updatedSide } };
+      log.push({ turn: state.turn, message: `${attackerNow.slot.pokemon.name} foresaw an attack!`, kind: "status" });
+    }
+  }
+
+  // Perish Song (affects both active Pokemon)
+  if (effect.perishSong) {
+    const attackerNow = getActivePokemon(state[attackerPlayer]);
+    const defenderNow = getActivePokemon(state[defenderPlayer]);
+    if (attackerNow.perishCount <= 0) {
+      state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, {
+        ...getActivePokemon(state[attackerPlayer]),
+        perishCount: 4,
+      });
+    }
+    if (defenderNow.perishCount <= 0) {
+      state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, {
+        ...getActivePokemon(state[defenderPlayer]),
+        perishCount: 4,
+      });
+    }
+    log.push({ turn: state.turn, message: `All Pokemon hearing the song will faint in three turns!`, kind: "status" });
+  }
+
+  // Curse (Ghost variant vs non-Ghost variant)
+  if (effect.curse) {
+    const attackerNow = getActivePokemon(state[attackerPlayer]);
+    const attackerTypes = getEffectiveTypes(attackerNow);
+    if (attackerTypes.includes("ghost")) {
+      // Ghost Curse: sacrifice 50% HP, curse the defender
+      const cost = Math.max(1, Math.floor(attackerNow.maxHp / 2));
+      let updatedAttacker = { ...attackerNow, currentHp: Math.max(0, attackerNow.currentHp - cost) };
+      if (updatedAttacker.currentHp <= 0) {
+        updatedAttacker = { ...updatedAttacker, currentHp: 0, isFainted: true, isActive: false };
+      }
+      state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, updatedAttacker);
+
+      const defenderNow = getActivePokemon(state[defenderPlayer]);
+      state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, {
+        ...defenderNow,
+        cursed: true,
+      });
+      log.push({ turn: state.turn, message: `${attackerNow.slot.pokemon.name} cut its own HP and laid a curse on ${defenderNow.slot.pokemon.name}!`, kind: "status" });
+      if (updatedAttacker.isFainted) {
+        log.push({ turn: state.turn, message: `${attackerNow.slot.pokemon.name} fainted!`, kind: "faint" });
+      }
+    } else {
+      // Non-Ghost Curse: +1 Atk, +1 Def, -1 Spe on self
+      const stages = { ...attackerNow.statStages };
+      const oldAtk = stages.attack;
+      const oldDef = stages.defense;
+      const oldSpd = stages.speed;
+      stages.attack = Math.min(STAT_STAGE_MAX, stages.attack + 1);
+      stages.defense = Math.min(STAT_STAGE_MAX, stages.defense + 1);
+      stages.speed = Math.max(STAT_STAGE_MIN, stages.speed - 1);
+      state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, {
+        ...attackerNow,
+        statStages: stages,
+      });
+      if (stages.attack !== oldAtk) {
+        log.push({ turn: state.turn, message: `${attackerNow.slot.pokemon.name}'s ${getStatLabel("attack")} ${getStatChangeText(1)}!`, kind: "status" });
+      }
+      if (stages.defense !== oldDef) {
+        log.push({ turn: state.turn, message: `${attackerNow.slot.pokemon.name}'s ${getStatLabel("defense")} ${getStatChangeText(1)}!`, kind: "status" });
+      }
+      if (stages.speed !== oldSpd) {
+        log.push({ turn: state.turn, message: `${attackerNow.slot.pokemon.name}'s ${getStatLabel("speed")} ${getStatChangeText(-1)}!`, kind: "status" });
+      }
+    }
+  }
+
+  // Baton Pass: switch out while passing stat stages and volatile statuses
+  if (effect.batonPass) {
+    const attackerNow = getActivePokemon(state[attackerPlayer]);
+    const validTargets = state[attackerPlayer].pokemon
+      .filter((p, i) => i !== state[attackerPlayer].activePokemonIndex && !p.isFainted);
+    if (validTargets.length === 0) {
+      log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+    } else {
+      // pendingBatonPass tells the FORCE_SWITCH reducer case (battleReducer.ts)
+      // to transfer statStages/focusEnergy/substituteHp/aquaRing/ingrain to the
+      // replacement instead of clearing them like a normal switch — the
+      // outgoing Pokemon's values are still live here and don't change before
+      // that switch resolves, so nothing needs to be captured/stored yet.
+      state = { ...state, pendingPivotSwitch: attackerPlayer, pendingBatonPass: true };
+      log.push({ turn: state.turn, message: `${attackerNow.slot.pokemon.name} passed the baton!`, kind: "status" });
+    }
+  }
+
+  // Pain Split: average both Pokemon's HP
+  if (effect.painSplit) {
+    const attackerNow = getActivePokemon(state[attackerPlayer]);
+    const defenderNow = getActivePokemon(state[defenderPlayer]);
+    const avgHp = Math.floor((attackerNow.currentHp + defenderNow.currentHp) / 2);
+    const newAtkHp = Math.min(attackerNow.maxHp, avgHp);
+    const newDefHp = Math.min(defenderNow.maxHp, avgHp);
+    state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, { ...attackerNow, currentHp: newAtkHp });
+    state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...getActivePokemon(state[defenderPlayer]), currentHp: newDefHp });
+    log.push({ turn: state.turn, message: "The battlers shared their pain!", kind: "status" });
+  }
+
+  // Endeavor: set defender's HP equal to attacker's HP (fails if attacker HP >= defender HP)
+  if (effect.endeavor) {
+    const attackerNow = getActivePokemon(state[attackerPlayer]);
+    const defenderNow = getActivePokemon(state[defenderPlayer]);
+    if (attackerNow.currentHp >= defenderNow.currentHp) {
+      log.push({ turn: state.turn, message: `But it failed!`, kind: "info" });
+    } else {
+      state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, { ...defenderNow, currentHp: attackerNow.currentHp });
+      log.push({ turn: state.turn, message: `${defenderNow.slot.pokemon.name}'s HP was cut to match ${attackerNow.slot.pokemon.name}'s!`, kind: "damage" });
+    }
+  }
+
+  // Heal Block
+  if (effect.healBlock) {
+    const defenderNow = getActivePokemon(state[defenderPlayer]);
+    state = updatePokemon(state, defenderPlayer, state[defenderPlayer].activePokemonIndex, {
+      ...defenderNow,
+      healBlocked: effect.healBlock,
+    });
+    log.push({ turn: state.turn, message: `${defenderNow.slot.pokemon.name} was prevented from healing!`, kind: "status" });
+  }
+
   // Reset protect counter and track last move for non-protect status moves
   const attackerAfter = getActivePokemon(state[attackerPlayer]);
   if (!attackerAfter.isFainted) {
     state = updatePokemon(state, attackerPlayer, state[attackerPlayer].activePokemonIndex, {
       ...attackerAfter,
       lastMoveUsed: moveName,
+      lastMoveTurn: state.turn,
       consecutiveProtects: 0,
     });
   }

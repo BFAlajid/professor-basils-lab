@@ -144,13 +144,16 @@ export default function BattleTab({ team }: BattleTabProps) {
   // Handle online ready to battle
   const handleOnlineReady = useCallback(() => {
     online.sendReady();
-    if (online.state.opponentTeam && !onlineBattleStartedRef.current) {
+    // rngSeed must be known before starting (host generates it synchronously in
+    // sendReady, but guest only learns it once the host's READY message arrives —
+    // if it's not here yet, the reactive effect below will start the battle instead).
+    if (online.state.opponentTeam && online.state.rngSeed !== null && !onlineBattleStartedRef.current) {
       onlineBattleStartedRef.current = true;
       setActiveBattleMode("online");
       // Host is always player1, guest is always player2 — both sides must agree
       const p1 = online.state.isHost ? team : online.state.opponentTeam;
       const p2 = online.state.isHost ? online.state.opponentTeam : team;
-      startBattle(p1, p2, "pvp").catch((err) => {
+      startBattle(p1, p2, "pvp", null, null, "normal", "singles", online.state.rngSeed).catch((err) => {
         console.error("[BattleTab] startBattle failed:", err);
         onlineBattleStartedRef.current = false;
       });
@@ -170,6 +173,7 @@ export default function BattleTab({ team }: BattleTabProps) {
       online.state.phase === "battling" &&
       state.phase === "setup" &&
       online.state.opponentTeam &&
+      online.state.rngSeed !== null &&
       !onlineBattleStartedRef.current
     ) {
       onlineBattleStartedRef.current = true;
@@ -177,12 +181,12 @@ export default function BattleTab({ team }: BattleTabProps) {
       // Host is always player1, guest is always player2
       const p1 = online.state.isHost ? team : online.state.opponentTeam;
       const p2 = online.state.isHost ? online.state.opponentTeam : team;
-      startBattle(p1, p2, "pvp").catch((err) => {
+      startBattle(p1, p2, "pvp", null, null, "normal", "singles", online.state.rngSeed).catch((err) => {
         console.error("[BattleTab] startBattle failed:", err);
         onlineBattleStartedRef.current = false;
       });
     }
-  }, [online.state.phase, online.state.isHost, state.phase, online.state.opponentTeam, team, startBattle]);
+  }, [online.state.phase, online.state.isHost, state.phase, online.state.opponentTeam, online.state.rngSeed, team, startBattle]);
 
   const handleResetBattle = useCallback(() => {
     resetBattle();

@@ -75,6 +75,7 @@ function createMockBattleState(): BattleState {
     currentTurnPlayer: "player1",
     field: { weather: null, weatherTurnsLeft: 0, terrain: null, terrainTurnsLeft: 0 },
     pendingPivotSwitch: null,
+    pendingBatonPass: false,
   };
 }
 

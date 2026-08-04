@@ -170,7 +170,7 @@ export default function BattleSetup({
       {/* Generational Mechanic */}
       <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
         <h3 className="mb-3 text-lg font-bold font-pixel">Gimmick</h3>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Gimmick">
           {([
             { value: null, label: "None", color: "#3a4466" },
             { value: "mega" as const, label: "Mega", color: "#f7a838" },
@@ -180,6 +180,8 @@ export default function BattleSetup({
             <button
               key={label}
               onClick={() => setMechanic(value)}
+              role="radio"
+              aria-checked={mechanic === value}
               className={`rounded-lg px-3 py-2.5 text-xs font-medium transition-all ${
                 mechanic === value
                   ? "ring-2 ring-[#f0f0e8] text-[#f0f0e8]"
@@ -201,7 +203,7 @@ export default function BattleSetup({
       {mode === "ai" && (
         <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
           <h3 className="mb-3 text-lg font-bold font-pixel">Difficulty</h3>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Difficulty">
             {([
               { value: "easy" as const, label: "Easy", desc: "Random moves, forgiving" },
               { value: "normal" as const, label: "Normal", desc: "Smart move selection" },
@@ -210,6 +212,8 @@ export default function BattleSetup({
               <button
                 key={value}
                 onClick={() => setDifficulty(value)}
+                role="radio"
+                aria-checked={difficulty === value}
                 className={`rounded-lg px-3 py-2.5 text-xs font-medium transition-all ${
                   difficulty === value
                     ? "bg-[#e8433f] ring-2 ring-[#f0f0e8] text-[#f0f0e8]"

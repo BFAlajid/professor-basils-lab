@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { calculateDamage, extractBaseStats, getEffectivenessText, calculateKO } from "../damage";
-import { mockCharizard, mockBlastoise, mockVenusaur } from "@/test/mocks/pokemon";
+import { mockCharizard, mockBlastoise, mockVenusaur, createMockBattlePokemon, createMockTeamSlot } from "@/test/mocks/pokemon";
 import { Move } from "@/types";
 
 const fireBlast: Move = {
@@ -112,6 +112,56 @@ describe("calculateDamage", () => {
     });
     expect(result.max).toBeGreaterThan(0);
     expect(result.effectiveness).toBe(0.5);
+  });
+
+  // Regression: Mega Evolution stat overrides were computed but never read by
+  // calculateDamage — a Mega forme dealt/took damage using its base-forme stats.
+  describe("activeStatOverride (Mega Evolution)", () => {
+    it("uses the attacker's override stats instead of base stats", () => {
+      const baseline = calculateDamage(mockCharizard, mockBlastoise, earthquake, {
+        attackerEvs: { hp: 0, attack: 252, defense: 0, spAtk: 0, spDef: 0, speed: 252 },
+      });
+      // Mega Charizard X: much higher Attack (130 vs base 84)
+      const megaResult = calculateDamage(mockCharizard, mockBlastoise, earthquake, {
+        attackerEvs: { hp: 0, attack: 252, defense: 0, spAtk: 0, spDef: 0, speed: 252 },
+        activeStatOverride: { hp: 78, attack: 130, defense: 111, spAtk: 130, spDef: 85, speed: 100 },
+      });
+      expect(megaResult.max).toBeGreaterThan(baseline.max);
+    });
+
+    it("uses the defender's override stats instead of base stats", () => {
+      const baseline = calculateDamage(mockCharizard, mockBlastoise, fireBlast);
+      // Mega Blastoise: much higher Sp. Def (115 vs base 85)
+      const megaDefResult = calculateDamage(mockCharizard, mockBlastoise, fireBlast, {
+        defenderStatOverride: { hp: 79, attack: 103, defense: 120, spAtk: 135, spDef: 115, speed: 78 },
+      });
+      expect(megaDefResult.max).toBeLessThan(baseline.max);
+    });
+  });
+
+  // Regression: Explosion/Self-Destruct should halve the target's Defense (Gen 3 rule).
+  describe("halveDefenderDefense (Explosion/Self-Destruct)", () => {
+    it("increases physical damage when set", () => {
+      const normalResult = calculateDamage(mockCharizard, mockBlastoise, earthquake);
+      const halvedDefResult = calculateDamage(mockCharizard, mockBlastoise, earthquake, {
+        halveDefenderDefense: true,
+      });
+      expect(halvedDefResult.max).toBeGreaterThan(normalResult.max);
+    });
+  });
+
+  // Regression: Analytic previously defaulted to always-on (`movedLast ?? true`),
+  // boosting damage every turn regardless of move order.
+  describe("Analytic ability integration", () => {
+    it("does not boost damage when movedLast is not provided", () => {
+      const attacker = createMockBattlePokemon(createMockTeamSlot(mockCharizard));
+      const withoutAbility = calculateDamage(mockCharizard, mockBlastoise, fireBlast);
+      const withAnalytic = calculateDamage(mockCharizard, mockBlastoise, fireBlast, {
+        attackerAbility: "analytic",
+        attackerBattlePokemon: attacker,
+      });
+      expect(withAnalytic.max).toBe(withoutAbility.max);
+    });
   });
 });
 

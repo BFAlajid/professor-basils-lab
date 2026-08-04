@@ -34,7 +34,7 @@ vi.mock("@/data/typeChart", () => ({
 }));
 
 import { executeMove } from "../battleExecution";
-import { calculateDamage } from "../damage";
+import { calculateDamage, DamageResult } from "../damage";
 import { STATUS_MOVE_EFFECTS } from "@/data/statusMoves";
 import { getAbilityHooks, getHighestStat } from "@/data/abilities";
 import { cacheBattleMove } from "../battleHelpers";
@@ -511,6 +511,79 @@ describe("executeMove", () => {
       const log: BattleLogEntry[] = [];
       const result = executeMove(state, "player1", 0, log);
       expect(result.player1.pokemon[0].choiceLockedMove).toBe("flamethrower");
+    });
+
+    // Regression: choiceLockedMove was only ever read by the UI (MovePanel), never
+    // enforced by the reducer — an AI or online opponent could bypass it entirely.
+    it("redirects to the choice-locked move when a different move is selected", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as DamageResult);
+      cacheTestMove("flamethrower", { type: { name: "fire" }, damage_class: { name: "special" } });
+      cacheTestMove("tackle", { type: { name: "normal" }, damage_class: { name: "physical" } });
+      const slot = createMockTeamSlot(mockCharizard);
+      slot.heldItem = "choice-band";
+      slot.selectedMoves = ["flamethrower", "tackle", "air-slash", "dragon-pulse"];
+      const state = createMockBattleState({
+        p1Overrides: { slot, choiceLockedMove: "flamethrower", movePP: [10, 10, 10, 10] },
+      });
+      const log: BattleLogEntry[] = [];
+      // Player selects moveIndex 1 (tackle), but should be redirected to flamethrower
+      executeMove(state, "player1", 1, log);
+      expect(log.some((l) => l.message.includes("used flamethrower!"))).toBe(true);
+      expect(log.some((l) => l.message.includes("used tackle!"))).toBe(false);
+    });
+
+    it("falls back to the selected move when the locked move has no PP left", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as DamageResult);
+      cacheTestMove("flamethrower", { type: { name: "fire" }, damage_class: { name: "special" } });
+      cacheTestMove("tackle", { type: { name: "normal" }, damage_class: { name: "physical" } });
+      const slot = createMockTeamSlot(mockCharizard);
+      slot.heldItem = "choice-band";
+      slot.selectedMoves = ["flamethrower", "tackle", "air-slash", "dragon-pulse"];
+      const state = createMockBattleState({
+        // flamethrower (index 0) has 0 PP left
+        p1Overrides: { slot, choiceLockedMove: "flamethrower", movePP: [0, 10, 10, 10] },
+      });
+      const log: BattleLogEntry[] = [];
+      executeMove(state, "player1", 1, log);
+      expect(log.some((l) => l.message.includes("used tackle!"))).toBe(true);
+    });
+  });
+
+  describe("Struggle", () => {
+    it("uses the real Struggle path regardless of what selectedMoves[moveIndex] is", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 40, effectiveness: 1, isCritical: false } as DamageResult);
+      const slot = createMockTeamSlot(mockCharizard);
+      // All moves out of PP — forces Struggle. moveIndex 0 points at flamethrower,
+      // which must NOT be used for Struggle's damage calc (that was the bug).
+      slot.selectedMoves = ["flamethrower", "air-slash", "dragon-pulse", "solar-beam"];
+      const state = createMockBattleState({
+        p1Overrides: { slot, movePP: [0, 0, 0, 0], maxHp: 400, currentHp: 400 },
+      });
+      const log: BattleLogEntry[] = [];
+      const result = executeMove(state, "player1", 0, log);
+
+      expect(log.some((l) => l.message.includes("used struggle!"))).toBe(true);
+      // 1/4 max HP recoil (100) regardless of the mocked damage dealt to the target
+      expect(result.player1.pokemon[0].currentHp).toBe(300);
+      expect(log.some((l) => l.message.includes("hurt by recoil"))).toBe(true);
+    });
+
+    it("Struggle is blocked by Protect like other moves", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const slot = createMockTeamSlot(mockCharizard);
+      slot.selectedMoves = ["flamethrower"];
+      const state = createMockBattleState({
+        p1Overrides: { slot, movePP: [0] },
+        p2Overrides: { isProtected: true },
+      });
+      const log: BattleLogEntry[] = [];
+      const result = executeMove(state, "player1", 0, log);
+      expect(log.some((l) => l.message.includes("protected itself"))).toBe(true);
+      // No recoil since the move never connected
+      expect(result.player1.pokemon[0].currentHp).toBe(result.player1.pokemon[0].maxHp);
     });
   });
 

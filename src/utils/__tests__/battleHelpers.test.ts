@@ -313,6 +313,10 @@ describe("initSideConditions", () => {
       tailwind: 0,
       wishPending: 0,
       wishAmount: 0,
+      auroraVeil: 0,
+      futureAttackTurn: 0,
+      futureAttackDamage: 0,
+      futureAttackMove: null,
     });
   });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { BattleLogEntry } from "@/types";
 
 interface BattleLogProps {
@@ -41,7 +41,7 @@ const KIND_PREFIX: Record<string, string> = {
   hazard: "\u26A0",
 };
 
-export default function BattleLog({ log }: BattleLogProps) {
+export default memo(function BattleLog({ log }: BattleLogProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,13 +49,18 @@ export default function BattleLog({ log }: BattleLogProps) {
   }, [log.length]);
 
   return (
-    <div className="rounded-xl border border-[#3a4466] bg-[#1a1c2c] p-3 max-h-60 overflow-y-auto">
+    <div className="rounded-xl border border-[#3a4466] bg-[#1a1c2c] p-3 max-h-60 overflow-y-auto" aria-live="polite" aria-relevant="additions">
       <h4 className="text-xs font-bold text-[#8b9bb4] mb-2 uppercase tracking-wider font-pixel">
         Battle Log
       </h4>
       <div className="space-y-0.5 text-xs font-mono">
-        {log.map((entry, i) => (
-          <div key={i} style={{ color: KIND_COLORS[entry.kind] ?? "#a0b4cc", borderLeft: `3px solid ${KIND_COLORS[entry.kind] ?? "#a0b4cc"}`, paddingLeft: "6px" }}>
+        {log.map((entry) => (
+          // Key by content, not array index: the reducer caps the log by slicing off
+          // the oldest entries once it grows past ~200. An index-based key would shift
+          // for every surviving row once that trim happens, forcing React to remount
+          // the whole list every turn. Keying on turn+message keeps surviving rows
+          // stable (rare within-turn duplicate messages just share a key harmlessly).
+          <div key={`${entry.turn}-${entry.message}`} style={{ color: KIND_COLORS[entry.kind] ?? "#a0b4cc", borderLeft: `3px solid ${KIND_COLORS[entry.kind] ?? "#a0b4cc"}`, paddingLeft: "6px" }}>
             <span aria-hidden="true">{KIND_PREFIX[entry.kind] ?? "\u25B8"} </span>{entry.message}
           </div>
         ))}
@@ -63,4 +68,4 @@ export default function BattleLog({ log }: BattleLogProps) {
       </div>
     </div>
   );
-}
+});

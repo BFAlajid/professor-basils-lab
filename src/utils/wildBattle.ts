@@ -3,19 +3,15 @@ import {
   Pokemon,
   TeamSlot,
   BattlePokemon,
-  BattleLogEntry,
   StatusCondition,
-  Nature,
   IVSpread,
   Move,
   TypeName,
-  BattleMoveData,
 } from "@/types";
 import { extractBaseStats, calculateDamage } from "./damage";
 import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
-import { initBattlePokemon, initStatStages, getStatStageMultiplier, cacheBattleMove, getCachedMoves } from "./battle";
+import { initBattlePokemon, getStatStageMultiplier, cacheBattleMove, getCachedMoves } from "./battle";
 import { getCritRate } from "./battleHelpers";
-import { getDefensiveMultiplier } from "@/data/typeChart";
 import { NATURES } from "@/data/natures";
 import { randomInt, randomChoice, shuffleArray } from "./random";
 import { fetchWithTimeout } from "./pokeApiClient";
@@ -37,7 +33,7 @@ export function generateRandomIVs(): IVSpread {
   };
 }
 
-export function createWildTeamSlot(pokemon: Pokemon, level: number): TeamSlot {
+export function createWildTeamSlot(pokemon: Pokemon, _level: number): TeamSlot {
   const nature = randomChoice(NATURES);
   const ivs = generateRandomIVs();
 
@@ -168,7 +164,9 @@ function getEffectiveSpeed(bp: BattlePokemon): number {
     bp.slot.evs ?? DEFAULT_EVS,
     bp.slot.nature ?? null
   );
-  return Math.floor(calc.speed * getStatStageMultiplier(bp.statStages.speed));
+  let speed = Math.floor(calc.speed * getStatStageMultiplier(bp.statStages.speed));
+  if (bp.status === "paralyze") speed = Math.floor(speed * 0.5);
+  return speed;
 }
 
 function executePlayerAttack(

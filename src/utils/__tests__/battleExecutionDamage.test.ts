@@ -7,6 +7,8 @@ import {
   mockBlastoise,
 } from "@/test/mocks/pokemon";
 import { BattleLogEntry, BattlePokemon, BattleState } from "@/types";
+import { DamageResult } from "../damage";
+import { AbilityHooks } from "@/data/abilities";
 
 vi.mock("../damage", () => ({
   calculateDamage: vi.fn(() => ({ max: 100, effectiveness: 1, isCritical: false })),
@@ -33,7 +35,7 @@ import { getAbilityHooks, hasAbility } from "@/data/abilities";
 import { cacheBattleMove } from "../battleHelpers";
 
 beforeEach(() => {
-  vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as any);
+  vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as DamageResult);
   vi.mocked(getAbilityHooks).mockReturnValue(null);
   vi.mocked(hasAbility).mockReturnValue(false);
 });
@@ -85,7 +87,7 @@ function buildState(
   });
 }
 
-function cacheTestMove(name: string, overrides?: Record<string, any>) {
+function cacheTestMove(name: string, overrides?: Record<string, unknown>) {
   cacheBattleMove(name, {
     name,
     power: 80,
@@ -127,7 +129,7 @@ describe("executeDamagingMove", () => {
 
     it("defender faints when HP reaches 0", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.99);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 500, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 500, effectiveness: 1, isCritical: false } as DamageResult);
       cacheTestMove("flamethrower", { type: { name: "fire" }, damage_class: { name: "special" } });
       const state = buildState();
       const { state: result, log } = exec(state, 0);
@@ -139,7 +141,7 @@ describe("executeDamagingMove", () => {
 
     it("logs super effective hit", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 2, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 2, isCritical: false } as DamageResult);
       cacheTestMove("flamethrower", { type: { name: "fire" }, damage_class: { name: "special" } });
       const state = buildState();
       const { log } = exec(state, 0);
@@ -149,7 +151,7 @@ describe("executeDamagingMove", () => {
 
     it("logs not very effective hit", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 0.5, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 0.5, isCritical: false } as DamageResult);
       cacheTestMove("flamethrower", { type: { name: "fire" }, damage_class: { name: "special" } });
       const state = buildState();
       const { log } = exec(state, 0);
@@ -159,7 +161,7 @@ describe("executeDamagingMove", () => {
 
     it("immune moves deal no damage", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 0, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 0, isCritical: false } as DamageResult);
       cacheTestMove("flamethrower", { type: { name: "fire" }, damage_class: { name: "special" } });
       const state = buildState();
       const { state: result, log } = exec(state, 0);
@@ -174,7 +176,7 @@ describe("executeDamagingMove", () => {
   describe("critical hits", () => {
     it("logs critical hit message for single-hit moves", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.01); // below 1/16
-      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: true } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: true } as DamageResult);
       cacheTestMove("flamethrower", { type: { name: "fire" }, damage_class: { name: "special" } });
       const state = buildState();
       const { log } = exec(state, 0);
@@ -188,7 +190,7 @@ describe("executeDamagingMove", () => {
   describe("multi-hit moves", () => {
     it("fixed hit count when min_hits equals max_hits", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 50, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 50, effectiveness: 1, isCritical: false } as DamageResult);
       cacheTestMove("flamethrower", {
         type: { name: "fire" },
         damage_class: { name: "special" },
@@ -210,7 +212,7 @@ describe("executeDamagingMove", () => {
         if (callIndex === 3) return 0.1;  // multi-hit roll < 0.35 -> 2 hits
         return 0.5; // damage rolls + per-hit crit checks
       });
-      vi.mocked(calculateDamage).mockReturnValue({ max: 30, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 30, effectiveness: 1, isCritical: false } as DamageResult);
       cacheTestMove("flamethrower", {
         type: { name: "fire" },
         damage_class: { name: "special" },
@@ -231,7 +233,7 @@ describe("executeDamagingMove", () => {
         if (callIndex === 3) return 0.9;  // multi-hit roll >= 0.85 -> 5 hits
         return 0.5;
       });
-      vi.mocked(calculateDamage).mockReturnValue({ max: 20, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 20, effectiveness: 1, isCritical: false } as DamageResult);
       cacheTestMove("flamethrower", {
         type: { name: "fire" },
         damage_class: { name: "special" },
@@ -252,7 +254,7 @@ describe("executeDamagingMove", () => {
         return 0.5;
       });
       // High damage kills in one hit, so multi-hit should stop
-      vi.mocked(calculateDamage).mockReturnValue({ max: 500, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 500, effectiveness: 1, isCritical: false } as DamageResult);
       cacheTestMove("flamethrower", {
         type: { name: "fire" },
         damage_class: { name: "special" },
@@ -271,7 +273,7 @@ describe("executeDamagingMove", () => {
   describe("recoil mechanics", () => {
     it("brave-bird deals 1/3 recoil damage to attacker", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 120, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 120, effectiveness: 1, isCritical: false } as DamageResult);
       // brave-bird needs to be in selectedMoves at index 0
       const p1Slot = createMockTeamSlot(mockCharizard, 0);
       p1Slot.selectedMoves = ["brave-bird", "air-slash", "dragon-pulse", "solar-beam"];
@@ -293,7 +295,7 @@ describe("executeDamagingMove", () => {
 
     it("life orb deals 10% max HP recoil", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as DamageResult);
       cacheTestMove("flamethrower", { type: { name: "fire" }, damage_class: { name: "special" } });
       const p1Slot = createMockTeamSlot(mockCharizard, 0);
       p1Slot.heldItem = "life-orb";
@@ -315,7 +317,7 @@ describe("executeDamagingMove", () => {
 
     it("attacker faints from recoil", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 200, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 200, effectiveness: 1, isCritical: false } as DamageResult);
       const p1Slot = createMockTeamSlot(mockCharizard, 0);
       p1Slot.selectedMoves = ["brave-bird", "air-slash", "dragon-pulse", "solar-beam"];
       const state = createMockBattleState({
@@ -341,7 +343,7 @@ describe("executeDamagingMove", () => {
   describe("drain moves", () => {
     it("giga-drain heals attacker for 50% of damage dealt", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as DamageResult);
       const p1Slot = createMockTeamSlot(mockCharizard, 0);
       p1Slot.selectedMoves = ["giga-drain", "air-slash", "dragon-pulse", "solar-beam"];
       const state = createMockBattleState({
@@ -362,7 +364,7 @@ describe("executeDamagingMove", () => {
 
     it("drain does not heal above max HP", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as DamageResult);
       const p1Slot = createMockTeamSlot(mockCharizard, 0);
       p1Slot.selectedMoves = ["giga-drain", "air-slash", "dragon-pulse", "solar-beam"];
       const state = createMockBattleState({
@@ -398,13 +400,17 @@ describe("executeDamagingMove", () => {
   // ========== Fake Out ==========
 
   describe("fake out", () => {
-    it.todo("fails after first turn on field", () => {
+    it("fails after first turn on field", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
       const p1Slot = createMockTeamSlot(mockCharizard, 0);
       p1Slot.selectedMoves = ["fake-out", "air-slash", "dragon-pulse", "solar-beam"];
+      // The guard in battleExecutionDamage.ts is `turnsOnField > 1`, so the
+      // Pokemon's second turn on field (turnsOnField: 1) is still allowed to
+      // succeed — only its third+ turn (turnsOnField: 2) fails. See the
+      // sibling "fails when turnsOnField > 1" test in battleExecution.test.ts.
       const state = createMockBattleState({
         player1: {
-          pokemon: [createMockBattlePokemon(p1Slot, { turnsOnField: 1 })],
+          pokemon: [createMockBattlePokemon(p1Slot, { turnsOnField: 2 })],
           activePokemonIndex: 0,
           selectedMechanic: null,
         },
@@ -420,7 +426,7 @@ describe("executeDamagingMove", () => {
 
     it("succeeds and flinches on first turn (turnsOnField = 0)", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 40, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 40, effectiveness: 1, isCritical: false } as DamageResult);
       const p1Slot = createMockTeamSlot(mockCharizard, 0);
       p1Slot.selectedMoves = ["fake-out", "air-slash", "dragon-pulse", "solar-beam"];
       const state = createMockBattleState({
@@ -445,7 +451,7 @@ describe("executeDamagingMove", () => {
   describe("focus sash", () => {
     it("survives lethal hit at full HP with 1 HP", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 500, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 500, effectiveness: 1, isCritical: false } as DamageResult);
       cacheTestMove("flamethrower", { type: { name: "fire" }, damage_class: { name: "special" } });
       const p2Slot = createMockTeamSlot(mockBlastoise, 0);
       p2Slot.heldItem = "focus-sash";
@@ -466,7 +472,7 @@ describe("executeDamagingMove", () => {
 
     it("does not trigger when not at full HP", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 500, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 500, effectiveness: 1, isCritical: false } as DamageResult);
       cacheTestMove("flamethrower", { type: { name: "fire" }, damage_class: { name: "special" } });
       const p2Slot = createMockTeamSlot(mockBlastoise, 0);
       p2Slot.heldItem = "focus-sash";
@@ -510,7 +516,7 @@ describe("executeDamagingMove", () => {
   describe("pivot moves", () => {
     it("u-turn sets pendingPivotSwitch when attacker has teammates", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 50, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 50, effectiveness: 1, isCritical: false } as DamageResult);
 
       const p1Slot0 = createMockTeamSlot(mockCharizard, 0);
       p1Slot0.selectedMoves = ["u-turn", "air-slash", "dragon-pulse", "solar-beam"];
@@ -540,7 +546,7 @@ describe("executeDamagingMove", () => {
   describe("choice items", () => {
     it("choice band locks attacker to the used move", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as DamageResult);
       cacheTestMove("flamethrower", { type: { name: "fire" }, damage_class: { name: "special" } });
       const p1Slot = createMockTeamSlot(mockCharizard, 0);
       p1Slot.heldItem = "choice-band";
@@ -564,14 +570,14 @@ describe("executeDamagingMove", () => {
   describe("absorb ability immunity", () => {
     it("ability can block and heal from incoming move", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
-      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 100, effectiveness: 1, isCritical: false } as DamageResult);
       vi.mocked(getAbilityHooks).mockReturnValue({
         modifyIncomingDamage: () => ({
           multiplier: 0,
           message: "It had no effect due to ability!",
           healInstead: true,
         }),
-      } as any);
+      } as unknown as AbilityHooks);
       cacheTestMove("flamethrower", { type: { name: "fire" }, damage_class: { name: "special" } });
       const state = buildState(undefined, { currentHp: 200, maxHp: 300 });
       const { state: result, log } = exec(state, 0);
@@ -594,7 +600,7 @@ describe("executeDamagingMove", () => {
         if (callIndex === 3) return 0.5; // damage roll
         return 0.1; // flinch check: 0.1 * 100 = 10 < 30 -> flinch
       });
-      vi.mocked(calculateDamage).mockReturnValue({ max: 80, effectiveness: 1, isCritical: false } as any);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 80, effectiveness: 1, isCritical: false } as DamageResult);
       const p1Slot = createMockTeamSlot(mockCharizard, 0);
       p1Slot.selectedMoves = ["iron-head", "air-slash", "dragon-pulse", "solar-beam"];
       const state = createMockBattleState({
@@ -610,6 +616,161 @@ describe("executeDamagingMove", () => {
       const result = executeDamagingMove(state, "player1", "player2", "iron-head", 0, log);
 
       expect(result.player2.pokemon[0].isFlinched).toBe(true);
+    });
+  });
+
+  // ========== Knock Off ==========
+  // Regression: Knock Off logged "was knocked off!" but never actually cleared
+  // the defender's held item.
+
+  describe("Knock Off", () => {
+    it("removes the defender's held item after dealing damage", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 50, effectiveness: 1, isCritical: false } as DamageResult);
+      cacheTestMove("knock-off", { type: { name: "dark" }, damage_class: { name: "physical" }, power: 65 });
+      const p1Slot = createMockTeamSlot(mockCharizard, 0);
+      p1Slot.selectedMoves = ["knock-off", "air-slash", "dragon-pulse", "solar-beam"];
+      const p2Slot = createMockTeamSlot(mockBlastoise, 0);
+      p2Slot.heldItem = "leftovers";
+      const state = createMockBattleState({
+        player1: { pokemon: [createMockBattlePokemon(p1Slot)], activePokemonIndex: 0, selectedMechanic: null },
+        p2Overrides: { slot: p2Slot },
+      });
+
+      const { state: result, log } = exec(state, 0);
+
+      expect(log.some((l) => l.message.includes("knocked off"))).toBe(true);
+      expect(result.player2.pokemon[0].slot.heldItem).toBeNull();
+    });
+
+    it("does nothing when the defender holds no item", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 50, effectiveness: 1, isCritical: false } as DamageResult);
+      cacheTestMove("knock-off", { type: { name: "dark" }, damage_class: { name: "physical" }, power: 65 });
+      const p1Slot = createMockTeamSlot(mockCharizard, 0);
+      p1Slot.selectedMoves = ["knock-off", "air-slash", "dragon-pulse", "solar-beam"];
+      const state = createMockBattleState({
+        player1: { pokemon: [createMockBattlePokemon(p1Slot)], activePokemonIndex: 0, selectedMechanic: null },
+      });
+
+      const { log } = exec(state, 0);
+
+      expect(log.some((l) => l.message.includes("knocked off"))).toBe(false);
+    });
+  });
+
+  // ========== Explosion / Self-Destruct ==========
+  // Regression: these moves dealt damage but never fainted the user, and didn't
+  // halve the target's Defense (Gen 3 rule).
+
+  describe("Explosion / Self-Destruct", () => {
+    function stateWithMove(moveName: string): BattleState {
+      const p1Slot = createMockTeamSlot(mockCharizard, 0);
+      p1Slot.selectedMoves = [moveName, "air-slash", "dragon-pulse", "solar-beam"];
+      return createMockBattleState({
+        player1: { pokemon: [createMockBattlePokemon(p1Slot)], activePokemonIndex: 0, selectedMechanic: null },
+      });
+    }
+
+    it("faints the user after dealing damage", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 50, effectiveness: 1, isCritical: false } as DamageResult);
+      cacheTestMove("explosion", { type: { name: "normal" }, damage_class: { name: "physical" }, power: 250 });
+      const state = stateWithMove("explosion");
+
+      const { state: result, log } = exec(state, 0);
+
+      expect(result.player1.pokemon[0].isFainted).toBe(true);
+      expect(result.player1.pokemon[0].currentHp).toBe(0);
+      expect(log.some((l) => l.message.includes(`${result.player1.pokemon[0].slot.pokemon.name} fainted!`))).toBe(true);
+    });
+
+    it("self-destruct also faints the user", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 50, effectiveness: 1, isCritical: false } as DamageResult);
+      cacheTestMove("self-destruct", { type: { name: "normal" }, damage_class: { name: "physical" }, power: 200 });
+      const state = stateWithMove("self-destruct");
+
+      const { state: result } = exec(state, 0);
+
+      expect(result.player1.pokemon[0].isFainted).toBe(true);
+    });
+
+    it("does not faint the user when the move has no effect (immune target)", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 50, effectiveness: 0, isCritical: false } as DamageResult);
+      cacheTestMove("explosion", { type: { name: "normal" }, damage_class: { name: "physical" }, power: 250 });
+      const state = stateWithMove("explosion");
+
+      const { state: result } = exec(state, 0);
+
+      expect(result.player1.pokemon[0].isFainted).toBe(false);
+    });
+
+    it("passes halveDefenderDefense to calculateDamage for explosion", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 50, effectiveness: 1, isCritical: false } as DamageResult);
+      cacheTestMove("explosion", { type: { name: "normal" }, damage_class: { name: "physical" }, power: 250 });
+      const state = stateWithMove("explosion");
+
+      exec(state, 0);
+
+      expect(vi.mocked(calculateDamage)).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ halveDefenderDefense: true }),
+      );
+    });
+
+    it("does not halve Defense for an ordinary damaging move", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 50, effectiveness: 1, isCritical: false } as DamageResult);
+      cacheTestMove("tackle", { type: { name: "normal" }, damage_class: { name: "physical" }, power: 40 });
+      const state = stateWithMove("tackle");
+
+      exec(state, 0);
+
+      expect(vi.mocked(calculateDamage)).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ halveDefenderDefense: false }),
+      );
+    });
+  });
+
+  // ========== Multi-hit defensive interactions ==========
+  // Regression: Fur Coat/Ice Scales/Thick Fat/Multiscale-style modifyIncomingDamage
+  // hooks and type-resist berries only reduced the first hit of a multi-hit move.
+
+  describe("multi-hit defensive interactions", () => {
+    it("applies a defensive modifyIncomingDamage hook on every hit, not just the first", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      vi.mocked(calculateDamage).mockReturnValue({ max: 20, effectiveness: 1, isCritical: false } as DamageResult);
+      let calls = 0;
+      vi.mocked(getAbilityHooks).mockReturnValue({
+        modifyIncomingDamage: () => {
+          calls++;
+          return { multiplier: 0.5 };
+        },
+      } as unknown as AbilityHooks);
+      cacheTestMove("bullet-seed", {
+        type: { name: "grass" },
+        damage_class: { name: "physical" },
+        meta: { min_hits: 3, max_hits: 3 },
+      });
+      const p1Slot = createMockTeamSlot(mockCharizard, 0);
+      p1Slot.selectedMoves = ["bullet-seed", "air-slash", "dragon-pulse", "solar-beam"];
+      const state = createMockBattleState({
+        player1: { pokemon: [createMockBattlePokemon(p1Slot)], activePokemonIndex: 0, selectedMechanic: null },
+        p2Overrides: { currentHp: 1000, maxHp: 1000 },
+      });
+
+      exec(state, 0);
+
+      // 1 pre-loop type-immunity check + 3 per-hit calls (previously only 1 of the 3 hits applied it)
+      expect(calls).toBe(4);
     });
   });
 });

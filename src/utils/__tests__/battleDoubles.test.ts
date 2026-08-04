@@ -1,14 +1,12 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   battleReducer,
   initialBattleState,
   initBattleTeam,
-  initBattlePokemon,
   SPREAD_MOVES,
-  SPREAD_DAMAGE_MODIFIER,
 } from "../battle";
-import { getActivePokemon, getActivePokemonBySlot, getActiveDoublesSlots } from "../battleHelpers";
-import type { BattleState, BattleAction, TeamSlot, BattleTurnAction } from "@/types";
+import { getActivePokemonBySlot, getActiveDoublesSlots } from "../battleHelpers";
+import type { BattleState, BattleAction, TeamSlot } from "@/types";
 
 // Minimal TeamSlot factory for testing
 function makeSlot(name: string, moves: string[] = ["tackle"], hp = 100): TeamSlot {
@@ -29,6 +27,7 @@ function makeSlot(name: string, moves: string[] = ["tackle"], hp = 100): TeamSlo
       abilities: [{ ability: { name: "overgrow" }, is_hidden: false }],
       height: 10,
       weight: 100,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any,
     position: 0,
     selectedMoves: moves,
@@ -194,6 +193,137 @@ describe("Doubles Battle Format", () => {
       expect(SPREAD_MOVES.has("surf")).toBe(true);
       expect(SPREAD_MOVES.has("heat-wave")).toBe(true);
       expect(SPREAD_MOVES.has("tackle")).toBe(false);
+    });
+  });
+
+  // Regression: a spread move hitting 2 opponent slots ran the FULL executeMove
+  // pipeline once per target — PP was decremented twice, "used X!" was logged
+  // twice, and attacker-side effects (Life Orb recoil) applied twice for one move.
+  describe("Spread move dedup (doubles)", () => {
+    it("decrements PP once and logs 'used X!' once for a 2-target spread hit", () => {
+      const p1Slots = [makeSlot("pikachu", ["earthquake"], 1000), makeSlot("bulbasaur", ["tackle"], 1000), makeSlot("charmander", ["tackle"], 1000)];
+      const p2Slots = [makeSlot("squirtle", ["tackle"], 1000), makeSlot("jigglypuff", ["tackle"], 1000), makeSlot("eevee", ["tackle"], 1000)];
+      const state = startDoublesBattle(p1Slots, p2Slots);
+      const pikachuMaxPP = state.player1.pokemon[0].movePP[0];
+
+      const action: BattleAction = {
+        type: "EXECUTE_TURN",
+        player1Action: { type: "MOVE", moveIndex: 0, target: "spread", slot: 0 },
+        player1Action2: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 1 },
+        player2Action: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 0 },
+        player2Action2: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 1 },
+      };
+      const p2Slot0StartHp = state.player2.pokemon[0].currentHp;
+      const p2Slot1StartHp = state.player2.pokemon[1].currentHp;
+      const result = battleReducer(state, action);
+
+      // PP decremented exactly once (14, not 13)
+      expect(result.player1.pokemon[0].movePP[0]).toBe(pikachuMaxPP - 1);
+
+      // "used earthquake!" logged exactly once this turn
+      const turnLogs = result.log.filter((l) => l.turn === result.turn);
+      const usedMessages = turnLogs.filter((l) => l.message === "pikachu used earthquake!");
+      expect(usedMessages.length).toBe(1);
+
+      // Both opponent slots took damage from the spread hit
+      expect(result.player2.pokemon[0].currentHp).toBeLessThan(p2Slot0StartHp);
+      expect(result.player2.pokemon[1].currentHp).toBeLessThan(p2Slot1StartHp);
+    });
+
+    it("applies Life Orb recoil once, not once per target", () => {
+      const p1Slot0 = makeSlot("pikachu", ["earthquake"], 1000);
+      p1Slot0.heldItem = "life-orb";
+      const p1Slots = [p1Slot0, makeSlot("bulbasaur", ["tackle"], 1000), makeSlot("charmander", ["tackle"], 1000)];
+      const p2Slots = [makeSlot("squirtle", ["tackle"], 1000), makeSlot("jigglypuff", ["tackle"], 1000), makeSlot("eevee", ["tackle"], 1000)];
+      const state = startDoublesBattle(p1Slots, p2Slots);
+
+      const action: BattleAction = {
+        type: "EXECUTE_TURN",
+        player1Action: { type: "MOVE", moveIndex: 0, target: "spread", slot: 0 },
+        player1Action2: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 1 },
+        player2Action: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 0 },
+        player2Action2: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 1 },
+      };
+      const result = battleReducer(state, action);
+
+      const turnLogs = result.log.filter((l) => l.turn === result.turn);
+      const recoilMessages = turnLogs.filter((l) => l.message.includes("hurt by its Life Orb"));
+      expect(recoilMessages.length).toBe(1);
+    });
+
+    it("still hits a single, non-spread target only once when target is not spread", () => {
+      const p1Slots = [makeSlot("pikachu", ["tackle"], 1000), makeSlot("bulbasaur", ["tackle"], 1000), makeSlot("charmander", ["tackle"], 1000)];
+      const p2Slots = [makeSlot("squirtle", ["tackle"], 1000), makeSlot("jigglypuff", ["tackle"], 1000), makeSlot("eevee", ["tackle"], 1000)];
+      const state = startDoublesBattle(p1Slots, p2Slots);
+      const p2Slot1StartHp = state.player2.pokemon[1].currentHp;
+
+      // Both p1 attackers target opp0 — opp1 (jigglypuff) should take zero damage
+      const action: BattleAction = {
+        type: "EXECUTE_TURN",
+        player1Action: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 0 },
+        player1Action2: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 1 },
+        player2Action: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 0 },
+        player2Action2: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 1 },
+      };
+      const result = battleReducer(state, action);
+
+      // The non-targeted opponent slot (index 1) should be untouched by pikachu's single-target tackle
+      expect(result.player2.pokemon[1].currentHp).toBe(p2Slot1StartHp);
+    });
+  });
+
+  // Regression (Wave 7 review, MAJOR #3): applyMoveLocks always resolved the
+  // acting pokemon via getActivePokemon(state[player]), which is always slot
+  // 0 — in doubles it ran twice against slot 0 per player, and slot-1 mons
+  // never received a Choice lock or lock-in at all.
+  describe("applyMoveLocks targets the acting slot, not always slot 0", () => {
+    it("locks both slots into Outrage independently when both use it", () => {
+      const p1Slots = [
+        makeSlot("pikachu", ["outrage"], 1000),
+        makeSlot("bulbasaur", ["outrage"], 1000),
+        makeSlot("charmander", ["tackle"], 1000),
+      ];
+      const p2Slots = [makeSlot("squirtle", ["tackle"], 1000), makeSlot("jigglypuff", ["tackle"], 1000), makeSlot("eevee", ["tackle"], 1000)];
+      const state = startDoublesBattle(p1Slots, p2Slots);
+
+      const action: BattleAction = {
+        type: "EXECUTE_TURN",
+        player1Action: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 0 },
+        player1Action2: { type: "MOVE", moveIndex: 0, target: "opp1", slot: 1 },
+        player2Action: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 0 },
+        player2Action2: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 1 },
+      };
+      const result = battleReducer(state, action);
+
+      // Bug: the second applyMoveLocks call (nominally for slot 1) actually
+      // ran against slot 0 again — decrementing slot 0's fresh lockInTurns
+      // immediately (spurious fatigue confusion after one turn) while slot 1
+      // never got locked in at all.
+      expect(result.player1.pokemon[0].lockInMove).toBe("outrage");
+      expect(result.player1.pokemon[0].lockInTurns).toBeGreaterThan(0);
+      expect(result.player1.pokemon[1].lockInMove).toBe("outrage");
+      expect(result.player1.pokemon[1].lockInTurns).toBeGreaterThan(0);
+    });
+
+    it("locks a Choice item onto the acting slot, not slot 0", () => {
+      const p1Slot0 = makeSlot("pikachu", ["tackle"], 1000); // no item — must stay unlocked
+      const p1Slot1 = makeSlot("bulbasaur", ["tackle"], 1000);
+      p1Slot1.heldItem = "choice-band";
+      const p1Slots = [p1Slot0, p1Slot1, makeSlot("charmander", ["tackle"], 1000)];
+      const p2Slots = [makeSlot("squirtle", ["tackle"], 1000), makeSlot("jigglypuff", ["tackle"], 1000), makeSlot("eevee", ["tackle"], 1000)];
+      const state = startDoublesBattle(p1Slots, p2Slots);
+
+      const action: BattleAction = {
+        type: "EXECUTE_TURN",
+        player1Action: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 0 },
+        player1Action2: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 1 },
+        player2Action: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 0 },
+        player2Action2: { type: "MOVE", moveIndex: 0, target: "opp0", slot: 1 },
+      };
+      const result = battleReducer(state, action);
+
+      expect(result.player1.pokemon[0].choiceLockedMove).toBeNull();
+      expect(result.player1.pokemon[1].choiceLockedMove).toBe("tackle");
     });
   });
 

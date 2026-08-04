@@ -86,6 +86,12 @@ beforeEach(() => {
     if (name === "black-sludge") {
       return { name: "black-sludge", displayName: "Black Sludge", effect: "", battleModifier: { type: "hp_restore" as const, value: 1 / 16 } };
     }
+    if (name === "sitrus-berry") {
+      return { name: "sitrus-berry", displayName: "Sitrus Berry", effect: "", battleModifier: { type: "hp_restore" as const, value: 0.25, condition: "below_half", pinchHeal: { threshold: 0.5, healFraction: 0.25 } } };
+    }
+    if (name === "figy-berry") {
+      return { name: "figy-berry", displayName: "Figy Berry", effect: "", battleModifier: { type: "hp_restore" as const, pinchHeal: { threshold: 0.25, healFraction: 0.33 } } };
+    }
     return null;
   });
 });
@@ -380,11 +386,11 @@ describe("applyEndOfTurnEffects", () => {
       const pkmn = mockMonoType("snorlax", "normal");
       const slot = createMockTeamSlot(pkmn);
       slot.heldItem = "sitrus-berry";
-      const { state, log } = stateForEOT({ currentHp: 150, slot }, undefined, pkmn); // 150/300 = 50%
+      const { state, log } = stateForEOT({ currentHp: 150, slot, itemConsumed: false }, undefined, pkmn); // 150/300 = 50%
       const result = applyEndOfTurnEffects(state, log);
       const heal = Math.floor(300 * 0.25);
       expect(result.player1.pokemon[0].currentHp).toBe(150 + heal);
-      expect(result.player1.pokemon[0].slot.heldItem).toBeNull();
+      expect(result.player1.pokemon[0].itemConsumed).toBe(true);
       expect(log.some((l) => l.message.includes("Sitrus Berry"))).toBe(true);
     });
 
@@ -392,10 +398,43 @@ describe("applyEndOfTurnEffects", () => {
       const pkmn = mockMonoType("snorlax", "normal");
       const slot = createMockTeamSlot(pkmn);
       slot.heldItem = "sitrus-berry";
-      const { state, log } = stateForEOT({ currentHp: 200, slot }, undefined, pkmn); // 200/300 > 50%
+      const { state, log } = stateForEOT({ currentHp: 200, slot, itemConsumed: false }, undefined, pkmn); // 200/300 > 50%
       const result = applyEndOfTurnEffects(state, log);
       expect(result.player1.pokemon[0].currentHp).toBe(200);
-      expect(result.player1.pokemon[0].slot.heldItem).toBe("sitrus-berry");
+      expect(result.player1.pokemon[0].itemConsumed).toBe(false);
+    });
+
+    it("does not activate if already consumed", () => {
+      const pkmn = mockMonoType("snorlax", "normal");
+      const slot = createMockTeamSlot(pkmn);
+      slot.heldItem = "sitrus-berry";
+      const { state, log } = stateForEOT({ currentHp: 150, slot, itemConsumed: true }, undefined, pkmn);
+      const result = applyEndOfTurnEffects(state, log);
+      expect(result.player1.pokemon[0].currentHp).toBe(150);
+    });
+  });
+
+  describe("Figy Berry (pinch heal)", () => {
+    it("heals 33% maxHp at 25% or below", () => {
+      const pkmn = mockMonoType("snorlax", "normal");
+      const slot = createMockTeamSlot(pkmn);
+      slot.heldItem = "figy-berry";
+      const { state, log } = stateForEOT({ currentHp: 75, slot }, undefined, pkmn); // 75/300 = 25%
+      const result = applyEndOfTurnEffects(state, log);
+      const heal = Math.max(1, Math.floor(300 * 0.33));
+      expect(result.player1.pokemon[0].currentHp).toBe(75 + heal);
+      expect(result.player1.pokemon[0].itemConsumed).toBe(true);
+      expect(log.some((l) => l.message.includes("Figy Berry"))).toBe(true);
+    });
+
+    it("does not activate above 25% HP", () => {
+      const pkmn = mockMonoType("snorlax", "normal");
+      const slot = createMockTeamSlot(pkmn);
+      slot.heldItem = "figy-berry";
+      const { state, log } = stateForEOT({ currentHp: 100, slot }, undefined, pkmn); // 100/300 > 25%
+      const result = applyEndOfTurnEffects(state, log);
+      expect(result.player1.pokemon[0].currentHp).toBe(100);
+      expect(result.player1.pokemon[0].itemConsumed).toBe(false);
     });
   });
 
@@ -428,6 +467,63 @@ describe("applyEndOfTurnEffects", () => {
       const { state, log } = stateForEOT({}, { weather: "hail", weatherTurnsLeft: 5 }, iceMon);
       const result = applyEndOfTurnEffects(state, log);
       expect(result.player1.pokemon[0].currentHp).toBe(300);
+    });
+  });
+
+  describe("Dry Skin ability", () => {
+    it("heals 1/8 maxHp in rain", () => {
+      const pkmn = mockMonoType("toxicroak", "poison");
+      const slot = createMockTeamSlot(pkmn);
+      slot.ability = "Dry Skin";
+      const { state, log } = stateForEOT({ currentHp: 200, slot }, { weather: "rain", weatherTurnsLeft: 5 }, pkmn);
+      const result = applyEndOfTurnEffects(state, log);
+      const heal = Math.max(1, Math.floor(300 / 8));
+      expect(result.player1.pokemon[0].currentHp).toBe(200 + heal);
+      expect(log.some((l) => l.message.includes("Dry Skin") && l.message.includes("rain"))).toBe(true);
+    });
+
+    it("does not heal in rain when heal blocked", () => {
+      const pkmn = mockMonoType("toxicroak", "poison");
+      const slot = createMockTeamSlot(pkmn);
+      slot.ability = "Dry Skin";
+      const { state, log } = stateForEOT({ currentHp: 200, slot, healBlocked: 3 }, { weather: "rain", weatherTurnsLeft: 5 }, pkmn);
+      const result = applyEndOfTurnEffects(state, log);
+      // No rain heal, but healBlocked ticks down by 1 → 2
+      expect(result.player1.pokemon[0].currentHp).toBe(200);
+    });
+
+    it("deals 1/8 maxHp damage in sun", () => {
+      const pkmn = mockMonoType("toxicroak", "poison");
+      const slot = createMockTeamSlot(pkmn);
+      slot.ability = "Dry Skin";
+      const { state, log } = stateForEOT({ currentHp: 300, slot }, { weather: "sun", weatherTurnsLeft: 5 }, pkmn);
+      const result = applyEndOfTurnEffects(state, log);
+      const dmg = Math.max(1, Math.floor(300 / 8));
+      expect(result.player1.pokemon[0].currentHp).toBe(300 - dmg);
+      expect(log.some((l) => l.message.includes("Dry Skin") && l.message.includes("sunlight"))).toBe(true);
+    });
+
+    it("does nothing in other weather", () => {
+      const pkmn = mockMonoType("toxicroak", "poison");
+      const slot = createMockTeamSlot(pkmn);
+      slot.ability = "Dry Skin";
+      const { state, log } = stateForEOT({ currentHp: 300, slot }, { weather: "sandstorm", weatherTurnsLeft: 5 }, pkmn);
+      const result = applyEndOfTurnEffects(state, log);
+      // Sandstorm chip still applies (poison type is not immune to sandstorm)
+      const sandDmg = Math.max(1, Math.floor(300 / 16));
+      expect(result.player1.pokemon[0].currentHp).toBe(300 - sandDmg);
+      // No Dry Skin message
+      expect(log.some((l) => l.message.includes("Dry Skin"))).toBe(false);
+    });
+
+    it("does nothing with no weather", () => {
+      const pkmn = mockMonoType("toxicroak", "poison");
+      const slot = createMockTeamSlot(pkmn);
+      slot.ability = "Dry Skin";
+      const { state, log } = stateForEOT({ currentHp: 300, slot }, undefined, pkmn);
+      const result = applyEndOfTurnEffects(state, log);
+      expect(result.player1.pokemon[0].currentHp).toBe(300);
+      expect(log.some((l) => l.message.includes("Dry Skin"))).toBe(false);
     });
   });
 

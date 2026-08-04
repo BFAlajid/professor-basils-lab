@@ -68,6 +68,7 @@ export default function BattleFacilityView({
       timestamp: new Date().toISOString(),
     };
     towerLeaderboard.submitScore(entry).catch((e) => silentWarn("towerLeaderboardSubmit", e));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- depend on the stable submitScore fn, not the whole (re-created) towerLeaderboard object
   }, [isTower, phase, bestStreak, playerTeam, towerLeaderboard.submitScore]);
 
   // Auto-submit hall of fame entry on victory
@@ -94,6 +95,7 @@ export default function BattleFacilityView({
       timestamp: new Date().toISOString(),
     };
     hofLeaderboard.submitScore(entry).catch((e) => silentWarn("hofLeaderboardSubmit", e));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- depend on the stable submitScore fn, not the whole (re-created) hofLeaderboard object
   }, [phase, playerTeam, hofLeaderboard.submitScore]);
 
   // Auto-save to Hall of Fame on victory
@@ -292,7 +294,11 @@ export default function BattleFacilityView({
             {isLoading ? "Loading..." : "Continue"}
           </button>
           <button
-            onClick={onReset}
+            onClick={() => {
+              if (window.confirm("Retire from this run? Your progress will be lost.")) {
+                onReset();
+              }
+            }}
             className="rounded-lg bg-[#3a4466] px-4 py-3 text-xs text-[#8b9bb4] hover:bg-[#4a5577] hover:text-[#f0f0e8] transition-colors"
           >
             Retire

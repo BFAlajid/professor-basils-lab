@@ -5,6 +5,7 @@ import Image from "@/components/PokeImage";
 import { BattleFacilityState, EliteFourMember, TeamSlot } from "@/types";
 import { typeColors } from "@/data/typeColors";
 import LoadingSpinner from "../LoadingSpinner";
+import { capitalize } from "@/utils/format";
 
 // ── Props ────────────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ export default function FacilityBattlePreview({
           className="inline-block rounded-full px-3 py-1 text-[10px] font-medium"
           style={{ backgroundColor: specialtyColor + "22", color: specialtyColor }}
         >
-          {currentOpponent.specialty === "mixed" ? "Mixed" : currentOpponent.specialty.charAt(0).toUpperCase() + currentOpponent.specialty.slice(1)} specialist
+          {currentOpponent.specialty === "mixed" ? "Mixed" : capitalize(currentOpponent.specialty)} specialist
         </span>
         <span className="block mt-2">
           Team of {currentOpponent.team.length} Pokemon
@@ -139,7 +140,11 @@ export default function FacilityBattlePreview({
           )}
         </button>
         <button
-          onClick={onReset}
+          onClick={() => {
+            if (window.confirm("Forfeit this run? Your progress will be lost.")) {
+              onReset();
+            }
+          }}
           className="rounded-lg bg-[#3a4466] px-4 py-3 text-xs text-[#8b9bb4] hover:bg-[#4a5577] hover:text-[#f0f0e8] transition-colors"
         >
           Forfeit

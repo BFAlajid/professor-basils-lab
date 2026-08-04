@@ -24,6 +24,7 @@ export default function ReplayList({ onViewReplay }: ReplayListProps) {
   const [shareFeedback, setShareFeedback] = useState<Record<string, string>>({});
 
   const handleDelete = useCallback((id: string) => {
+    if (!window.confirm("Delete this replay? This cannot be undone.")) return;
     deleteReplay(id);
     setReplays((prev) => prev.filter((r) => r.id !== id));
   }, [deleteReplay]);
@@ -150,9 +151,10 @@ export default function ReplayList({ onViewReplay }: ReplayListProps) {
                 </button>
                 <button
                   onClick={() => handleDelete(replay.id)}
+                  aria-label="Delete replay"
                   className="px-2 py-1 rounded bg-[#3a4466] text-[#8b9bb4] text-[10px] font-pixel hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
                 >
-                  Del
+                  Delete
                 </button>
               </div>
             </div>

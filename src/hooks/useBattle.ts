@@ -1,9 +1,9 @@
 "use client";
 
 import { useReducer, useCallback, useState, useEffect, useRef } from "react";
-import { BattleTurnAction, BattlePokemon, TeamSlot, BattleMode, BattleFormat, GenerationalMechanic, AltFormeData, DifficultyLevel } from "@/types";
+import { BattleTurnAction, TeamSlot, BattleMode, BattleFormat, GenerationalMechanic, AltFormeData, DifficultyLevel } from "@/types";
 import { isMegaStone, getMegaStone } from "@/data/megaStones";
-import { battleReducer, initialBattleState, getActivePokemon } from "@/utils/battle";
+import { battleReducer, initialBattleState } from "@/utils/battle";
 import { getActivePokemonBySlot } from "@/utils/battleHelpers";
 import { fetchAndCacheMoves } from "@/utils/moveCache";
 import { selectAIAction, generateRandomTeam, getBestSwitchIn } from "@/utils/aiWasm";
@@ -90,7 +90,10 @@ export function useBattle() {
       player1Mechanic: GenerationalMechanic = null,
       player2Mechanic: GenerationalMechanic = null,
       difficulty: DifficultyLevel = "normal",
-      format: BattleFormat = "singles"
+      format: BattleFormat = "singles",
+      // Online PvP determinism: host-generated seed shared via the READY handshake.
+      // Unset for local/AI battles (falls back to Math.random).
+      rngSeed?: number
     ) => {
       const allTeams = [...player1Team, ...player2Team];
       await preloadMoves(allTeams);
@@ -105,6 +108,7 @@ export function useBattle() {
         player2Mechanic,
         megaFormeCache,
         difficulty,
+        rngSeed,
       });
     },
     [preloadMoves, preloadFormeData]

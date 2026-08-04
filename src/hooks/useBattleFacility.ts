@@ -1,7 +1,6 @@
 "use client";
 
 import { useReducer, useCallback, useEffect, useRef, useState } from "react";
-import { silentWarn } from "@/utils/silentWarn";
 import {
   EliteFourMember,
   TeamSlot,
@@ -13,6 +12,7 @@ import { facilityReducer, initialFacilityState } from "./useBattleFacilityReduce
 import { GYM_BADGE_NAMES } from "@/data/gymLeaders";
 import { generateScaledTeam } from "@/utils/aiWasm";
 import { fetchPokemonData } from "@/utils/pokeApiClient";
+import { STORAGE_KEYS, readStorage, writeStorage } from "@/utils/persistence";
 
 // ── Hook ──────────────────────────────────────────────────────────────
 
@@ -26,24 +26,12 @@ export function useBattleFacility() {
   useEffect(() => {
     if (hasLoadedStreak.current) return;
     hasLoadedStreak.current = true;
-    try {
-      const saved = localStorage.getItem("pokemon-battle-tower-streak");
-      if (saved) {
-        const parsed = parseInt(saved, 10);
-        if (!isNaN(parsed) && parsed > 0) {
-          dispatch({ type: "LOAD_BEST_STREAK", streak: parsed });
-        }
-      }
-      const savedBadges = localStorage.getItem("pokemon-gym-badges");
-      if (savedBadges) {
-        const badges = JSON.parse(savedBadges);
-        if (Array.isArray(badges)) {
-          dispatch({ type: "LOAD_BADGES", badges });
-        }
-      }
-    } catch (e) {
-      silentWarn("loadGymBadges", e);
-    }
+
+    const streak = readStorage(STORAGE_KEYS.battleTowerStreak, 0);
+    if (streak > 0) dispatch({ type: "LOAD_BEST_STREAK", streak });
+
+    const badges = readStorage<unknown>(STORAGE_KEYS.gymBadges, []);
+    if (Array.isArray(badges)) dispatch({ type: "LOAD_BADGES", badges: badges as string[] });
   }, []);
 
   // ── Current opponent helper ───────────────────────────────────────
@@ -165,30 +153,19 @@ export function useBattleFacility() {
 
         // Persist best streak for battle tower
         if (facilityState.mode === "battle_tower") {
-          try {
-            const newStreak = facilityState.streak + 1;
-            const newBest = Math.max(facilityState.bestStreak, newStreak);
-            localStorage.setItem(
-              "pokemon-battle-tower-streak",
-              String(newBest)
-            );
-          } catch (e) {
-            silentWarn("saveBattleTowerStreak", e);
-          }
+          const newStreak = facilityState.streak + 1;
+          const newBest = Math.max(facilityState.bestStreak, newStreak);
+          writeStorage(STORAGE_KEYS.battleTowerStreak, newBest);
         }
 
         // Persist gym badges
         if (facilityState.mode === "gym_challenge") {
-          try {
-            const badgeName = GYM_BADGE_NAMES[facilityState.currentOpponentIndex] ?? "";
-            const currentBadges = facilityState.badges ? [...facilityState.badges] : [];
-            if (badgeName && !currentBadges.includes(badgeName)) {
-              currentBadges.push(badgeName);
-            }
-            localStorage.setItem("pokemon-gym-badges", JSON.stringify(currentBadges));
-          } catch (e) {
-            silentWarn("saveGymBadges", e);
+          const badgeName = GYM_BADGE_NAMES[facilityState.currentOpponentIndex] ?? "";
+          const currentBadges = facilityState.badges ? [...facilityState.badges] : [];
+          if (badgeName && !currentBadges.includes(badgeName)) {
+            currentBadges.push(badgeName);
           }
+          writeStorage(STORAGE_KEYS.gymBadges, currentBadges);
         }
       } else {
         dispatch({ type: "BATTLE_LOST" });

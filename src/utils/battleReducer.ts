@@ -10,7 +10,6 @@ import {
   GenerationalMechanic,
   AltFormeData,
   FieldState,
-  SideConditions,
   StatStages,
 } from "@/types";
 import { extractBaseStats } from "./damage";
@@ -18,6 +17,7 @@ import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { isMegaStone } from "@/data/megaStones";
 import { getCachedMoves } from "./battleHelpers";
 import { getAbilityHooks } from "@/data/abilities";
+import { battleRandom, seedBattleRng, clearBattleRng, deriveTurnSeed } from "./battleRng";
 import {
   initStatStages,
   getActivePokemon,
@@ -31,6 +31,61 @@ import {
   triggerOnStatDrop,
 } from "./battleHelpers";
 
+// Cap the battle log at the source so long battles (esp. online PvP) don't grow an
+// unbounded array — BattleLog renders every entry each turn.
+const MAX_LOG_ENTRIES = 200;
+
+function capLog(log: BattleLogEntry[]): BattleLogEntry[] {
+  return log.length > MAX_LOG_ENTRIES ? log.slice(log.length - MAX_LOG_ENTRIES) : log;
+}
+
+// --- Volatile status cleanup on switch ---
+function clearVolatileStatus(): Partial<BattlePokemon> {
+  return {
+    statStages: initStatStages(),
+    confusionTurns: 0,
+    toxicCounter: 0,
+    // A Choice/lock-in mon that switches out must not come back in still
+    // carrying the pre-switch move — otherwise a bail (paralysis, etc.) after
+    // switching back in reads this stale value (see applyMoveLocks below).
+    lastMoveUsed: null,
+    focusEnergy: false,
+    substituteHp: 0,
+    chargingMove: null,
+    semiInvulnerable: null,
+    yawnTurns: 0,
+    choiceLockedMove: null,
+    lockInMove: null,
+    lockInTurns: 0,
+    consecutiveProtects: 0,
+    isProtected: false,
+    isFlinched: false,
+    isSeeded: false,
+    seededBy: null,
+    bindingTurns: 0,
+    bindingMove: null,
+    boundBy: null,
+    taunted: 0,
+    encored: 0,
+    encoredMove: null,
+    disabledMove: null,
+    disabledTurns: 0,
+    tormented: false,
+    aquaRing: false,
+    ingrain: false,
+    cursed: false,
+    healBlocked: 0,
+    embargoed: 0,
+    perishCount: 0,
+  };
+}
+
+// --- Lock-in moves (2-3 turn lock, then confusion) ---
+const LOCK_IN_MOVES = new Set(["outrage", "thrash", "petal-dance"]);
+
+// --- Choice items ---
+const CHOICE_ITEMS = new Set(["choice-band", "choice-specs", "choice-scarf"]);
+
 // --- Doubles Constants ---
 export const SPREAD_MOVES = new Set([
   "earthquake", "surf", "rock-slide", "heat-wave", "dazzling-gleam",
@@ -40,6 +95,7 @@ export const ALLY_TARGET_MOVES = new Set(["helping-hand"]);
 export const SPREAD_DAMAGE_MODIFIER = 0.75;
 import { applyMegaEvolution, applyTerastallization, applyDynamax, endDynamax } from "./battleMechanics";
 import { executeMove } from "./battleExecution";
+import { executeDamagingMove } from "./battleExecutionDamage";
 import { applyEndOfTurnEffects, applyHazardsOnSwitchIn } from "./battleEffects";
 
 // --- Initialization ---
@@ -87,6 +143,7 @@ export function initBattlePokemon(slot: TeamSlot, megaFormeCache?: Map<string, A
     turnsOnField: 0,
     isProtected: false,
     lastMoveUsed: null,
+    lastMoveTurn: 0,
     consecutiveProtects: 0,
     isFlinched: false,
     choiceLockedMove: null,
@@ -107,6 +164,27 @@ export function initBattlePokemon(slot: TeamSlot, megaFormeCache?: Map<string, A
     hasDynamaxed: false,
     roostActive: false,
     yawnTurns: 0,
+    // Volatile status defaults
+    isSeeded: false,
+    seededBy: null,
+    bindingTurns: 0,
+    bindingMove: null,
+    boundBy: null,
+    taunted: 0,
+    encored: 0,
+    encoredMove: null,
+    disabledMove: null,
+    disabledTurns: 0,
+    tormented: false,
+    perishCount: 0,
+    aquaRing: false,
+    ingrain: false,
+    cursed: false,
+    lockInMove: null,
+    lockInTurns: 0,
+    healBlocked: 0,
+    embargoed: 0,
+    itemConsumed: false,
   };
 }
 
@@ -153,6 +231,7 @@ export const initialBattleState: BattleState = {
   field: { ...initialFieldState },
   difficulty: "normal",
   pendingPivotSwitch: null,
+  pendingBatonPass: false,
 };
 
 // --- Battle Reducer ---
@@ -165,8 +244,8 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       const p2 = initBattleTeam(action.player2Team, action.player2Mechanic ?? null, action.megaFormeCache, format);
       const log: BattleLogEntry[] = [
         { turn: 0, message: `${format === "doubles" ? "Doubles b" : "B"}attle start!`, kind: "info" },
-        { turn: 0, message: `${action.player1Team[0].pokemon.name} was sent out!`, kind: "switch" },
-        { turn: 0, message: `${action.player2Team[0].pokemon.name} was sent out!`, kind: "switch" },
+        { turn: 0, message: `${action.player1Team[0]?.pokemon.name ?? "Unknown"} was sent out!`, kind: "switch" },
+        { turn: 0, message: `${action.player2Team[0]?.pokemon.name ?? "Unknown"} was sent out!`, kind: "switch" },
       ];
       if (format === "doubles") {
         if (action.player1Team.length > 1) {
@@ -192,6 +271,8 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         field: { ...initialFieldState },
         difficulty: action.difficulty ?? "normal",
         pendingPivotSwitch: null,
+        pendingBatonPass: false,
+        rngSeed: action.rngSeed,
       };
 
       // Trigger lead abilities (Intimidate, Drizzle, etc.) for both players
@@ -245,26 +326,54 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         ? team.activePokemonIndex2
         : team.activePokemonIndex;
 
+      // Switch-out ability effects (Regenerator, Natural Cure)
+      const switchOutLog: BattleLogEntry[] = [];
+      let switchingOutPokemon = { ...newPokemon[oldIndex] };
+      if (!switchingOutPokemon.isFainted) {
+        const switchOutHooks = getAbilityHooks(switchingOutPokemon.slot.ability);
+        if (switchOutHooks?.onSwitchOut) {
+          const switchOutEffect = switchOutHooks.onSwitchOut({ pokemon: switchingOutPokemon });
+          if (switchOutEffect) {
+            if (switchOutEffect.type === "heal" && switchOutEffect.healFraction) {
+              const healAmount = Math.max(1, Math.floor(switchingOutPokemon.maxHp * switchOutEffect.healFraction));
+              switchingOutPokemon = {
+                ...switchingOutPokemon,
+                currentHp: Math.min(switchingOutPokemon.maxHp, switchingOutPokemon.currentHp + healAmount),
+              };
+            } else if (switchOutEffect.type === "cure_status") {
+              switchingOutPokemon = { ...switchingOutPokemon, status: null, toxicCounter: 0 };
+            }
+            if (switchOutEffect.message) {
+              switchOutLog.push({ turn: state.turn, message: switchOutEffect.message, kind: "status" });
+            }
+          }
+        }
+      }
+
+      // Baton Pass transfers stat stages/volatile status to the replacement
+      // instead of the switch clearing them as normal — see pendingBatonPass
+      // on BattleState and the Baton Pass effect in battleExecutionStatus.ts.
+      // U-turn/Volt Switch share the same force-switch machinery but never
+      // set this flag, so they fall through to the ordinary clear below.
+      const isBatonPass = state.pendingBatonPass;
+
       newPokemon[oldIndex] = {
-        ...newPokemon[oldIndex],
+        ...switchingOutPokemon,
         isActive: false,
-        statStages: initStatStages(),
-        confusionTurns: 0,
-        toxicCounter: 0,
-        consecutiveProtects: 0,
-        isProtected: false,
-        isFlinched: false,
+        ...clearVolatileStatus(),
         turnsOnField: 0,
-        focusEnergy: false,
-        substituteHp: 0,
-        chargingMove: null,
-        semiInvulnerable: null,
-        yawnTurns: 0,
       };
       newPokemon[action.pokemonIndex] = {
         ...newPokemon[action.pokemonIndex],
         isActive: true,
         turnsOnField: 0,
+        ...(isBatonPass ? {
+          statStages: switchingOutPokemon.statStages,
+          focusEnergy: switchingOutPokemon.focusEnergy,
+          substituteHp: switchingOutPokemon.substituteHp,
+          aquaRing: switchingOutPokemon.aquaRing,
+          ingrain: switchingOutPokemon.ingrain,
+        } : {}),
       };
 
       const updatedTeam: BattleTeam = {
@@ -276,6 +385,7 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
 
       const log = [
         ...state.log,
+        ...switchOutLog,
         {
           turn: state.turn,
           message: `${newPokemon[action.pokemonIndex].slot.pokemon.name} was sent out!`,
@@ -287,6 +397,7 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         ...state,
         [action.player]: updatedTeam,
         log,
+        pendingBatonPass: false,
       };
 
       // Apply ability onSwitchIn (use correct slot for doubles)
@@ -336,6 +447,69 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
   }
 }
 
+// --- Move lock helpers ---
+
+/** Apply Choice item lock and Outrage/Thrash/Petal Dance lock-in after a move executes. */
+function applyMoveLocks(
+  state: BattleState,
+  player: "player1" | "player2",
+  slot: 0 | 1,
+  log: BattleLogEntry[]
+): BattleState {
+  const idx = slot === 1 ? state[player].activePokemonIndex2 : state[player].activePokemonIndex;
+  if (idx === null) return state;
+  const active = state[player].pokemon[idx];
+  if (!active || active.isFainted) return state;
+
+  // executeMove/executeMoveDoubles bail out early (paralysis, sleep, freeze, flinch,
+  // confusion self-hit, Taunt, Disable, Torment, 0 PP) WITHOUT updating lastMoveTurn —
+  // skip locking in that case instead of reading a stale lastMoveUsed left over from
+  // a previous turn (or from before a switch out/in).
+  if (active.lastMoveTurn !== state.turn) return state;
+
+  const moveName = active.lastMoveUsed;
+  if (!moveName) return state;
+
+  const updates: Partial<BattlePokemon> = {};
+
+  // Choice item lock: set choiceLockedMove when holding a Choice item
+  if (CHOICE_ITEMS.has(active.slot.heldItem ?? "")) {
+    updates.choiceLockedMove = moveName;
+  }
+
+  // Lock-in move handling (Outrage, Thrash, Petal Dance)
+  if (LOCK_IN_MOVES.has(moveName)) {
+    if ((active.lockInTurns ?? 0) === 0) {
+      // First use + 1-2 additional forced turns = 2-3 total attacks before fatigue
+      updates.lockInMove = moveName;
+      updates.lockInTurns = 1 + Math.floor(battleRandom() * 2);
+    } else {
+      // Already locked in: decrement turns
+      const remaining = (active.lockInTurns ?? 0) - 1;
+      if (remaining <= 0) {
+        // Lock-in ended: apply confusion from fatigue
+        updates.lockInMove = null;
+        updates.lockInTurns = 0;
+        updates.confusionTurns = 2 + Math.floor(battleRandom() * 4);
+        log.push({
+          turn: state.turn,
+          message: `${active.slot.pokemon.name} became confused due to fatigue!`,
+          kind: "status",
+        });
+      } else {
+        updates.lockInTurns = remaining;
+      }
+    }
+  }
+
+  if (Object.keys(updates).length === 0) return state;
+
+  return updatePokemon(state, player, idx, {
+    ...active,
+    ...updates,
+  });
+}
+
 // --- Turn Execution ---
 
 function executeTurn(
@@ -343,6 +517,13 @@ function executeTurn(
   p1Action: BattleTurnAction,
   p2Action: BattleTurnAction
 ): BattleState {
+  // Online PvP: seed a deterministic RNG stream for this turn so both clients compute
+  // identical outcomes. Local/AI battles never set rngSeed, so battleRandom() falls
+  // through to Math.random() and behavior is unchanged.
+  if (state.rngSeed != null) {
+    seedBattleRng(deriveTurnSeed(state.rngSeed, state.turn + 1));
+  }
+
   let newState = { ...state, turn: state.turn + 1 };
   const log: BattleLogEntry[] = [...state.log];
 
@@ -357,7 +538,6 @@ function executeTurn(
         isProtected: false,
         isFlinched: false,
         roostActive: false,
-        consecutiveProtects: 0,
         turnsOnField: (active.turnsOnField ?? 0) + 1,
       });
     }
@@ -383,8 +563,8 @@ function executeTurn(
   const p1Priority = getMovePriority(p1Active, p1Action);
   const p2Priority = getMovePriority(p2Active, p2Action);
 
-  let p1Speed = getEffectiveSpeed(p1Active, newState.field.player1Side);
-  let p2Speed = getEffectiveSpeed(p2Active, newState.field.player2Side);
+  let p1Speed = getEffectiveSpeed(p1Active, newState.field.player1Side, newState.field.weather);
+  let p2Speed = getEffectiveSpeed(p2Active, newState.field.player2Side, newState.field.weather);
 
   // Trick Room reverses speed order
   if (newState.field.trickRoom > 0) {
@@ -394,7 +574,7 @@ function executeTurn(
   }
 
   if (p1Priority > p2Priority ||
-      (p1Priority === p2Priority && (p1Speed > p2Speed || (p1Speed === p2Speed && Math.random() < 0.5)))) {
+      (p1Priority === p2Priority && (p1Speed > p2Speed || (p1Speed === p2Speed && battleRandom() < 0.5)))) {
     firstPlayer = "player1";
     secondPlayer = "player2";
     firstAction = p1Action;
@@ -417,6 +597,7 @@ function executeTurn(
       newState = applyDynamax(newState, firstPlayer, log);
     }
     newState = executeMove(newState, firstPlayer, firstMoveIdx, log);
+    newState = applyMoveLocks(newState, firstPlayer, 0, log);
   }
 
   // Execute second action if not fainted
@@ -431,6 +612,7 @@ function executeTurn(
       newState = applyDynamax(newState, secondPlayer, log);
     }
     newState = executeMove(newState, secondPlayer, secondMoveIdx, log);
+    newState = applyMoveLocks(newState, secondPlayer, 0, log);
   }
 
   // Dynamax turn countdown
@@ -457,7 +639,10 @@ function executeTurn(
   // Check for faints and handle forced switches
   newState = checkFaints(newState, log);
 
-  // Handle pivot switch (U-turn/Volt Switch)
+  // Handle pivot switch (U-turn/Volt Switch, Baton Pass). pendingBatonPass
+  // (if set) rides along into force_switch untouched — the FORCE_SWITCH
+  // reducer case reads it to decide whether to transfer stat stages — and is
+  // cleared here whenever the pivot doesn't actually reach a switch.
   if (newState.pendingPivotSwitch && newState.phase !== "ended") {
     const pivotPlayer = newState.pendingPivotSwitch;
     const pivotActive = getActivePokemon(newState[pivotPlayer]);
@@ -467,14 +652,15 @@ function executeTurn(
         newState = { ...newState, phase: "force_switch", waitingForSwitch: pivotPlayer, pendingPivotSwitch: null };
         log.push({ turn: newState.turn, message: `${pivotActive.slot.pokemon.name} went back!`, kind: "switch" });
       } else {
-        newState = { ...newState, pendingPivotSwitch: null };
+        newState = { ...newState, pendingPivotSwitch: null, pendingBatonPass: false };
       }
     } else {
-      newState = { ...newState, pendingPivotSwitch: null };
+      newState = { ...newState, pendingPivotSwitch: null, pendingBatonPass: false };
     }
   }
 
-  newState.log = log;
+  newState.log = capLog(log);
+  clearBattleRng();
   return newState;
 }
 
@@ -494,6 +680,10 @@ function executeDoublesTurn(
   p2Action1: BattleTurnAction,
   p2Action2: BattleTurnAction,
 ): BattleState {
+  if (state.rngSeed != null) {
+    seedBattleRng(deriveTurnSeed(state.rngSeed, state.turn + 1));
+  }
+
   let newState = { ...state, turn: state.turn + 1 };
   const log: BattleLogEntry[] = [...state.log];
 
@@ -508,7 +698,6 @@ function executeDoublesTurn(
         isProtected: false,
         isFlinched: false,
         roostActive: false,
-        consecutiveProtects: 0,
         turnsOnField: (pokemon.turnsOnField ?? 0) + 1,
       });
     }
@@ -543,8 +732,8 @@ function executeDoublesTurn(
 
     const aSideKey = a.player === "player1" ? "player1Side" : "player2Side";
     const bSideKey = b.player === "player1" ? "player1Side" : "player2Side";
-    let aSpeed = getEffectiveSpeed(aPkmn, newState.field[aSideKey]);
-    let bSpeed = getEffectiveSpeed(bPkmn, newState.field[bSideKey]);
+    let aSpeed = getEffectiveSpeed(aPkmn, newState.field[aSideKey], newState.field.weather);
+    let bSpeed = getEffectiveSpeed(bPkmn, newState.field[bSideKey], newState.field.weather);
 
     if (newState.field.trickRoom > 0) {
       const tmp = aSpeed;
@@ -553,7 +742,7 @@ function executeDoublesTurn(
     }
 
     if (aSpeed !== bSpeed) return bSpeed - aSpeed; // higher speed first
-    return Math.random() < 0.5 ? -1 : 1; // speed tie
+    return battleRandom() < 0.5 ? -1 : 1; // speed tie
   });
 
   // Execute each move action
@@ -576,6 +765,7 @@ function executeDoublesTurn(
     // Determine target for doubles
     const target = "target" in entry.action ? entry.action.target : undefined;
     newState = executeMoveDoubles(newState, entry.player, entry.slot, moveIdx, target, log);
+    newState = applyMoveLocks(newState, entry.player, entry.slot, log);
   }
 
   // End-of-turn effects
@@ -587,7 +777,8 @@ function executeDoublesTurn(
   // Check for faints
   newState = checkFaints(newState, log);
 
-  newState.log = log;
+  newState.log = capLog(log);
+  clearBattleRng();
   return newState;
 }
 
@@ -605,18 +796,33 @@ function performDoublesSwitch(
   const oldActive = team.pokemon[oldIndex];
   const newPokemon = [...team.pokemon];
 
+  // Switch-out ability effects (Regenerator, Natural Cure)
+  let switchingOut = { ...oldActive };
+  if (!switchingOut.isFainted) {
+    const switchOutHooks = getAbilityHooks(switchingOut.slot.ability);
+    if (switchOutHooks?.onSwitchOut) {
+      const switchOutEffect = switchOutHooks.onSwitchOut({ pokemon: switchingOut });
+      if (switchOutEffect) {
+        if (switchOutEffect.type === "heal" && switchOutEffect.healFraction) {
+          const healAmount = Math.max(1, Math.floor(switchingOut.maxHp * switchOutEffect.healFraction));
+          switchingOut = {
+            ...switchingOut,
+            currentHp: Math.min(switchingOut.maxHp, switchingOut.currentHp + healAmount),
+          };
+        } else if (switchOutEffect.type === "cure_status") {
+          switchingOut = { ...switchingOut, status: null, toxicCounter: 0 };
+        }
+        if (switchOutEffect.message) {
+          log.push({ turn: state.turn, message: switchOutEffect.message, kind: "status" });
+        }
+      }
+    }
+  }
+
   newPokemon[oldIndex] = {
-    ...oldActive,
+    ...switchingOut,
     isActive: false,
-    statStages: initStatStages(),
-    choiceLockedMove: null,
-    confusionTurns: 0,
-    toxicCounter: 0,
-    focusEnergy: false,
-    substituteHp: 0,
-    chargingMove: null,
-    semiInvulnerable: null,
-    yawnTurns: 0,
+    ...clearVolatileStatus(),
   };
   newPokemon[pokemonIndex] = {
     ...newPokemon[pokemonIndex],
@@ -659,14 +865,30 @@ function executeMoveDoubles(
   const isSpread = SPREAD_MOVES.has(moveName);
 
   if (isSpread || target === "spread") {
-    // Hit both opponent slots at 0.75x damage
+    // Hit both opponent slots at 0.75x damage. PP decrement, the "used X!" log, and
+    // attacker-side effects (Life Orb recoil, Choice lock, lastMoveUsed) must happen
+    // ONCE per move use — only the per-target damage application should iterate.
     const oppSlots = getActiveDoublesSlots(state[defenderPlayer]);
-    let result = state;
-    for (const oppSlot of oppSlots) {
-      if (oppSlot.pokemon.isFainted) continue;
-      // Use the standard executeMove, targeting each opponent slot
-      // We temporarily set the defender's activePokemonIndex to the target
-      result = executeMoveSingleTarget(result, attackerPlayer, attackerSlot, defenderPlayer, oppSlot.slot, moveIndex, log, true);
+    if (oppSlots.length === 0) return state;
+
+    const ppBefore = attackerPokemon.movePP?.[moveIndex] ?? 0;
+
+    // First target: full pipeline (pre-move checks, PP decrement, "used X!" log, trailer)
+    let result = executeMoveSingleTarget(state, attackerPlayer, attackerSlot, defenderPlayer, oppSlots[0].slot, moveIndex, log, true);
+
+    // Did the move actually execute? Pre-move checks (paralysis/sleep/freeze/flinch/
+    // confusion self-hit) return early WITHOUT decrementing PP — only proceed to the
+    // remaining targets if PP was actually spent (or the attacker fainted, e.g. from a
+    // confusion self-hit, in which case there's nothing left to hit with anyway).
+    const attackerAfterFirst = getActivePokemonBySlot(result[attackerPlayer], attackerSlot);
+    const moveExecuted = !attackerAfterFirst || attackerAfterFirst.isFainted ||
+      (attackerAfterFirst.movePP?.[moveIndex] ?? ppBefore) < ppBefore;
+
+    if (moveExecuted) {
+      for (let i = 1; i < oppSlots.length; i++) {
+        if (oppSlots[i].pokemon.isFainted) continue;
+        result = executeMoveSingleTarget(result, attackerPlayer, attackerSlot, defenderPlayer, oppSlots[i].slot, moveIndex, log, true, false);
+      }
     }
     return result;
   }
@@ -699,6 +921,9 @@ function executeMoveSingleTarget(
   moveIndex: number,
   log: BattleLogEntry[],
   isSpread: boolean,
+  // false for the 2nd+ target of a spread move: skips the pre-move checks, PP decrement,
+  // "used X!" log, and attacker-side trailer (already resolved by the first target's call).
+  runFullPipeline: boolean = true,
 ): BattleState {
   // For doubles, we need to temporarily point the active indices at the right Pokemon
   // so that executeMove (which uses getActivePokemon) resolves to the correct targets.
@@ -724,13 +949,21 @@ function executeMoveSingleTarget(
     tempState = { ...tempState, spreadDamageModifier: SPREAD_DAMAGE_MODIFIER };
   }
 
-  // Execute using existing single-target logic
-  tempState = executeMove(tempState, attackerPlayer, moveIndex, log);
+  if (runFullPipeline) {
+    // Execute using existing single-target logic (checks + PP + log + damage + trailer)
+    tempState = executeMove(tempState, attackerPlayer, moveIndex, log);
+  } else {
+    // Additional spread target: damage-only pass, skip PP/log/attacker trailer
+    const attackerNow = getActivePokemon(tempState[attackerPlayer]);
+    const moveName = (attackerNow.slot.selectedMoves ?? [])[moveIndex] ?? "";
+    tempState = executeDamagingMove(tempState, attackerPlayer, defenderPlayer, moveName, moveIndex, log, false);
+  }
 
   // Clean up spread flag
   if (isSpread) {
-    const { spreadDamageModifier: _, ...cleanState } = tempState;
-    tempState = cleanState as BattleState;
+    const cleanState = { ...tempState };
+    delete cleanState.spreadDamageModifier;
+    tempState = cleanState;
   }
 
   // Restore original active indices (but keep Pokemon state changes)
@@ -797,15 +1030,7 @@ function performSwitch(
   newPokemon[team.activePokemonIndex] = {
     ...switchOutPokemon,
     isActive: false,
-    statStages: initStatStages(),
-    choiceLockedMove: null,
-    confusionTurns: 0,
-    toxicCounter: 0,
-    focusEnergy: false,
-    substituteHp: 0,
-    chargingMove: null,
-    semiInvulnerable: null,
-    yawnTurns: 0,
+    ...clearVolatileStatus(),
   };
   newPokemon[pokemonIndex] = {
     ...newPokemon[pokemonIndex],

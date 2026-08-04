@@ -17,7 +17,6 @@ import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { getHeldItem } from "@/data/heldItems";
 import { getAbilityHooks } from "@/data/abilities";
 import { getMaxMoveEffect } from "@/data/maxMoves";
-import { getStatLabel } from "./format";
 import { HIGH_CRIT_MOVES, CRIT_STAGE_RATES } from "@/data/constants";
 import { STATUS_MOVE_EFFECTS } from "@/data/statusMoves";
 
@@ -61,8 +60,9 @@ export function getStatStageMultiplier(stage: number): number {
   return 2 / (2 - clamped);
 }
 
-export function getEffectiveSpeed(bp: BattlePokemon, sideConditions?: SideConditions): number {
-  const baseStats = extractBaseStats(bp.slot.pokemon);
+export function getEffectiveSpeed(bp: BattlePokemon, sideConditions?: SideConditions, weather?: string | null): number {
+  // Mega Evolution (and other alt-forme mechanics) override base stats while active
+  const baseStats = bp.activeStatOverride ?? extractBaseStats(bp.slot.pokemon);
   const calc = calculateAllStats(
     baseStats,
     bp.slot.ivs ?? DEFAULT_IVS,
@@ -72,6 +72,17 @@ export function getEffectiveSpeed(bp: BattlePokemon, sideConditions?: SideCondit
   let speed = Math.floor(calc.speed * getStatStageMultiplier(bp.statStages.speed));
 
   if (bp.status === "paralyze") speed = Math.floor(speed * 0.5);
+
+  // Weather speed abilities (Swift Swim, Chlorophyll, Sand Rush, Slush Rush)
+  if (weather) {
+    const abilityHooks = getAbilityHooks(bp.slot.ability);
+    if (abilityHooks?.modifySpeed) {
+      const result = abilityHooks.modifySpeed({ pokemon: bp, weather: weather as "sun" | "rain" | "sandstorm" | "hail" });
+      if (result?.multiplier) {
+        speed = Math.floor(speed * result.multiplier);
+      }
+    }
+  }
 
   // Tailwind doubles speed
   if (sideConditions && sideConditions.tailwind > 0) {
@@ -113,7 +124,7 @@ export function getOriginalTypes(bp: BattlePokemon): TypeName[] {
 // --- Side Conditions ---
 
 export function initSideConditions(): SideConditions {
-  return { stealthRock: false, spikesLayers: 0, toxicSpikesLayers: 0, stickyWeb: false, reflect: 0, lightScreen: 0, tailwind: 0, wishPending: 0, wishAmount: 0 };
+  return { stealthRock: false, spikesLayers: 0, toxicSpikesLayers: 0, stickyWeb: false, reflect: 0, lightScreen: 0, tailwind: 0, wishPending: 0, wishAmount: 0, auroraVeil: 0, futureAttackTurn: 0, futureAttackDamage: 0, futureAttackMove: null };
 }
 
 // --- Field Effects ---
@@ -124,7 +135,7 @@ export function applyFieldEffect(
   log: BattleLogEntry[]
 ): BattleState {
   if (!effect) return state;
-  let field = { ...state.field };
+  const field = { ...state.field };
 
   if (effect.type === "weather") {
     field.weather = effect.weather;

@@ -1,6 +1,6 @@
 import { Pokemon, Move, BaseStats, EVSpread, IVSpread, Nature, StatusCondition, TypeName, WeatherType, BattlePokemon } from "@/types";
 import { getDefensiveMultiplier } from "@/data/typeChart";
-import { calculateAllStats, CalculatedStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
+import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { getHeldItem } from "@/data/heldItems";
 import { getAbilityHooks } from "@/data/abilities";
 import { isNFE } from "@/data/nfeList";
@@ -42,10 +42,15 @@ export interface DamageCalcOptions {
   fieldTerrain?: "electric" | "grassy" | "misty" | "psychic" | null;
   defenderSideReflect?: boolean;
   defenderSideLightScreen?: boolean;
+  defenderSideAuroraVeil?: boolean;
+  defenderBattlePokemon?: BattlePokemon;
   activeStatOverride?: BaseStats | null;
+  defenderStatOverride?: BaseStats | null;
   attackerAbility?: string | null;
   defenderAbility?: string | null;
   attackerBattlePokemon?: BattlePokemon;
+  /** Gen 3 rule: Explosion/Self-Destruct halve the target's Defense for this hit. */
+  halveDefenderDefense?: boolean;
 }
 
 export interface DamageResult {
@@ -73,9 +78,10 @@ export function calculateDamage(
   let def: number;
 
   if (options && (options.attackerEvs || options.attackerNature || options.defenderEvs || options.defenderNature)) {
-    // Use calculated stats with EVs/IVs/Nature
-    const attackerBase = extractBaseStats(attacker);
-    const defenderBase = extractBaseStats(defender);
+    // Use calculated stats with EVs/IVs/Nature. Mega Evolution (and other alt-forme
+    // mechanics) override base stats via activeStatOverride/defenderStatOverride.
+    const attackerBase = options.activeStatOverride ?? extractBaseStats(attacker);
+    const defenderBase = options.defenderStatOverride ?? extractBaseStats(defender);
 
     const attackerCalc = calculateAllStats(
       attackerBase,
@@ -117,10 +123,15 @@ export function calculateDamage(
     }
   } else {
     // Fallback to raw base stats (backward compatible)
-    const attackerStats = extractBaseStats(attacker);
-    const defenderStats = extractBaseStats(defender);
+    const attackerStats = options?.activeStatOverride ?? extractBaseStats(attacker);
+    const defenderStats = options?.defenderStatOverride ?? extractBaseStats(defender);
     atk = isPhysical ? attackerStats.attack : attackerStats.spAtk;
     def = isPhysical ? defenderStats.defense : defenderStats.spDef;
+  }
+
+  // Gen 3 rule: Explosion/Self-Destruct halve the target's Defense in the calc
+  if (options?.halveDefenderDefense) {
+    def = Math.floor(def / 2);
   }
 
   // Ability: modifyAttackStat (Huge Power, Guts, Technician, etc.)
@@ -145,19 +156,44 @@ export function calculateDamage(
     }
   }
 
+  // Weather Ball: changes type and doubles power in weather
+  let effectiveMoveType: TypeName = move.type.name as TypeName;
+  let effectiveMovePower = move.power;
+  if (move.name === "weather-ball" && options?.fieldWeather) {
+    const weatherTypeMap: Record<string, TypeName> = {
+      sun: "fire", rain: "water", sandstorm: "rock", hail: "ice",
+    };
+    effectiveMoveType = weatherTypeMap[options.fieldWeather] ?? effectiveMoveType;
+    effectiveMovePower = 100;
+  }
+
+  // Terrain Pulse: changes type and doubles power in terrain
+  if (move.name === "terrain-pulse" && options?.fieldTerrain) {
+    const terrainTypeMap: Record<string, TypeName> = {
+      electric: "electric", grassy: "grass", psychic: "psychic", misty: "fairy",
+    };
+    effectiveMoveType = terrainTypeMap[options.fieldTerrain] ?? effectiveMoveType;
+    effectiveMovePower = 100;
+  }
+
+  // Knock Off: 1.5x power when target holds an item
+  if (move.name === "knock-off" && options?.defenderItem) {
+    effectiveMovePower = Math.floor(effectiveMovePower * 1.5);
+  }
+
   // Use effective types if provided (for Mega/Tera overrides)
   const attackerTypes = options?.attackerEffectiveTypes ?? attacker.types.map((t) => t.type.name);
   const defenderTypes = options?.defenderEffectiveTypes ?? defender.types.map((t) => t.type.name);
 
   // STAB calculation — Tera STAB stacking
   let stab = 1;
-  if (attackerTypes.includes(move.type.name as TypeName)) {
-    if (options?.isTerastallized && options?.attackerOriginalTypes?.includes(move.type.name as TypeName)) {
+  if (attackerTypes.includes(effectiveMoveType)) {
+    if (options?.isTerastallized && options?.attackerOriginalTypes?.includes(effectiveMoveType)) {
       stab = 2; // Tera + original type = 2x STAB
     } else {
       stab = 1.5;
     }
-  } else if (options?.isTerastallized && options?.attackerOriginalTypes?.includes(move.type.name as TypeName)) {
+  } else if (options?.isTerastallized && options?.attackerOriginalTypes?.includes(effectiveMoveType)) {
     stab = 1.5; // Original type still gets STAB even after Tera
   }
 
@@ -166,13 +202,13 @@ export function calculateDamage(
     stab = abilityHooks.modifySTAB({ attacker: options.attackerBattlePokemon, stab });
   }
 
-  let typeEff = getDefensiveMultiplier(move.type.name, defenderTypes);
+  let typeEff = getDefensiveMultiplier(effectiveMoveType, defenderTypes);
 
   // Scrappy: Normal and Fighting moves hit Ghost types
   if (options?.attackerAbility) {
     const abilityKey = options.attackerAbility.toLowerCase().replace(/\s+/g, "-");
     if (abilityKey === "scrappy" && typeEff === 0) {
-      const moveType = move.type.name;
+      const moveType = effectiveMoveType;
       if (moveType === "normal" || moveType === "fighting") {
         typeEff = 1;
       }
@@ -193,37 +229,43 @@ export function calculateDamage(
 
   const level = options?.attackerLevel ?? 50;
   const baseDamage =
-    (((2 * level) / 5 + 2) * move.power * (atk / def)) / 50 + 2;
+    (((2 * level) / 5 + 2) * effectiveMovePower * (atk / def)) / 50 + 2;
 
   let modifiedDamage = baseDamage * stab * typeEff;
 
   // Weather modifiers
   if (options?.fieldWeather) {
-    const moveType = move.type.name;
     if (options.fieldWeather === "sun") {
-      if (moveType === "fire") modifiedDamage *= 1.5;
-      else if (moveType === "water") modifiedDamage *= 0.5;
+      if (effectiveMoveType === "fire") modifiedDamage *= 1.5;
+      else if (effectiveMoveType === "water") modifiedDamage *= 0.5;
     } else if (options.fieldWeather === "rain") {
-      if (moveType === "water") modifiedDamage *= 1.5;
-      else if (moveType === "fire") modifiedDamage *= 0.5;
+      if (effectiveMoveType === "water") modifiedDamage *= 1.5;
+      else if (effectiveMoveType === "fire") modifiedDamage *= 0.5;
     }
   }
 
-  // Terrain modifiers (grounded attackers only — assumes grounded for now)
+  // Terrain modifiers (grounded = not Flying-type and not in fly semi-invulnerable)
   if (options?.fieldTerrain) {
-    const moveType = move.type.name;
-    if (options.fieldTerrain === "electric" && moveType === "electric") modifiedDamage *= 1.3;
-    else if (options.fieldTerrain === "grassy" && moveType === "grass") modifiedDamage *= 1.3;
-    else if (options.fieldTerrain === "psychic" && moveType === "psychic") modifiedDamage *= 1.3;
-    else if (options.fieldTerrain === "misty" && moveType === "dragon") modifiedDamage *= 0.5;
+    const attackerGrounded = !attackerTypes.includes("flying" as TypeName)
+      && options.attackerBattlePokemon?.semiInvulnerable !== "fly";
+    const defenderGrounded = !defenderTypes.includes("flying" as TypeName)
+      && options.defenderBattlePokemon?.semiInvulnerable !== "fly";
+
+    if (options.fieldTerrain === "electric" && effectiveMoveType === "electric" && attackerGrounded) modifiedDamage *= 1.3;
+    else if (options.fieldTerrain === "grassy" && effectiveMoveType === "grass" && attackerGrounded) modifiedDamage *= 1.3;
+    else if (options.fieldTerrain === "psychic" && effectiveMoveType === "psychic" && attackerGrounded) modifiedDamage *= 1.3;
+    else if (options.fieldTerrain === "misty" && effectiveMoveType === "dragon" && defenderGrounded) modifiedDamage *= 0.5;
   }
 
-  // Reflect / Light Screen damage reduction
-  if (options?.defenderSideReflect && isPhysical && !isCritical) {
-    modifiedDamage *= 0.5;
-  }
-  if (options?.defenderSideLightScreen && !isPhysical && !isCritical) {
-    modifiedDamage *= 0.5;
+  // Reflect / Light Screen / Aurora Veil damage reduction (do not stack)
+  if (!isCritical) {
+    if (isPhysical && options?.defenderSideReflect) {
+      modifiedDamage *= 0.5;
+    } else if (!isPhysical && options?.defenderSideLightScreen) {
+      modifiedDamage *= 0.5;
+    } else if (options?.defenderSideAuroraVeil) {
+      modifiedDamage *= 0.5;
+    }
   }
 
   // Critical hit multiplier
@@ -248,7 +290,7 @@ export function calculateDamage(
         applies = true;
       } else if (mod.condition.startsWith("type:")) {
         const itemType = mod.condition.replace("type:", "");
-        applies = move.type.name === itemType;
+        applies = effectiveMoveType === itemType;
       }
 
       if (applies && mod.value) {

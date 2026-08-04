@@ -139,7 +139,7 @@ describe("applyStatusMoveEffect", () => {
   // ========== Self Stat Changes ==========
 
   describe("self stat changes", () => {
-    it.todo("Swords Dance raises attack by 2 stages", () => {
+    it("Swords Dance raises attack by 2 stages", () => {
       const state = buildState();
       const { state: result, log } = apply(
         state,
@@ -148,10 +148,11 @@ describe("applyStatusMoveEffect", () => {
       );
 
       expect(result.player1.pokemon[0].statStages.attack).toBe(2);
-      expect(log.some((l) => l.message.includes("Attack") && l.message.includes("rose drastically"))).toBe(true);
+      // getStatChangeText(2) returns "rose sharply" (only >= 3 stages is "drastically")
+      expect(log.some((l) => l.message.includes("Attack") && l.message.includes("rose sharply"))).toBe(true);
     });
 
-    it.todo("Iron Defense raises defense by 2 stages", () => {
+    it("Iron Defense raises defense by 2 stages", () => {
       const state = buildState();
       const { state: result, log } = apply(
         state,
@@ -160,7 +161,8 @@ describe("applyStatusMoveEffect", () => {
       );
 
       expect(result.player1.pokemon[0].statStages.defense).toBe(2);
-      expect(log.some((l) => l.message.includes("Defense") && l.message.includes("rose drastically"))).toBe(true);
+      // getStatChangeText(2) returns "rose sharply" (only >= 3 stages is "drastically")
+      expect(log.some((l) => l.message.includes("Defense") && l.message.includes("rose sharply"))).toBe(true);
     });
 
     it("Dragon Dance raises attack and speed by 1 each", () => {
@@ -280,7 +282,7 @@ describe("applyStatusMoveEffect", () => {
   // ========== Target Stat Changes ==========
 
   describe("target stat changes", () => {
-    it.todo("Charm lowers target attack by 2", () => {
+    it("Charm lowers target attack by 2", () => {
       const state = buildState();
       const { state: result, log } = apply(
         state,
@@ -289,7 +291,8 @@ describe("applyStatusMoveEffect", () => {
       );
 
       expect(result.player2.pokemon[0].statStages.attack).toBe(-2);
-      expect(log.some((l) => l.message.includes("Attack") && l.message.includes("fell drastically"))).toBe(true);
+      // getStatChangeText(-2) returns "sharply fell" (only <= -3 stages is "harshly fell")
+      expect(log.some((l) => l.message.includes("Attack") && l.message.includes("sharply fell"))).toBe(true);
     });
 
     it("Growl lowers target attack by 1", () => {
@@ -618,7 +621,7 @@ describe("applyStatusMoveEffect", () => {
       expect(result.player1.pokemon[0].currentHp).toBe(300);
     });
 
-    it.todo("Rest fully heals and inflicts sleep with 2 turns", () => {
+    it("Rest fully heals and inflicts sleep with 2 turns", () => {
       const state = buildState({ currentHp: 50, maxHp: 300 });
       const { state: result, log } = apply(
         state,
@@ -628,8 +631,170 @@ describe("applyStatusMoveEffect", () => {
 
       expect(result.player1.pokemon[0].currentHp).toBe(300);
       expect(result.player1.pokemon[0].status).toBe("sleep");
-      expect(result.player1.pokemon[0].sleepTurns).toBe(2);
+      // handleHeal's "rest" branch hardcodes sleepTurns to 3 (not the random 2-3
+      // range used by handleStatusInfliction for other sleep-inflicting moves).
+      expect(result.player1.pokemon[0].sleepTurns).toBe(3);
       expect(log.some((l) => l.message.includes("went to sleep and restored HP"))).toBe(true);
+    });
+  });
+
+  // ========== Heal Block Recovery Prevention ==========
+
+  describe("heal block recovery prevention", () => {
+    it("prevents recovery when heal blocked", () => {
+      const state = buildState({ currentHp: 100, maxHp: 300, healBlocked: 3 });
+      const { state: result, log } = apply(
+        state,
+        { healPercent: 50 },
+        "recover",
+      );
+
+      expect(result.player1.pokemon[0].currentHp).toBe(100);
+      expect(log.some((l) => l.message.includes("can't heal due to Heal Block"))).toBe(true);
+    });
+
+    it("allows recovery when heal block has expired", () => {
+      const state = buildState({ currentHp: 100, maxHp: 300, healBlocked: 0 });
+      const { state: result, log } = apply(
+        state,
+        { healPercent: 50 },
+        "recover",
+      );
+
+      expect(result.player1.pokemon[0].currentHp).toBe(250);
+      expect(log.some((l) => l.message.includes("restored HP"))).toBe(true);
+    });
+  });
+
+  // ========== Baton Pass ==========
+
+  describe("baton pass", () => {
+    it("sets pendingPivotSwitch when teammates are available", () => {
+      const state = buildState();
+      // Add a second non-fainted teammate
+      const teammate = createMockBattlePokemon(createMockTeamSlot(mockVenusaur, 1));
+      const stateWithTeam: BattleState = {
+        ...state,
+        player1: {
+          ...state.player1,
+          pokemon: [...state.player1.pokemon, teammate],
+        },
+      };
+
+      const { state: result, log } = apply(
+        stateWithTeam,
+        { batonPass: true },
+        "baton-pass",
+      );
+
+      expect(result.pendingPivotSwitch).toBe("player1");
+      // pendingBatonPass distinguishes this from a U-turn/Volt Switch pivot —
+      // it's what tells the FORCE_SWITCH reducer case to transfer stat
+      // stages/volatile status to the replacement instead of clearing them.
+      expect(result.pendingBatonPass).toBe(true);
+      expect(log.some((l) => l.message.includes("passed the baton"))).toBe(true);
+    });
+
+    it("fails when no teammates are available to switch in", () => {
+      // buildState creates a team with 1 Pokemon — no valid switch targets
+      const state = buildState();
+      const { state: result, log } = apply(
+        state,
+        { batonPass: true },
+        "baton-pass",
+      );
+
+      expect(result.pendingPivotSwitch).toBeNull();
+      expect(result.pendingBatonPass).toBe(false);
+      expect(log.some((l) => l.message.includes("But it failed"))).toBe(true);
+    });
+  });
+
+  // ========== Pain Split ==========
+
+  describe("pain split", () => {
+    it("averages HP between both Pokemon", () => {
+      const state = buildState(
+        { currentHp: 50, maxHp: 300 },
+        { currentHp: 200, maxHp: 300 },
+      );
+      const { state: result, log } = apply(
+        state,
+        { painSplit: true },
+        "pain-split",
+      );
+
+      // avg = floor((50 + 200) / 2) = 125
+      expect(result.player1.pokemon[0].currentHp).toBe(125);
+      expect(result.player2.pokemon[0].currentHp).toBe(125);
+      expect(log.some((l) => l.message.includes("shared their pain"))).toBe(true);
+    });
+
+    it("caps HP at each Pokemon's max HP", () => {
+      const state = buildState(
+        { currentHp: 290, maxHp: 300 },
+        { currentHp: 500, maxHp: 500 },
+      );
+      const { state: result } = apply(
+        state,
+        { painSplit: true },
+        "pain-split",
+      );
+
+      // avg = floor((290 + 500) / 2) = 395
+      // attacker: min(300, 395) = 300
+      // defender: min(500, 395) = 395
+      expect(result.player1.pokemon[0].currentHp).toBe(300);
+      expect(result.player2.pokemon[0].currentHp).toBe(395);
+    });
+  });
+
+  // ========== Endeavor ==========
+
+  describe("endeavor", () => {
+    it("sets defender HP equal to attacker HP when attacker is lower", () => {
+      const state = buildState(
+        { currentHp: 10, maxHp: 300 },
+        { currentHp: 250, maxHp: 300 },
+      );
+      const { state: result, log } = apply(
+        state,
+        { endeavor: true },
+        "endeavor",
+      );
+
+      expect(result.player2.pokemon[0].currentHp).toBe(10);
+      expect(log.some((l) => l.message.includes("HP was cut to match"))).toBe(true);
+    });
+
+    it("fails when attacker HP is greater than or equal to defender HP", () => {
+      const state = buildState(
+        { currentHp: 200, maxHp: 300 },
+        { currentHp: 100, maxHp: 300 },
+      );
+      const { state: result, log } = apply(
+        state,
+        { endeavor: true },
+        "endeavor",
+      );
+
+      expect(result.player2.pokemon[0].currentHp).toBe(100);
+      expect(log.some((l) => l.message.includes("But it failed"))).toBe(true);
+    });
+
+    it("fails when both Pokemon have equal HP", () => {
+      const state = buildState(
+        { currentHp: 150, maxHp: 300 },
+        { currentHp: 150, maxHp: 300 },
+      );
+      const { state: result, log } = apply(
+        state,
+        { endeavor: true },
+        "endeavor",
+      );
+
+      expect(result.player2.pokemon[0].currentHp).toBe(150);
+      expect(log.some((l) => l.message.includes("But it failed"))).toBe(true);
     });
   });
 
@@ -661,7 +826,12 @@ describe("applyStatusMoveEffect", () => {
       expect(result.player1.pokemon[0].consecutiveProtects).toBe(0);
     });
 
-    it.todo("selfStatChanges does not modify consecutiveProtects (caller responsibility)", () => {
+    it("selfStatChanges resets consecutiveProtects via the shared non-protect fallthrough", () => {
+      // Adapted from a stale assumption: applyStatusMoveEffect's final block
+      // ("Reset protect counter and track last move for non-protect status
+      // moves", battleExecutionStatus.ts ~line 1048) unconditionally resets
+      // consecutiveProtects for every non-protect, non-fainted-attacker move —
+      // it is NOT left to the caller as the original comment here claimed.
       const state = buildState({ consecutiveProtects: 3 });
       const { state: result } = apply(
         state,
@@ -669,9 +839,8 @@ describe("applyStatusMoveEffect", () => {
         "swords-dance",
       );
 
-      // applyStatusMoveEffect does not reset these for pure stat boost moves
-      // The caller (executeMove) handles lastMoveUsed and consecutiveProtects
-      expect(result.player1.pokemon[0].consecutiveProtects).toBe(3);
+      expect(result.player1.pokemon[0].consecutiveProtects).toBe(0);
+      expect(result.player1.pokemon[0].lastMoveUsed).toBe("swords-dance");
     });
   });
 });

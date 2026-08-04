@@ -427,4 +427,86 @@ describe("useOnlineBattle", () => {
     expect(rejection!.message).toBe("Opponent action timeout");
     vi.useRealTimers();
   });
+
+  // -----------------------------------------------------------------------
+  // RNG seed handshake (online-desync fix)
+  // -----------------------------------------------------------------------
+  describe("RNG seed handshake", () => {
+    it("host generates and sends a numeric rngSeed with READY, and stores it locally", async () => {
+      const { result, mock } = await setupWithConnection(); // host
+
+      const sentBefore = mock.sent.length;
+      act(() => {
+        result.current.sendReady();
+      });
+
+      const msg = mock.sent[sentBefore] as { type: string; payload: { rngSeed?: number } | null };
+      expect(msg.type).toBe("READY");
+      expect(typeof msg.payload?.rngSeed).toBe("number");
+      expect(Number.isFinite(msg.payload!.rngSeed)).toBe(true);
+      expect(result.current.state.rngSeed).toBe(msg.payload!.rngSeed);
+    });
+
+    it("stores an rngSeed received from the peer's READY message", async () => {
+      const { result, mock } = await setupWithConnection();
+
+      expect(result.current.state.rngSeed).toBeNull();
+
+      await act(async () => {
+        mock.handlers["data"]({
+          type: "READY",
+          payload: { rngSeed: 123456 },
+          timestamp: Date.now(),
+        });
+      });
+
+      expect(result.current.state.rngSeed).toBe(123456);
+    });
+
+    it("ignores an invalid rngSeed (negative, non-numeric, or out of range)", async () => {
+      const { result, mock } = await setupWithConnection();
+
+      await act(async () => {
+        mock.handlers["data"]({
+          type: "READY",
+          payload: { rngSeed: -1 },
+          timestamp: Date.now(),
+        });
+      });
+      expect(result.current.state.rngSeed).toBeNull();
+
+      await act(async () => {
+        mock.handlers["data"]({
+          type: "READY",
+          payload: { rngSeed: "not-a-number" },
+          timestamp: Date.now(),
+        });
+      });
+      expect(result.current.state.rngSeed).toBeNull();
+
+      await act(async () => {
+        mock.handlers["data"]({
+          type: "READY",
+          payload: { rngSeed: 2 ** 32 + 1 },
+          timestamp: Date.now(),
+        });
+      });
+      expect(result.current.state.rngSeed).toBeNull();
+    });
+
+    it("still transitions to battling when READY has no payload (null)", async () => {
+      const { result, mock } = await setupWithConnection();
+
+      await act(async () => {
+        mock.handlers["data"]({
+          type: "READY",
+          payload: null,
+          timestamp: Date.now(),
+        });
+      });
+
+      expect(result.current.state.phase).toBe("battling");
+      expect(result.current.state.rngSeed).toBeNull();
+    });
+  });
 });
