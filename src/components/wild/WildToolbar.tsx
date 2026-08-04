@@ -16,6 +16,7 @@ export type WildPanel =
   | "berryFarm"
   | "slotMachine"
   | "eggMoves"
+  | "shinyHunt"
   | null;
 
 interface PanelButton {
@@ -62,6 +63,7 @@ export default function WildToolbar({
     { id: "berryFarm", label: "Berry", activeColor: "#38b764" },
     { id: "slotMachine", label: "Slots", activeColor: "#f7a838" },
     { id: "eggMoves", label: "Eggs", activeColor: "#f06292" },
+    { id: "shinyHunt", label: "Shiny Hunt", activeColor: "#f7a838" },
   ];
 
   return (
@@ -89,7 +91,7 @@ export default function WildToolbar({
         // Some buttons have bg tint when active, some don't
         const hasBgTint = [
           "safariZone", "gameCorner", "typeQuiz", "fossilLab", "pokeMart",
-          "evTraining", "moveTutor", "berryFarm", "slotMachine", "eggMoves",
+          "evTraining", "moveTutor", "berryFarm", "slotMachine", "eggMoves", "shinyHunt",
         ].includes(btn.id);
 
         return (

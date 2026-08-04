@@ -21,11 +21,12 @@ import MoveTutor from "./MoveTutor";
 import BerryFarm from "./BerryFarm";
 import SlotMachine from "./SlotMachine";
 import EggMoveCalculator from "./EggMoveCalculator";
+import ShinyHunt from "./ShinyHunt";
 
 export default function WildPanelRouter() {
   const {
-    box, handleMoveToTeam, removeFromBox, setNickname, addToBox,
-    incrementStat, markCaught, addUniqueBall, addUniqueType, addKantoSpecies,
+    box, handleMoveToTeam, removeFromBox, setNickname, updatePokemon, addToBox,
+    incrementStat, markCaught, addUniqueType, addKantoSpecies,
     handleGameCornerPurchase, stats, fossilInventory, handleReviveFossil,
     ballInventory, battleItemInventory, ownedItems, setOwnedItems, handlePokeMartBuy,
   } = useWildInventoryContext();
@@ -35,9 +36,11 @@ export default function WildPanelRouter() {
     online, safari, team, onSetEvs, onSetMoves,
   } = useWildUIContext();
 
-  if (!activePanel) return null;
-
   const onSafariAddAll = useCallback((entries: { pokemon: Pokemon; level: number; isShiny: boolean }[]) => {
+    // Guard against a stale re-invocation (e.g. panel closed/reopened via
+    // togglePanel while still on the summary screen): the "collected" flag
+    // lives in the safari reducer, not component state, so it survives remounts.
+    if (safari.state.collected) return;
     entries.forEach((entry) => {
       const pcPokemon = createPCBoxPokemon({
         pokemon: entry.pokemon,
@@ -54,7 +57,8 @@ export default function WildPanelRouter() {
       if (entry.pokemon.id <= 151) addKantoSpecies(entry.pokemon.id);
     });
     incrementStat("safariTripsCompleted");
-  }, [safari.state.region, addToBox, markCaught, incrementStat, addUniqueType, addKantoSpecies]);
+    safari.markCollected();
+  }, [safari, addToBox, markCaught, incrementStat, addUniqueType, addKantoSpecies]);
 
   const onSafariTrip = useCallback(() => {
     if (safari.state.caughtPokemon.length > 0) incrementStat("safariTripsCompleted");
@@ -84,6 +88,8 @@ export default function WildPanelRouter() {
     return true;
   }, [ownedItems, setOwnedItems, incrementStat]);
 
+  if (!activePanel) return null;
+
   return (
     <motion.div
       key={activePanel}
@@ -98,9 +104,12 @@ export default function WildPanelRouter() {
           onMoveToTeam={handleMoveToTeam}
           onRemove={removeFromBox}
           onSetNickname={setNickname}
+          onUpdatePokemon={updatePokemon}
+          ownedItems={ownedItems}
+          setOwnedItems={setOwnedItems}
         />
       )}
-      {activePanel === "dayCare" && <DayCare box={box} />}
+      {activePanel === "dayCare" && <DayCare box={box} onAddToBox={addToBox} />}
       {activePanel === "wonderTrade" && (
         <WonderTrade
           box={box}
@@ -210,6 +219,7 @@ export default function WildPanelRouter() {
       {activePanel === "berryFarm" && <BerryFarm />}
       {activePanel === "slotMachine" && <SlotMachine />}
       {activePanel === "eggMoves" && <EggMoveCalculator />}
+      {activePanel === "shinyHunt" && <ShinyHunt />}
     </motion.div>
   );
 }
