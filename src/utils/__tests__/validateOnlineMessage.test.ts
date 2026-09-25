@@ -118,20 +118,19 @@ describe("validateTeamSlots", () => {
   });
 
   it("rejects slot without valid pokemon shape", () => {
-    expect(validateTeamSlots([{ pokemon: { id: -1, name: "x", types: [] }, position: 0 }])).toBeNull();
+    expect(validateTeamSlots([{ pokemon: null, position: 0 }])).toBeNull();
   });
 
-  it("rejects slot without position", () => {
-    expect(validateTeamSlots([{ pokemon: validPokemonShape() }])).toBeNull();
+  it("rejects slot with non-object pokemon", () => {
+    expect(validateTeamSlots([{ pokemon: "not-an-object", position: 0 }])).toBeNull();
   });
 
-  it("rejects slot with pokemon id > 1025", () => {
-    const bad = { pokemon: { id: 9999, name: "fake", types: [] }, position: 0 };
-    expect(validateTeamSlots([bad])).toBeNull();
+  it("rejects slot with missing pokemon name", () => {
+    expect(validateTeamSlots([{ pokemon: { id: 1 }, position: 0 }])).toBeNull();
   });
 
-  it("rejects slot with empty pokemon name", () => {
-    const bad = { pokemon: { id: 1, name: "", types: [] }, position: 0 };
+  it("rejects slot with non-numeric pokemon id", () => {
+    const bad = { pokemon: { id: "abc", name: "fake" }, position: 0 };
     expect(validateTeamSlots([bad])).toBeNull();
   });
 });

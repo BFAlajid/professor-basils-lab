@@ -16,6 +16,7 @@ export type WildPanel =
   | "berryFarm"
   | "slotMachine"
   | "eggMoves"
+  | "shinyHunt"
   | null;
 
 interface PanelButton {
@@ -62,14 +63,18 @@ export default function WildToolbar({
     { id: "berryFarm", label: "Berry", activeColor: "#38b764" },
     { id: "slotMachine", label: "Slots", activeColor: "#f7a838" },
     { id: "eggMoves", label: "Eggs", activeColor: "#f06292" },
+    { id: "shinyHunt", label: "Shiny Hunt", activeColor: "#f7a838" },
   ];
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="relative">
+    <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin"
+      style={{ maskImage: "linear-gradient(to right, black calc(100% - 32px), transparent)", WebkitMaskImage: "linear-gradient(to right, black calc(100% - 32px), transparent)" }}
+    >
       {/* Nuzlocke toggle */}
       <button
         onClick={onToggleNuzlocke}
-        className={`px-2 py-1 text-[9px] font-pixel rounded-lg border transition-colors ${
+        className={`flex-shrink-0 px-2 py-1 text-[9px] font-pixel rounded-lg border transition-colors ${
           nuzlockeEnabled
             ? "text-[#e8433f] border-[#e8433f] bg-[#e8433f]/10"
             : "text-[#3a4466] border-[#3a4466] hover:text-[#8b9bb4]"
@@ -86,14 +91,14 @@ export default function WildToolbar({
         // Some buttons have bg tint when active, some don't
         const hasBgTint = [
           "safariZone", "gameCorner", "typeQuiz", "fossilLab", "pokeMart",
-          "evTraining", "moveTutor", "berryFarm", "slotMachine", "eggMoves",
+          "evTraining", "moveTutor", "berryFarm", "slotMachine", "eggMoves", "shinyHunt",
         ].includes(btn.id);
 
         return (
           <button
             key={btn.id}
             onClick={() => onTogglePanel(btn.id)}
-            className={`px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
+            className={`flex-shrink-0 px-3 py-1 text-[10px] font-pixel rounded-lg border transition-colors ${
               isActive
                 ? `text-[${btn.activeColor}] border-[${btn.activeColor}]${hasBgTint ? ` bg-[${btn.activeColor}]/10` : ""}`
                 : "text-[#8b9bb4] border-[#3a4466] hover:text-[#f0f0e8]"
@@ -104,6 +109,7 @@ export default function WildToolbar({
           </button>
         );
       })}
+    </div>
     </div>
   );
 }

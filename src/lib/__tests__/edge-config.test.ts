@@ -40,7 +40,7 @@ describe("edge-config", () => {
         enableLeaderboards: true,
         enableEmulator: true,
         enableCitrine: false,
-        enableMultiplayer: false,
+        enableMultiplayer: true,
         maintenanceMode: false,
       });
     });
@@ -108,7 +108,7 @@ describe("edge-config", () => {
       expect(flags.maintenanceMode).toBe(true);
       // defaults preserved for keys not in remote
       expect(flags.enableSharing).toBe(true);
-      expect(flags.enableMultiplayer).toBe(false);
+      expect(flags.enableMultiplayer).toBe(true);
     });
 
     it("getFeatureFlags returns defaults when remote throws", async () => {
@@ -122,7 +122,7 @@ describe("edge-config", () => {
         enableLeaderboards: true,
         enableEmulator: true,
         enableCitrine: false,
-        enableMultiplayer: false,
+        enableMultiplayer: true,
         maintenanceMode: false,
       });
     });

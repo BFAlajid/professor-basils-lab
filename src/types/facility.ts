@@ -1,5 +1,5 @@
 import type { Pokemon, TypeName, StatusCondition } from "./pokemon";
-import type { TeamSlot, EVSpread } from "./team";
+import type { EVSpread } from "./team";
 
 // --- Elite Four & Battle Facility ---
 
@@ -79,4 +79,7 @@ export interface SafariZoneState {
   isCaught: boolean;
   isFled: boolean;
   region: string;
+  /** True once caughtPokemon for this trip has been deposited into the PC box. Lives in provider
+   * state (not component state) so it survives the panel unmounting/remounting via togglePanel. */
+  collected: boolean;
 }

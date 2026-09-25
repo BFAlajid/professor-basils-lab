@@ -86,7 +86,7 @@ describe("GET /api/cron/warm-cache", () => {
 
     expect(response.status).toBe(200);
     expect(body.warmed).toBe(4); // 2 pokemon + 2 species
-    expect(body.failed).toEqual([]);
+    expect(body.failedCount).toBe(0);
     expect(typeof body.durationMs).toBe("number");
 
     // Verify the list endpoint was called
@@ -111,7 +111,7 @@ describe("GET /api/cron/warm-cache", () => {
     const body = await response.json();
 
     expect(body).toHaveProperty("warmed");
-    expect(body).toHaveProperty("failed");
+    expect(body).toHaveProperty("failedCount");
     expect(body).toHaveProperty("durationMs");
     expect(body.warmed).toBe(2);
     expect(body.durationMs).toBeGreaterThanOrEqual(0);
@@ -136,8 +136,7 @@ describe("GET /api/cron/warm-cache", () => {
     const body = await response.json();
 
     expect(body.warmed).toBe(0);
-    expect(body.failed).toContain("pokemon/missingno");
-    expect(body.failed).toContain("pokemon-species/missingno");
+    expect(body.failedCount).toBe(2);
   });
 
   it("drains response bodies by calling body.cancel", async () => {
@@ -200,6 +199,6 @@ describe("GET /api/cron/warm-cache", () => {
 
     expect(response.status).toBe(200);
     expect(body.warmed).toBe(0);
-    expect(body.failed.length).toBeGreaterThan(0);
+    expect(body.failedCount).toBeGreaterThan(0);
   });
 });

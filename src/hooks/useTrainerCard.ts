@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { silentWarn } from "@/utils/silentWarn";
 import type { PlayerStats } from "@/hooks/useAchievements";
+import { STORAGE_KEYS, readStorage, readStorageString, writeStorageString } from "@/utils/persistence";
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -29,49 +30,32 @@ function getRankTier(elo: number): string {
   return "Beginner";
 }
 
-// ── Storage Keys ────────────────────────────────────────────────────────
-
-const NAME_KEY = "pokemon-trainer-name";
-const ID_KEY = "pokemon-trainer-id";
-const BADGES_KEY = "pokemon-gym-badges";
-const FIRST_SAVE_KEY = "pokemon-trainer-first-save";
-
 // ── Helpers ─────────────────────────────────────────────────────────────
 
 function generateTrainerId(): string {
   return String(Math.floor(10000 + Math.random() * 90000));
 }
 
-function loadString(key: string, fallback: string): string {
-  if (typeof window === "undefined") return fallback;
-  try {
-    return localStorage.getItem(key) ?? fallback;
-  } catch (e) {
-    silentWarn("loadTrainerCardString", e);
-    return fallback;
-  }
+function loadOrCreateTrainerId(): string {
+  const saved = readStorageString(STORAGE_KEYS.trainerId, "");
+  if (saved) return saved;
+  const id = generateTrainerId();
+  writeStorageString(STORAGE_KEYS.trainerId, id);
+  return id;
 }
 
 function loadBadges(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(BADGES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    silentWarn("loadBadges", e);
-    return [];
-  }
+  const badges = readStorage<unknown>(STORAGE_KEYS.gymBadges, []);
+  return Array.isArray(badges) ? (badges as string[]) : [];
 }
 
 function calculatePlayTime(): string {
   if (typeof window === "undefined") return "0:00";
   try {
-    let firstSave = localStorage.getItem(FIRST_SAVE_KEY);
+    let firstSave = readStorageString(STORAGE_KEYS.trainerFirstSave, "");
     if (!firstSave) {
       firstSave = new Date().toISOString();
-      localStorage.setItem(FIRST_SAVE_KEY, firstSave);
+      writeStorageString(STORAGE_KEYS.trainerFirstSave, firstSave);
     }
     const start = new Date(firstSave).getTime();
     const now = Date.now();
@@ -89,43 +73,15 @@ function calculatePlayTime(): string {
 // ── Hook ────────────────────────────────────────────────────────────────
 
 export function useTrainerCard(stats: PlayerStats) {
-  const [name, setName] = useState("Trainer");
-  const [trainerId, setTrainerId] = useState("00000");
-  const [badges, setBadges] = useState<string[]>([]);
-  const [playTime, setPlayTime] = useState("0:00");
-  const initialized = useRef(false);
+  // Lazy initializers read storage synchronously on first render (no
+  // load-then-setState effect, no flash-of-default, no cascading render).
+  const [name, setName] = useState(() => readStorageString(STORAGE_KEYS.trainerName, "") || "Trainer");
+  const [trainerId] = useState(loadOrCreateTrainerId);
+  const [badges, setBadges] = useState<string[]>(loadBadges);
+  const [playTime, setPlayTime] = useState(calculatePlayTime);
 
-  // Load persisted data on mount
-  useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-
-    // Trainer name
-    const savedName = loadString(NAME_KEY, "");
-    if (savedName) {
-      setName(savedName);
-    }
-
-    // Trainer ID — generate if missing
-    let savedId = loadString(ID_KEY, "");
-    if (!savedId) {
-      savedId = generateTrainerId();
-      try {
-        localStorage.setItem(ID_KEY, savedId);
-      } catch (e) {
-        silentWarn("saveTrainerId", e);
-      }
-    }
-    setTrainerId(savedId);
-
-    // Badges
-    setBadges(loadBadges());
-
-    // Play time
-    setPlayTime(calculatePlayTime());
-  }, []);
-
-  // Refresh badges periodically (they can change from gym battles)
+  // Refresh badges/play time periodically (they can change from gym battles
+  // and elapsed real time, sources this hook doesn't otherwise observe).
   useEffect(() => {
     const interval = setInterval(() => {
       setBadges(loadBadges());
@@ -136,13 +92,9 @@ export function useTrainerCard(stats: PlayerStats) {
 
   // Set trainer name and persist
   const setTrainerName = useCallback((newName: string) => {
-    const trimmed = newName.trim().slice(0, 16);
-    setName(trimmed || "Trainer");
-    try {
-      localStorage.setItem(NAME_KEY, trimmed || "Trainer");
-    } catch (e) {
-      silentWarn("saveTrainerName", e);
-    }
+    const trimmed = newName.trim().slice(0, 16) || "Trainer";
+    setName(trimmed);
+    writeStorageString(STORAGE_KEYS.trainerName, trimmed);
   }, []);
 
   // Export card as PNG

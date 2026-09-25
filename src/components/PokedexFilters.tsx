@@ -6,6 +6,7 @@ import {
   PokedexFilterConfig,
   DEFAULT_FILTER_CONFIG,
 } from "@/utils/pokedexFilterEngine";
+import { capitalize } from "@/utils/format";
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -138,7 +139,7 @@ export default function PokedexFilters({ config, onChange }: PokedexFiltersProps
                     <option value="">Any</option>
                     {ALL_TYPES.map((t) => (
                       <option key={t} value={t}>
-                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                        {capitalize(t)}
                       </option>
                     ))}
                   </select>
@@ -158,7 +159,7 @@ export default function PokedexFilters({ config, onChange }: PokedexFiltersProps
                     <option value="">Any</option>
                     {ALL_TYPES.filter((t) => t !== config.typeFilter).map((t) => (
                       <option key={t} value={t}>
-                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                        {capitalize(t)}
                       </option>
                     ))}
                   </select>

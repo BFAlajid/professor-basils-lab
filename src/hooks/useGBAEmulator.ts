@@ -91,12 +91,25 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       setState((s) => ({ ...s, isLoading: true }));
 
       // mGBA uses pthreads (Web Workers + SharedArrayBuffer).
+      // Both SharedArrayBuffer and crossOriginIsolated are required: SAB alone is
+      // insufficient because pthread workers can't share memory without isolation.
+      // If either is missing, mGBA's pthread pool load hangs silently because
+      // WebAssembly.Memory({shared:true}) throws or postMessage-of-SAB fails,
+      // and the underlying Promise.all never resolves.
       if (typeof SharedArrayBuffer === "undefined") {
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         throw new Error(
           isIOS
             ? "GBA emulator requires features not available in this browser. On iOS, please use Safari instead."
             : "GBA emulator requires SharedArrayBuffer which is not available in this browser. Try Chrome, Firefox, or Safari."
+        );
+      }
+      if (typeof self !== "undefined" && self.crossOriginIsolated === false) {
+        throw new Error(
+          "GBA emulator requires cross-origin isolation. The page must be served with " +
+          "Cross-Origin-Opener-Policy: same-origin and Cross-Origin-Embedder-Policy: " +
+          "require-corp (or credentialless). If you just updated headers, do a hard " +
+          "reload (Ctrl+Shift+R) to clear the cached page."
         );
       }
 
@@ -127,10 +140,15 @@ export function useGBAEmulator(canvasRef: React.RefObject<HTMLCanvasElement | nu
       const Module = await Promise.race([
         mGBA({ canvas: canvasRef.current }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(
-            "GBA emulator initialization timed out. This browser may not support " +
-            "the required WebAssembly threading features."
-          )), 30000)
+          setTimeout(() => {
+            const coi = typeof self !== "undefined" ? self.crossOriginIsolated : "unknown";
+            reject(new Error(
+              "GBA emulator initialization timed out (30s). The pthread worker pool " +
+              "failed to load. crossOriginIsolated=" + coi + ". Check that COOP/COEP " +
+              "headers are served on this page and that /mgba/mgba.js loads without " +
+              "CSP or CORP errors in the browser console."
+            ));
+          }, 30000)
         ),
       ]) as unknown as mGBAEmulator;
 

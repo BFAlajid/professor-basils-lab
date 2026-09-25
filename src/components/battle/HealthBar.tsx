@@ -1,7 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
-
 interface HealthBarProps {
   current: number;
   max: number;
@@ -25,13 +23,10 @@ export default function HealthBar({ current, max }: HealthBarProps) {
           {current}/{max}
         </span>
       </div>
-      <div className="h-2 w-full bg-[#1a1c2c] border-2 border-[#5a6988] overflow-hidden">
-        <motion.div
+      <div className="h-2 w-full bg-[#1a1c2c] border-2 border-[#5a6988] overflow-hidden" role="progressbar" aria-valuenow={current} aria-valuemin={0} aria-valuemax={max} aria-label="Hit points">
+        <div
           className="h-full"
-          style={{ backgroundColor: color }}
-          initial={false}
-          animate={{ width: `${percent}%` }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
+          style={{ backgroundColor: color, width: `${percent}%`, transition: "width 0.5s ease-out" }}
         />
       </div>
     </div>

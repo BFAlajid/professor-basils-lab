@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { OnlineState, TeamSlot } from "@/types";
 
@@ -37,6 +37,14 @@ export default function OnlineLobby({
     setTeamSubmitted(true);
   }, [playerTeam, onSubmitTeam]);
 
+  // Auto-submit team as soon as we're connected
+  useEffect(() => {
+    if ((state.phase === "connected" || state.phase === "team_preview") && !teamSubmitted && playerTeam.length > 0) {
+      onSubmitTeam(playerTeam);
+      setTeamSubmitted(true);
+    }
+  }, [state.phase, teamSubmitted, playerTeam, onSubmitTeam]);
+
   // Idle state — create or join
   if (state.phase === "idle") {
     return (
@@ -66,7 +74,7 @@ export default function OnlineLobby({
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
               placeholder="Enter code..."
-              maxLength={6}
+              maxLength={8}
               className="w-full rounded-lg border border-[#3a4466] bg-[#262b44] px-3 py-2 text-center text-sm font-pixel text-[#f0f0e8] placeholder-[#8b9bb4] outline-none focus:border-[#e8433f]"
             />
             <button

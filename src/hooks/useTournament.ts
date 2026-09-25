@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useCallback, useState } from "react";
+import { useReducer, useCallback, useState, useRef } from "react";
 import { TournamentState, TournamentAction, TournamentTrainer } from "@/types";
 import { generateTournamentBracket } from "@/utils/tournament";
 
@@ -65,14 +65,18 @@ function tournamentReducer(state: TournamentState, action: TournamentAction): To
 export function useTournament() {
   const [state, dispatch] = useReducer(tournamentReducer, initialState);
   const [isGenerating, setIsGenerating] = useState(false);
+  const isGeneratingRef = useRef(false);
 
   const startTournament = useCallback(async () => {
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
     setIsGenerating(true);
     try {
       const trainers = await generateTournamentBracket();
       dispatch({ type: "START_TOURNAMENT", trainers });
     } finally {
       setIsGenerating(false);
+      isGeneratingRef.current = false;
     }
   }, []);
 
@@ -111,7 +115,7 @@ export function useTournament() {
     }
     // Finals: last undefeated
     return trainers.filter((t) => !t.defeated).slice(0, 1);
-  }, [state]);
+  }, [state.round, state.trainers]);
 
   return {
     state,

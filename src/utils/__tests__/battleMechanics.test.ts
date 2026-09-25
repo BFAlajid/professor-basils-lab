@@ -418,7 +418,7 @@ describe("endDynamax", () => {
     expect(result.player1.pokemon[0].currentHp).toBe(200);
   });
 
-  it("preserves at least 1 HP", () => {
+  it("faints when HP halves to 0", () => {
     const state = createMockBattleState({
       p1Overrides: {
         isDynamaxed: true,
@@ -430,8 +430,11 @@ describe("endDynamax", () => {
     });
     const log: BattleLogEntry[] = [];
     const result = endDynamax(state, "player1", log);
-    // floor(1/2) = 0, but clamped to max(1, 0) = 1
-    expect(result.player1.pokemon[0].currentHp).toBe(1);
+    // floor(1/2) = 0 → Pokemon faints
+    expect(result.player1.pokemon[0].currentHp).toBe(0);
+    expect(result.player1.pokemon[0].isFainted).toBe(true);
+    expect(result.player1.pokemon[0].isActive).toBe(false);
+    expect(log.some(l => l.kind === "faint")).toBe(true);
   });
 
   it("correctly halves partial HP", () => {

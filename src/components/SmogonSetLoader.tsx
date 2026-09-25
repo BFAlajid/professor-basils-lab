@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import type { SmogonSet } from "@/data/smogonSets";
+import { capitalize } from "@/utils/format";
 
 interface SmogonSetLoaderProps {
   pokemonId: number;
@@ -25,10 +26,6 @@ function formatEvSpread(evs: SmogonSet["evs"]): string {
   if (evs.spd) parts.push(`${evs.spd} SpD`);
   if (evs.spe) parts.push(`${evs.spe} Spe`);
   return parts.join(" / ");
-}
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 export default function SmogonSetLoader({ pokemonId, onApplySet }: SmogonSetLoaderProps) {

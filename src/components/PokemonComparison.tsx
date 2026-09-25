@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { TeamSlot, BaseStats } from "@/types";
 import { calculateAllStats, CalculatedStats, DEFAULT_IVS, DEFAULT_EVS } from "@/utils/statsWasm";
+import { extractBaseStats } from "@/utils/damage";
 import ComparisonStatBars, { POLY_COLORS } from "./ComparisonStatBars";
 import { STAT_KEYS, STAT_LABELS_SHORT } from "@/data/constants";
 import ComparisonTypeChart from "./ComparisonTypeChart";
@@ -15,23 +16,8 @@ interface PokemonComparisonProps {
   team: TeamSlot[];
 }
 
-// ── Stat extraction helpers ──────────────────────────────────────────
-
-function extractBaseStats(slot: TeamSlot): BaseStats {
-  const get = (name: string) =>
-    slot.pokemon.stats.find((s) => s.stat.name === name)?.base_stat ?? 0;
-  return {
-    hp: get("hp"),
-    attack: get("attack"),
-    defense: get("defense"),
-    spAtk: get("special-attack"),
-    spDef: get("special-defense"),
-    speed: get("speed"),
-  };
-}
-
 function getCalculatedStats(slot: TeamSlot): CalculatedStats {
-  const base = extractBaseStats(slot);
+  const base = extractBaseStats(slot.pokemon);
   const ivs = slot.ivs ?? DEFAULT_IVS;
   const evs = slot.evs ?? DEFAULT_EVS;
   const nature = slot.nature ?? null;
@@ -90,7 +76,7 @@ export default function PokemonComparison({ team }: PokemonComparisonProps) {
   // Pre-compute stats for all selected Pokemon
   const statsData = useMemo(() => {
     return selectedSlots.map(({ slot }) => ({
-      base: extractBaseStats(slot),
+      base: extractBaseStats(slot.pokemon),
       calc: getCalculatedStats(slot),
     }));
   }, [selectedSlots]);

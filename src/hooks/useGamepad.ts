@@ -78,10 +78,14 @@ export function useGamepad(options: UseGamepadOptions = {}): UseGamepadReturn {
   const [connected, setConnected] = useState(false);
   const [controllerName, setControllerName] = useState<string | null>(null);
 
-  // Use refs for callbacks so the polling loop always sees latest values
+  // Use refs for callbacks and state so the polling loop always sees latest values
   // without needing to restart the rAF loop
   const onPressRef = useRef(onButtonPress);
   const onReleaseRef = useRef(onButtonRelease);
+  const connectedRef = useRef(connected);
+  connectedRef.current = connected;
+  const controllerNameRef = useRef(controllerName);
+  controllerNameRef.current = controllerName;
   useEffect(() => {
     onPressRef.current = onButtonPress;
     onReleaseRef.current = onButtonRelease;
@@ -106,7 +110,7 @@ export function useGamepad(options: UseGamepadOptions = {}): UseGamepadReturn {
     }
 
     if (!activeGamepad) {
-      if (connected) {
+      if (connectedRef.current) {
         setConnected(false);
         setControllerName(null);
         prevButtonsRef.current = {};
@@ -115,7 +119,7 @@ export function useGamepad(options: UseGamepadOptions = {}): UseGamepadReturn {
     }
 
     // Update connection state
-    if (!connected || controllerName !== activeGamepad.id) {
+    if (!connectedRef.current || controllerNameRef.current !== activeGamepad.id) {
       setConnected(true);
       setControllerName(activeGamepad.id);
     }
@@ -179,7 +183,7 @@ export function useGamepad(options: UseGamepadOptions = {}): UseGamepadReturn {
     }
 
     prevButtonsRef.current = currentButtons;
-  }, [connected, controllerName]);
+  }, []);
 
   useEffect(() => {
     if (!enabled) {

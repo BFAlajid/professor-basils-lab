@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Press_Start_2P, VT323 } from "next/font/google";
 import { Providers } from "./providers";
 import OfflineIndicator from "@/components/OfflineIndicator";
@@ -18,6 +18,11 @@ const vt323 = VT323({
   variable: "--font-pixel-body",
   display: "swap",
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   title: "Pokemon Team Builder",

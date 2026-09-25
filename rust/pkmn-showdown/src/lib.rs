@@ -400,3 +400,143 @@ fn parse_string_array(raw: &str) -> Vec<String> {
         .filter(|s| !s.is_empty())
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // -- parse_showdown_block --
+
+    #[test]
+    fn parse_basic_set() {
+        let input = "Garchomp @ Choice Scarf\nAbility: Rough Skin\nEVs: 252 Atk / 4 SpD / 252 Spe\nJolly Nature\n- Earthquake\n- Outrage\n- Stone Edge\n- Fire Fang";
+        let json = parse_showdown_block(input);
+        assert!(json.contains("\"species\":\"garchomp\""));
+        assert!(json.contains("\"item\":\"choice-scarf\""));
+        assert!(json.contains("\"ability\":\"rough-skin\""));
+        assert!(json.contains("\"nature\":\"jolly\""));
+        assert!(json.contains("\"earthquake\""));
+        assert!(json.contains("\"outrage\""));
+        assert!(json.contains("\"stone-edge\""));
+        assert!(json.contains("\"fire-fang\""));
+        assert!(json.contains("\"evs\":[0,252,0,0,4,252]"));
+    }
+
+    #[test]
+    fn parse_with_nickname() {
+        let input = "Speedy (Garchomp) @ Life Orb\nAbility: Rough Skin\nJolly Nature\n- Earthquake";
+        let json = parse_showdown_block(input);
+        assert!(json.contains("\"species\":\"garchomp\""));
+        assert!(json.contains("\"item\":\"life-orb\""));
+    }
+
+    #[test]
+    fn parse_no_item() {
+        let input = "Pikachu\nAbility: Static\n- Thunderbolt";
+        let json = parse_showdown_block(input);
+        assert!(json.contains("\"species\":\"pikachu\""));
+        assert!(json.contains("\"item\":\"\""));
+    }
+
+    #[test]
+    fn parse_with_ivs() {
+        let input = "Ferrothorn @ Leftovers\nAbility: Iron Barbs\nEVs: 252 HP / 252 Def / 4 SpD\nIVs: 0 Spe\nRelaxed Nature\n- Stealth Rock";
+        let json = parse_showdown_block(input);
+        assert!(json.contains("\"species\":\"ferrothorn\""));
+        assert!(json.contains("\"ivs\":[31,31,31,31,31,0]"));
+    }
+
+    #[test]
+    fn parse_with_tera_type() {
+        let input = "Kingambit @ Leftovers\nAbility: Supreme Overlord\nTera Type: Fire\n- Sucker Punch";
+        let json = parse_showdown_block(input);
+        assert!(json.contains("\"teraType\":\"fire\""));
+    }
+
+    #[test]
+    fn parse_empty_input() {
+        let json = parse_showdown_block("");
+        assert_eq!(json, "null");
+    }
+
+    // -- parse_showdown_paste --
+
+    #[test]
+    fn parse_multiple_pokemon() {
+        let input = "Pikachu @ Light Ball\nAbility: Static\n- Thunderbolt\n\nCharizard @ Choice Specs\nAbility: Solar Power\n- Fire Blast";
+        let json = parse_showdown_paste(input);
+        assert!(json.starts_with('['));
+        assert!(json.ends_with(']'));
+        assert!(json.contains("\"pikachu\""));
+        assert!(json.contains("\"charizard\""));
+    }
+
+    #[test]
+    fn parse_single_pokemon_paste() {
+        let input = "Pikachu\nAbility: Static\n- Thunderbolt";
+        let json = parse_showdown_paste(input);
+        assert!(json.starts_with('['));
+        assert!(json.contains("\"pikachu\""));
+    }
+
+    // -- export_showdown_paste --
+
+    #[test]
+    fn export_basic_set() {
+        let input = r#"[{"species":"garchomp","item":"choice-scarf","ability":"rough-skin","nature":"jolly","teraType":"","evs":[0,252,0,0,4,252],"ivs":null,"moves":["earthquake","outrage"]}]"#;
+        let output = export_showdown_paste(input);
+        assert!(output.contains("Garchomp @ Choice Scarf"));
+        assert!(output.contains("Ability: Rough Skin"));
+        assert!(output.contains("Jolly Nature"));
+        assert!(output.contains("252 Atk / 4 SpD / 252 Spe"));
+        assert!(output.contains("- Earthquake"));
+        assert!(output.contains("- Outrage"));
+    }
+
+    #[test]
+    fn export_no_item() {
+        let input = r#"[{"species":"pikachu","item":"","ability":"static","nature":"timid","teraType":"","evs":[0,0,0,252,4,252],"ivs":null,"moves":["thunderbolt"]}]"#;
+        let output = export_showdown_paste(input);
+        assert!(output.starts_with("Pikachu\n"));
+        assert!(!output.contains(" @ "));
+    }
+
+    #[test]
+    fn export_with_ivs() {
+        let input = r#"[{"species":"ferrothorn","item":"leftovers","ability":"iron-barbs","nature":"relaxed","teraType":"","evs":[252,0,252,0,4,0],"ivs":[31,31,31,31,31,0],"moves":["stealth-rock"]}]"#;
+        let output = export_showdown_paste(input);
+        assert!(output.contains("IVs:"));
+        assert!(output.contains("0 Spe"));
+    }
+
+    // -- round-trip --
+
+    #[test]
+    fn roundtrip_parse_export() {
+        let original = "Garchomp @ Choice Scarf\nAbility: Rough Skin\nEVs: 252 Atk / 4 SpD / 252 Spe\nJolly Nature\n- Earthquake\n- Outrage";
+        let parsed = parse_showdown_paste(original);
+        let exported = export_showdown_paste(&parsed);
+        assert!(exported.contains("Garchomp @ Choice Scarf"));
+        assert!(exported.contains("Rough Skin"));
+        assert!(exported.contains("Jolly Nature"));
+        assert!(exported.contains("Earthquake"));
+        assert!(exported.contains("Outrage"));
+    }
+
+    // -- to_api_name --
+
+    #[test]
+    fn api_name_conversion() {
+        assert_eq!(to_api_name("Choice Scarf"), "choice-scarf");
+        assert_eq!(to_api_name("King's Rock"), "kings-rock");
+        assert_eq!(to_api_name("Rough Skin"), "rough-skin");
+    }
+
+    // -- to_display_name --
+
+    #[test]
+    fn display_name_conversion() {
+        assert_eq!(to_display_name("choice-scarf"), "Choice Scarf");
+        assert_eq!(to_display_name("rough-skin"), "Rough Skin");
+    }
+}

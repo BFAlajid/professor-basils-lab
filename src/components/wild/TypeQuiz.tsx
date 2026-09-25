@@ -60,7 +60,7 @@ export default function TypeQuiz({ onScoreUpdate }: TypeQuizProps = {}) {
                 className="px-4 py-3 bg-[#38b764] hover:bg-[#45c972] text-[#f0f0e8] text-xs font-pixel rounded-lg transition-colors border border-transparent hover:border-[#f7a838]"
               >
                 <div>Timed (60s)</div>
-                <div className="text-[8px] opacity-70 mt-0.5">
+                <div className="text-[10px] opacity-70 mt-0.5">
                   Answer fast, score high!
                 </div>
               </button>
@@ -69,7 +69,7 @@ export default function TypeQuiz({ onScoreUpdate }: TypeQuizProps = {}) {
                 className="px-4 py-3 bg-[#4a90d9] hover:bg-[#5a9ee5] text-[#f0f0e8] text-xs font-pixel rounded-lg transition-colors border border-transparent hover:border-[#f7a838]"
               >
                 <div>Practice</div>
-                <div className="text-[8px] opacity-70 mt-0.5">
+                <div className="text-[10px] opacity-70 mt-0.5">
                   Learn at your own pace
                 </div>
               </button>

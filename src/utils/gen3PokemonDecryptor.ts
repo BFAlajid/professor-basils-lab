@@ -87,18 +87,10 @@ const GEN3_SPECIES_TO_NATIONAL: Record<number, number> = {};
 // 1-251 are the same
 for (let i = 1; i <= 251; i++) GEN3_SPECIES_TO_NATIONAL[i] = i;
 // Gen 3 species indices 277-411 map to National Dex 252-386
-// (Gen 3 internal indices skip 252-276 for Unown forms and other internal entries)
+// (Gen 3 internal indices skip 252-276 for Unown forms and other internal entries;
+// those indices are unused placeholders and are intentionally left unmapped —
+// see gen3SpeciesToNational's fallback below.)
 for (let i = 0; i < 135; i++) GEN3_SPECIES_TO_NATIONAL[277 + i] = 252 + i;
-// Common specific mappings that differ
-GEN3_SPECIES_TO_NATIONAL[252] = 252; // Treecko (may vary by game)
-GEN3_SPECIES_TO_NATIONAL[253] = 253;
-GEN3_SPECIES_TO_NATIONAL[254] = 254;
-GEN3_SPECIES_TO_NATIONAL[255] = 255;
-GEN3_SPECIES_TO_NATIONAL[256] = 256;
-GEN3_SPECIES_TO_NATIONAL[257] = 257;
-GEN3_SPECIES_TO_NATIONAL[258] = 258;
-GEN3_SPECIES_TO_NATIONAL[259] = 259;
-GEN3_SPECIES_TO_NATIONAL[260] = 260;
 
 function gen3SpeciesToNational(gen3Id: number): number {
   return GEN3_SPECIES_TO_NATIONAL[gen3Id] ?? gen3Id;
@@ -179,8 +171,8 @@ export function decryptPokemonData(data: Uint8Array, isParty: boolean): Gen3Poke
   const species = gen3SpeciesToNational(rawSpecies);
   const heldItem = decrypted.getUint16(growthOffset + 2, true);
   const experience = decrypted.getUint32(growthOffset + 4, true);
-  const ppBonuses = decrypted.getUint8(growthOffset + 8);
-  const friendship = decrypted.getUint8(growthOffset + 9);
+  // Bytes growthOffset+8 (PP bonuses) and +9 (friendship) exist in the substructure
+  // but aren't surfaced on Gen3Pokemon; not read here.
 
   if (species === 0 || species > 440) return null;
 

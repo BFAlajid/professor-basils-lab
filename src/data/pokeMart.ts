@@ -5,8 +5,9 @@ export interface ShopItem {
   name: string;
   description: string;
   price: number;
-  category: "ball" | "medicine" | "held-item" | "battle-item" | "special";
+  category: "ball" | "medicine" | "held-item" | "battle-item" | "special" | "competitive" | "mint";
   ballType?: BallType;
+  nature?: string;
 }
 
 export const POKEMART_ITEMS: ShopItem[] = [
@@ -52,6 +53,35 @@ export const POKEMART_ITEMS: ShopItem[] = [
   { id: "power-lens", name: "Power Lens", description: "+8 Sp.Atk EVs per training battle.", price: 2000, category: "special" },
   { id: "power-band", name: "Power Band", description: "+8 Sp.Def EVs per training battle.", price: 2000, category: "special" },
   { id: "power-anklet", name: "Power Anklet", description: "+8 Speed EVs per training battle.", price: 2000, category: "special" },
+
+  // Competitive Items
+  { id: "ability-capsule", name: "Ability Capsule", description: "Switches between the two non-hidden abilities.", price: 10000, category: "competitive" },
+  { id: "ability-patch", name: "Ability Patch", description: "Switches to the hidden ability.", price: 20000, category: "competitive" },
+  { id: "bottle-cap", name: "Bottle Cap", description: "Hyper Trains one IV to 31.", price: 5000, category: "competitive" },
+  { id: "gold-bottle-cap", name: "Gold Bottle Cap", description: "Hyper Trains all IVs to 31.", price: 25000, category: "competitive" },
+
+  // Mints
+  { id: "adamant-mint", name: "Adamant Mint", description: "Changes nature to Adamant (+Atk / -SpA).", price: 3000, category: "mint", nature: "adamant" },
+  { id: "jolly-mint", name: "Jolly Mint", description: "Changes nature to Jolly (+Spe / -SpA).", price: 3000, category: "mint", nature: "jolly" },
+  { id: "modest-mint", name: "Modest Mint", description: "Changes nature to Modest (+SpA / -Atk).", price: 3000, category: "mint", nature: "modest" },
+  { id: "timid-mint", name: "Timid Mint", description: "Changes nature to Timid (+Spe / -Atk).", price: 3000, category: "mint", nature: "timid" },
+  { id: "bold-mint", name: "Bold Mint", description: "Changes nature to Bold (+Def / -Atk).", price: 3000, category: "mint", nature: "bold" },
+  { id: "impish-mint", name: "Impish Mint", description: "Changes nature to Impish (+Def / -SpA).", price: 3000, category: "mint", nature: "impish" },
+  { id: "calm-mint", name: "Calm Mint", description: "Changes nature to Calm (+SpD / -Atk).", price: 3000, category: "mint", nature: "calm" },
+  { id: "careful-mint", name: "Careful Mint", description: "Changes nature to Careful (+SpD / -SpA).", price: 3000, category: "mint", nature: "careful" },
+  { id: "brave-mint", name: "Brave Mint", description: "Changes nature to Brave (+Atk / -Spe).", price: 3000, category: "mint", nature: "brave" },
+  { id: "quiet-mint", name: "Quiet Mint", description: "Changes nature to Quiet (+SpA / -Spe).", price: 3000, category: "mint", nature: "quiet" },
+  { id: "relaxed-mint", name: "Relaxed Mint", description: "Changes nature to Relaxed (+Def / -Spe).", price: 3000, category: "mint", nature: "relaxed" },
+  { id: "sassy-mint", name: "Sassy Mint", description: "Changes nature to Sassy (+SpD / -Spe).", price: 3000, category: "mint", nature: "sassy" },
+  { id: "naive-mint", name: "Naive Mint", description: "Changes nature to Naive (+Spe / -SpD).", price: 3000, category: "mint", nature: "naive" },
+  { id: "hasty-mint", name: "Hasty Mint", description: "Changes nature to Hasty (+Spe / -Def).", price: 3000, category: "mint", nature: "hasty" },
+  { id: "lonely-mint", name: "Lonely Mint", description: "Changes nature to Lonely (+Atk / -Def).", price: 3000, category: "mint", nature: "lonely" },
+  { id: "mild-mint", name: "Mild Mint", description: "Changes nature to Mild (+SpA / -Def).", price: 3000, category: "mint", nature: "mild" },
+  { id: "rash-mint", name: "Rash Mint", description: "Changes nature to Rash (+SpA / -SpD).", price: 3000, category: "mint", nature: "rash" },
+  { id: "gentle-mint", name: "Gentle Mint", description: "Changes nature to Gentle (+SpD / -Def).", price: 3000, category: "mint", nature: "gentle" },
+  { id: "naughty-mint", name: "Naughty Mint", description: "Changes nature to Naughty (+Atk / -SpD).", price: 3000, category: "mint", nature: "naughty" },
+  { id: "lax-mint", name: "Lax Mint", description: "Changes nature to Lax (+Def / -SpD).", price: 3000, category: "mint", nature: "lax" },
+  { id: "serious-mint", name: "Serious Mint", description: "Changes nature to Serious (Neutral).", price: 3000, category: "mint", nature: "serious" },
 ];
 
 export function getShopItem(id: string): ShopItem | undefined {

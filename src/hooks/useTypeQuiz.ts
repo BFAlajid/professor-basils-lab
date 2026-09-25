@@ -1,9 +1,9 @@
 "use client";
 
 import { useReducer, useCallback, useEffect, useRef } from "react";
-import { silentWarn } from "@/utils/silentWarn";
 import { TYPE_LIST } from "@/data/typeChart";
 import { getEffectiveness } from "@/utils/typeChartWasm";
+import { STORAGE_KEYS, readStorage, writeStorage } from "@/utils/persistence";
 
 // ── State ───────────────────────────────────────────────────────────────
 
@@ -34,8 +34,6 @@ type QuizAction =
   | { type: "LOAD_BEST"; best: number };
 
 // ── Helpers ─────────────────────────────────────────────────────────────
-
-const STORAGE_KEY = "pokemon-type-quiz-best";
 
 function randomFrom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -184,28 +182,19 @@ function quizReducer(state: TypeQuizState, action: QuizAction): TypeQuizState {
 export function useTypeQuiz() {
   const [state, dispatch] = useReducer(quizReducer, initialState);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const answerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const answeredRef = useRef(false);
 
-  // Load best score from localStorage on mount
+  // Load best score from storage on mount
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const best = parseInt(stored, 10);
-        if (!isNaN(best)) dispatch({ type: "LOAD_BEST", best });
-      }
-    } catch (e) {
-      silentWarn("loadTypeQuizBest", e);
-    }
+    const best = readStorage(STORAGE_KEYS.typeQuizBest, 0);
+    if (best > 0) dispatch({ type: "LOAD_BEST", best });
   }, []);
 
   // Persist best score whenever it changes
   useEffect(() => {
     if (state.bestScore > 0) {
-      try {
-        localStorage.setItem(STORAGE_KEY, String(state.bestScore));
-      } catch (e) {
-        silentWarn("saveTypeQuizBest", e);
-      }
+      writeStorage(STORAGE_KEYS.typeQuizBest, state.bestScore);
     }
   }, [state.bestScore]);
 
@@ -241,12 +230,17 @@ export function useTypeQuiz() {
 
   const answer = useCallback(
     (choice: string) => {
+      if (answeredRef.current) return;
       if (state.lastAnswerCorrect !== null) return; // Already answered
+      answeredRef.current = true;
       dispatch({ type: "ANSWER", choice });
 
       // In timed mode, auto-advance after brief delay
       if (state.mode === "timed") {
-        setTimeout(() => {
+        if (answerTimerRef.current) clearTimeout(answerTimerRef.current);
+        answerTimerRef.current = setTimeout(() => {
+          answerTimerRef.current = null;
+          answeredRef.current = false;
           dispatch({ type: "NEXT_QUESTION" });
         }, 400);
       }
@@ -255,6 +249,7 @@ export function useTypeQuiz() {
   );
 
   const nextQuestion = useCallback(() => {
+    answeredRef.current = false;
     dispatch({ type: "NEXT_QUESTION" });
   }, []);
 
@@ -264,6 +259,13 @@ export function useTypeQuiz() {
 
   const resetQuiz = useCallback(() => {
     dispatch({ type: "RESET" });
+  }, []);
+
+  // Clean up answer timer on unmount
+  useEffect(() => {
+    return () => {
+      if (answerTimerRef.current) clearTimeout(answerTimerRef.current);
+    };
   }, []);
 
   return { state, startQuiz, answer, nextQuestion, endQuiz, resetQuiz };

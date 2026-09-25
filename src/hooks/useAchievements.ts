@@ -2,9 +2,10 @@
 
 import { useReducer, useEffect, useCallback, useRef, useMemo, useState } from "react";
 import type { AchievementDefinition } from "@/data/achievementDefinitions";
-import { silentWarn } from "@/utils/silentWarn";
-import { type PlayerStats, DEFAULT_STATS, statsReducer } from "./useAchievementsReducer";
+import { type PlayerStats, DEFAULT_STATS, statsReducer } from "@/utils/statsReducer";
 import { validatePlayerStats } from "@/utils/validatePlayerStats";
+import { STORAGE_KEYS, readStorageValidated, writeStorage } from "@/utils/persistence";
+import { useDebouncedPersist } from "@/hooks/useDebouncedPersist";
 
 export type { PlayerStats };
 
@@ -28,28 +29,9 @@ export interface Achievement {
 
 // --- Storage ---
 
-const STORAGE_KEY = "pokemon-achievements";
-
 interface PersistedData {
   stats: PlayerStats;
   unlockedIds: Record<string, string>; // id -> ISO date string
-}
-
-function loadFromStorage(): PersistedData | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed == null || typeof parsed !== "object") return null;
-    return {
-      stats: validatePlayerStats(parsed.stats),
-      unlockedIds: validateUnlockedIds(parsed.unlockedIds),
-    };
-  } catch (e) {
-    silentWarn("loadAchievements", e);
-    return null;
-  }
 }
 
 function validateUnlockedIds(raw: unknown): Record<string, string> {
@@ -63,13 +45,21 @@ function validateUnlockedIds(raw: unknown): Record<string, string> {
   return result;
 }
 
+function validatePersistedData(raw: unknown): PersistedData | null {
+  if (raw == null || typeof raw !== "object") return null;
+  const r = raw as { stats?: unknown; unlockedIds?: unknown };
+  return {
+    stats: validatePlayerStats(r.stats),
+    unlockedIds: validateUnlockedIds(r.unlockedIds),
+  };
+}
+
+function loadFromStorage(): PersistedData | null {
+  return readStorageValidated<PersistedData | null>(STORAGE_KEYS.achievements, null, validatePersistedData);
+}
+
 function saveToStorage(data: PersistedData): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    silentWarn("saveAchievements", e);
-  }
+  writeStorage(STORAGE_KEYS.achievements, data);
 }
 
 // --- Hook ---
@@ -79,23 +69,30 @@ export function useAchievements() {
   const [stats, dispatchStats] = useReducer(statsReducer, DEFAULT_STATS);
   const [unlockedMap, setUnlockedMap] = useState<Record<string, string>>({});
   const [recentUnlock, setRecentUnlock] = useState<Achievement | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
   const initialized = useRef(false);
   const recentTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const statsRef = useRef(stats);
+  statsRef.current = stats;
 
   // Load persisted data and achievement definitions on mount
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
+    let cancelled = false;
 
     const saved = loadFromStorage();
     if (saved) {
       dispatchStats({ type: "SET_STATS", stats: saved.stats });
       setUnlockedMap(saved.unlockedIds ?? {});
     }
+    setIsHydrated(true);
 
     import("@/data/achievementDefinitions").then((mod) => {
-      setDefinitions(mod.ACHIEVEMENT_DEFINITIONS);
+      if (!cancelled) setDefinitions(mod.ACHIEVEMENT_DEFINITIONS);
     });
+
+    return () => { cancelled = true; };
   }, []);
 
   // Build full achievement list with unlock state
@@ -108,12 +105,15 @@ export function useAchievements() {
   }, [definitions, unlockedMap]);
 
   // Check achievements and return newly unlocked ones
+  const newUnlocksRef = useRef<Achievement[]>([]);
+
   const checkAchievements = useCallback(() => {
-    let newUnlocks: Achievement[] = [];
+    newUnlocksRef.current = [];
 
     setUnlockedMap((prev) => {
       const updated = { ...prev };
       let changed = false;
+      const unlocks: Achievement[] = [];
 
       for (const def of definitions) {
         if (def.id in updated) continue;
@@ -121,7 +121,7 @@ export function useAchievements() {
           const now = new Date().toISOString();
           updated[def.id] = now;
           changed = true;
-          newUnlocks.push({
+          unlocks.push({
             ...def,
             unlocked: true,
             unlockedAt: now,
@@ -129,11 +129,13 @@ export function useAchievements() {
         }
       }
 
+      newUnlocksRef.current = unlocks;
       if (!changed) return prev;
       return updated;
     });
 
     // Show the most recent unlock as a toast trigger
+    const newUnlocks = newUnlocksRef.current;
     if (newUnlocks.length > 0) {
       const latest = newUnlocks[newUnlocks.length - 1];
       setRecentUnlock(latest);
@@ -153,14 +155,14 @@ export function useAchievements() {
     checkAchievements();
   }, [stats, checkAchievements]);
 
-  // Auto-persist to localStorage whenever stats or unlocked map change
-  useEffect(() => {
-    if (!initialized.current) return;
-    saveToStorage({
-      stats,
-      unlockedIds: unlockedMap,
-    });
-  }, [stats, unlockedMap]);
+  // Auto-persist to storage whenever stats or unlocked map change, debounced
+  // so rapid stat increments (a catching/battling burst) don't each
+  // re-serialize the full stats + unlocked-achievements payload.
+  const persistedData = useMemo<PersistedData>(
+    () => ({ stats, unlockedIds: unlockedMap }),
+    [stats, unlockedMap]
+  );
+  useDebouncedPersist(persistedData, saveToStorage, undefined, isHydrated);
 
   // Public stat increment
   const incrementStat = useCallback(
@@ -208,10 +210,10 @@ export function useAchievements() {
   }, []);
 
   const spendMoney = useCallback((amount: number): boolean => {
-    if (stats.money < amount) return false;
+    if (statsRef.current.money < amount) return false;
     dispatchStats({ type: "SPEND_MONEY", amount });
     return true;
-  }, [stats.money]);
+  }, []);
 
   const updateElo = useCallback((won: boolean, opponentRating?: number) => {
     dispatchStats({ type: "UPDATE_ELO", won, opponentRating });

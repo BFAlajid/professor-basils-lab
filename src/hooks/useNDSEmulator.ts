@@ -79,7 +79,12 @@ const RETROARCH_CFG = [
   'menu_pointer_enable = "true"',
 ].join("\n") + "\n";
 
-const MELONDS_OPT = 'melonds_touch_mode = "Touch"\n';
+// "Mouse" routes desktop mouse clicks on the bottom half of the canvas to the
+// NDS stylus. Touch mode was tried briefly but this build's SDL2 does NOT
+// auto-route desktop mouse events into the pointer stream.
+// Valid values (from melonds_libretro.wasm core options): disabled|Mouse|Touch|Joystick.
+// This option is read once at core init — changing it requires a full page reload.
+const MELONDS_OPT = 'melonds_touch_mode = "Mouse"\n';
 const SAVE_DIR = "/home/web_user/retroarch/userdata/saves/";
 const SRAM_EXTS = [".srm", ".sram", ".ram", ".sav", ".dsv", ".nvr"];
 
@@ -97,6 +102,37 @@ let moduleRunning = false;
 let currentRomName: string | null = null;
 let isPausedModule = false;
 
+// melonDS Mouse mode tracks the stylus via mouse-movement deltas across the
+// ENTIRE canvas. Moving the mouse over the (non-touchable) top screen drags
+// the stylus around the bottom screen, ruining calibration. We suppress ONLY
+// top-half mousemove deltas (by shadowing movementX/Y to 0) and let clicks
+// flow untouched — an earlier attempt used stop-immediate propagation on
+// mousedown/mouseup too, which prevented SDL's rwebinput handler (registered
+// on "#canvas" via emscripten_set_mousedown_callback) from ever seeing real
+// bottom-screen clicks.
+function neutralizeTopScreenMotion(canvas: HTMLCanvasElement) {
+  const zero = (e: MouseEvent) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.height === 0) return;
+    const localY = e.clientY - rect.top;
+    if (localY < rect.height / 2) {
+      // Shadow the prototype getters so SDL's fillMouseEventData reads 0 for
+      // both movement channels. Leaves clientX/Y intact so real mousedown/up
+      // events still register at their true position (Mouse mode uses buttons
+      // state for press, not position — but keeping coords honest avoids
+      // breaking any code path that relies on them).
+      try {
+        Object.defineProperty(e, "movementX", { value: 0, configurable: true });
+        Object.defineProperty(e, "movementY", { value: 0, configurable: true });
+      } catch {
+        // ignore — worst case the stylus drifts a tiny bit
+      }
+    }
+  };
+  // Capture phase so we run BEFORE SDL's handler on the same canvas element.
+  canvas.addEventListener("mousemove", zero, true);
+}
+
 function getOrCreateCanvas(): HTMLCanvasElement {
   if (!persistentCanvas) {
     persistentCanvas = document.createElement("canvas");
@@ -109,6 +145,7 @@ function getOrCreateCanvas(): HTMLCanvasElement {
     persistentCanvas.tabIndex = 0;
     persistentCanvas.style.outline = "none";
     persistentCanvas.addEventListener("mousedown", () => persistentCanvas?.focus());
+    neutralizeTopScreenMotion(persistentCanvas);
   }
   return persistentCanvas;
 }
@@ -144,6 +181,10 @@ export function useNDSEmulator() {
       }
     }
   }, []);
+
+  // Exposes the persistent canvas so consumers (e.g. stylus cursor) can dispatch
+  // synthetic mouse events targeted at it without ref timing issues.
+  const getCanvas = useCallback(() => persistentCanvas, []);
 
   // ── Shutdown callback for emulator manager ──
   const shutdown = useCallback(async () => {
@@ -404,12 +445,21 @@ export function useNDSEmulator() {
   }, []);
 
   // ── Reset ──
+  // melonDS libretro's _cmd_reset aborts the WASM runtime (abort(undefined)),
+  // and Emscripten cannot be re-initialized on the same page. The only reliable
+  // "reset" is a full page reload. Save state is already persisted to IndexedDB
+  // via persistSave(), so a reload resumes cleanly from the most recent save.
   const reset = useCallback(() => {
-    const win = window as unknown as Win;
-    win.Module?._cmd_reset?.();
-    isPausedModule = false;
-    setState((s) => ({ ...s, isPaused: false }));
-  }, []);
+    if (typeof window === "undefined") return;
+    const proceed = window.confirm(
+      "Reset requires reloading the page (the NDS core cannot be soft-reset in-browser). Your save is preserved. Continue?"
+    );
+    if (!proceed) return;
+    // Best-effort: flush save before reloading. Fire-and-forget; reload proceeds regardless.
+    void persistSave().finally(() => {
+      window.location.reload();
+    });
+  }, [persistSave]);
 
   // ── Volume ──
   const setVolume = useCallback((_v: number) => {
@@ -488,5 +538,6 @@ export function useNDSEmulator() {
     takeScreenshot,
     persistSave,
     setContainerRef,
+    getCanvas,
   };
 }

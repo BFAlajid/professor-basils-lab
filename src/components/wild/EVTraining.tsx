@@ -64,11 +64,11 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
     const info = STAT_INFO.find((s) => s.key === stat)!;
     let gain = info.evYield;
 
-    // Power item bonus
-    if (activePowerItem && activePowerItem.stat === stat) gain += 8;
-
-    // Macho Brace doubles
+    // Macho Brace doubles base yield only
     if (hasMachoBrace) gain *= 2;
+
+    // Power item flat bonus added after Macho Brace
+    if (activePowerItem && activePowerItem.stat === stat) gain += 8;
 
     return gain;
   }, [activePowerItem, hasMachoBrace]);
@@ -128,7 +128,7 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
                   <p className="font-pixel text-[10px] text-[#f0f0e8] capitalize truncate">
                     {slot.pokemon.name.replace(/-/g, " ")}
                   </p>
-                  <p className="font-pixel text-[8px] text-[#8b9bb4]">
+                  <p className="font-pixel text-[10px] text-[#8b9bb4]">
                     EVs: {evTotal}/{MAX_TOTAL_EVS}
                   </p>
                 </button>
@@ -153,7 +153,7 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
             <button
               onClick={() => setSelectedPokemon(null)}
               aria-label="Back to Pokemon selection"
-              className="font-pixel text-[8px] text-[#8b9bb4] hover:text-[#f0f0e8]"
+              className="font-pixel text-[10px] text-[#8b9bb4] hover:text-[#f0f0e8]"
             >
               Back
             </button>
@@ -163,14 +163,14 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
           <div className="mb-3 space-y-1">
             {STAT_INFO.map(({ key, label, color }) => (
               <div key={key} className="flex items-center gap-2">
-                <span className="font-pixel text-[8px] text-[#8b9bb4] w-10">{label}</span>
+                <span className="font-pixel text-[10px] text-[#8b9bb4] w-10">{label}</span>
                 <div className="flex-1 h-2 bg-[#3a4466] rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{ width: `${(currentEvs[key] / MAX_SINGLE_EV) * 100}%`, backgroundColor: color }}
                   />
                 </div>
-                <span className="font-pixel text-[8px] text-[#8b9bb4] w-8 text-right">{currentEvs[key]}</span>
+                <span className="font-pixel text-[10px] text-[#8b9bb4] w-8 text-right">{currentEvs[key]}</span>
               </div>
             ))}
           </div>
@@ -189,8 +189,8 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
                   className="rounded-lg border border-[#3a4466] bg-[#262b44] p-2 text-left hover:border-[#f7a838] transition-colors disabled:opacity-40"
                 >
                   <p className="font-pixel text-[9px]" style={{ color }}>{label}</p>
-                  <p className="font-pixel text-[7px] text-[#8b9bb4]">vs {pokemon}</p>
-                  <p className="font-pixel text-[7px] text-[#38b764]">+{gain} EVs/battle</p>
+                  <p className="font-pixel text-[10px] text-[#8b9bb4]">vs {pokemon}</p>
+                  <p className="font-pixel text-[10px] text-[#38b764]">+{gain} EVs/battle</p>
                 </button>
               );
             })}
@@ -199,10 +199,10 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
           {/* Show active modifiers */}
           <div className="mt-2 flex gap-1 flex-wrap">
             {hasMachoBrace && (
-              <span className="font-pixel text-[7px] text-[#f7a838] bg-[#f7a838]/10 px-1 rounded">Macho Brace ×2</span>
+              <span className="font-pixel text-[10px] text-[#f7a838] bg-[#f7a838]/10 px-1 rounded">Macho Brace ×2</span>
             )}
             {activePowerItem && (
-              <span className="font-pixel text-[7px] text-[#4a90d9] bg-[#4a90d9]/10 px-1 rounded">
+              <span className="font-pixel text-[10px] text-[#4a90d9] bg-[#4a90d9]/10 px-1 rounded">
                 {activePowerItem.itemId.replace(/-/g, " ")} +8
               </span>
             )}
@@ -220,7 +220,7 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
             <button
               onClick={handleFinish}
               aria-label="Finish training session"
-              className="font-pixel text-[8px] text-[#f7a838] hover:text-[#f0f0e8]"
+              className="font-pixel text-[10px] text-[#f7a838] hover:text-[#f0f0e8]"
             >
               Finish
             </button>
@@ -230,20 +230,20 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
           <div className="mb-3 space-y-1">
             {STAT_INFO.map(({ key, label, color }) => (
               <div key={key} className="flex items-center gap-2">
-                <span className="font-pixel text-[8px] text-[#8b9bb4] w-10">{label}</span>
+                <span className="font-pixel text-[10px] text-[#8b9bb4] w-10">{label}</span>
                 <div className="flex-1 h-2 bg-[#3a4466] rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{ width: `${(currentEvs[key] / MAX_SINGLE_EV) * 100}%`, backgroundColor: color }}
                   />
                 </div>
-                <span className="font-pixel text-[8px] text-[#8b9bb4] w-8 text-right">{currentEvs[key]}</span>
+                <span className="font-pixel text-[10px] text-[#8b9bb4] w-8 text-right">{currentEvs[key]}</span>
                 <AnimatePresence>
                   {sessionGains[key] > 0 && (
                     <motion.span
                       initial={{ opacity: 0, scale: 0 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="font-pixel text-[7px] text-[#38b764]"
+                      className="font-pixel text-[10px] text-[#38b764]"
                     >
                       +{sessionGains[key]}
                     </motion.span>
@@ -255,7 +255,7 @@ export default function EVTraining({ team, ownedItems, onUpdateEvs, onSessionCom
 
           {/* Battle button */}
           <div className="text-center">
-            <p className="font-pixel text-[8px] text-[#8b9bb4] mb-2">
+            <p className="font-pixel text-[10px] text-[#8b9bb4] mb-2">
               Battles: {battleCount} | Total EVs: {getTotalEvs(currentEvs)}/{MAX_TOTAL_EVS}
             </p>
 

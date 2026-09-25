@@ -6,7 +6,7 @@ import { POKEMART_ITEMS, type ShopItem } from "@/data/pokeMart";
 import { BallType } from "@/types";
 import ItemSprite from "@/components/ItemSprite";
 
-type ShopCategory = "ball" | "medicine" | "held-item" | "special";
+type ShopCategory = "ball" | "medicine" | "held-item" | "special" | "competitive" | "mint";
 
 interface PokeMartProps {
   money: number;
@@ -21,6 +21,8 @@ const CATEGORY_LABELS: Record<ShopCategory, string> = {
   medicine: "Medicine",
   "held-item": "Held Items",
   special: "Special",
+  competitive: "Competitive",
+  mint: "Mints",
 };
 
 const CATEGORY_COLORS: Record<ShopCategory, string> = {
@@ -28,6 +30,8 @@ const CATEGORY_COLORS: Record<ShopCategory, string> = {
   medicine: "#38b764",
   "held-item": "#4a90d9",
   special: "#f7a838",
+  competitive: "#a855f7",
+  mint: "#22c55e",
 };
 
 export default function PokeMart({ money, onBuy, ballInventory, battleItemInventory, ownedItems }: PokeMartProps) {
@@ -117,12 +121,12 @@ export default function PokeMart({ money, onBuy, ballInventory, battleItemInvent
                       {item.name}
                     </span>
                     {owned > 0 && (
-                      <span className="font-pixel text-[8px] text-[#8b9bb4]">
+                      <span className="font-pixel text-[10px] text-[#8b9bb4]">
                         ×{owned}
                       </span>
                     )}
                   </div>
-                  <p className="font-pixel text-[8px] text-[#8b9bb4] truncate">
+                  <p className="font-pixel text-[10px] text-[#8b9bb4] truncate">
                     {item.description}
                   </p>
                 </div>
@@ -131,7 +135,7 @@ export default function PokeMart({ money, onBuy, ballInventory, battleItemInvent
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setQty(item.id, qty - 1)}
-                    className="w-4 h-4 rounded bg-[#3a4466] text-[#8b9bb4] text-[9px] flex items-center justify-center hover:text-[#f0f0e8]"
+                    className="min-w-[44px] min-h-[44px] rounded bg-[#3a4466] text-[#8b9bb4] text-[9px] flex items-center justify-center hover:text-[#f0f0e8]"
                     disabled={qty <= 1}
                   >
                     -
@@ -141,7 +145,7 @@ export default function PokeMart({ money, onBuy, ballInventory, battleItemInvent
                   </span>
                   <button
                     onClick={() => setQty(item.id, qty + 1)}
-                    className="w-4 h-4 rounded bg-[#3a4466] text-[#8b9bb4] text-[9px] flex items-center justify-center hover:text-[#f0f0e8]"
+                    className="min-w-[44px] min-h-[44px] rounded bg-[#3a4466] text-[#8b9bb4] text-[9px] flex items-center justify-center hover:text-[#f0f0e8]"
                   >
                     +
                   </button>
@@ -155,7 +159,7 @@ export default function PokeMart({ money, onBuy, ballInventory, battleItemInvent
                   <button
                     onClick={() => handleBuy(item)}
                     disabled={!canAfford}
-                    className="px-2 py-0.5 text-[9px] font-pixel rounded bg-[#38b764] text-[#f0f0e8] hover:bg-[#2a9654] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="min-w-[44px] min-h-[44px] px-2 text-[9px] font-pixel rounded bg-[#38b764] text-[#f0f0e8] hover:bg-[#2a9654] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Buy
                   </button>

@@ -13,10 +13,16 @@
       "type": "image/x-icon"
     },
     {
-      "src": "/globe.svg",
+      "src": "/icons/pokeball.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    },
+    {
+      "src": "/icons/pokeball.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ]
 }

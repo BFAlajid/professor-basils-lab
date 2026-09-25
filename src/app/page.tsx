@@ -1,90 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { useTeam, encodeTeam, decodeTeam, type DecodedTeamData } from "@/hooks/useTeam";
-import { fetchPokemon } from "@/hooks/usePokemon";
+import { useTeam, encodeTeam } from "@/hooks/useTeam";
+import { useTeamFromUrl } from "@/hooks/useTeamFromUrl";
 import { usePokedexContext } from "@/contexts/PokedexContext";
 import { useAchievementsContext } from "@/contexts/AchievementsContext";
 import { useFeatureFlagsContext } from "@/contexts/FeatureFlagsContext";
-import { NATURES } from "@/data/natures";
 import { TOAST_DURATION } from "@/data/constants";
-import { DEFAULT_EVS, DEFAULT_IVS } from "@/utils/statsWasm";
 import { importFromShowdown } from "@/utils/showdownFormatWasm";
-import type { TeamSlot } from "@/types";
-import dynamic from "next/dynamic";
-import SkeletonLoader from "@/components/SkeletonLoader";
 import ErrorBoundary from "@/components/ErrorBoundary";
-
-// Lightweight — keep eager
-import TeamRoster from "@/components/TeamRoster";
-import TypeCoverage from "@/components/TypeCoverage";
-import TeamWeaknessPanel from "@/components/TeamWeaknessPanel";
-import TeamSummary from "@/components/TeamSummary";
 import AudioPlayer from "@/components/AudioPlayer";
-
-// Heavy — lazy load
-const StatRadar = dynamic(() => import("@/components/StatRadar"), {
-  loading: () => <SkeletonLoader label="Loading stats..." lines={2} />,
-});
-const DamageCalculator = dynamic(() => import("@/components/DamageCalculator"), {
-  loading: () => <SkeletonLoader label="Loading calculator..." lines={3} />,
-});
-const BattleTab = dynamic(() => import("@/components/battle/BattleTab"), {
-  loading: () => <SkeletonLoader label="Loading battle..." lines={4} />,
-});
-const WildTab = dynamic(() => import("@/components/wild/WildTab"), {
-  loading: () => <SkeletonLoader label="Loading wild area..." lines={4} />,
-});
-const PokedexTracker = dynamic(() => import("@/components/PokedexTracker"), {
-  loading: () => <SkeletonLoader label="Loading Pokédex..." lines={4} />,
-});
-const AchievementPanel = dynamic(() => import("@/components/AchievementPanel"), {
-  loading: () => <SkeletonLoader label="Loading achievements..." lines={3} />,
-});
-const SpeedTierChart = dynamic(() => import("@/components/SpeedTierChart"), {
-  loading: () => <SkeletonLoader label="Loading speed chart..." lines={2} />,
-});
-const PokemonComparison = dynamic(() => import("@/components/PokemonComparison"), {
-  loading: () => <SkeletonLoader label="Loading comparison..." lines={3} />,
-});
-const TierWarnings = dynamic(() => import("@/components/TierWarnings"), {
-  loading: () => <SkeletonLoader label="Loading tier validation..." lines={2} />,
-});
-const DamageMatrix = dynamic(() => import("@/components/DamageMatrix"), {
-  loading: () => <SkeletonLoader label="Loading damage matrix..." lines={3} />,
-});
-const TeamTemplates = dynamic(() => import("@/components/TeamTemplates"), {
-  loading: () => <SkeletonLoader label="Loading templates..." lines={2} />,
-});
-const MovePoolBrowser = dynamic(() => import("@/components/MovePoolBrowser"), {
-  loading: () => <SkeletonLoader label="Loading move pool..." lines={3} />,
-});
-const EvolutionTreeViewer = dynamic(() => import("@/components/EvolutionTreeViewer"), {
-  loading: () => <SkeletonLoader label="Loading evolution tree..." lines={2} />,
-});
-const UnifiedEmulatorTab = dynamic(() => import("@/components/emulator/UnifiedEmulatorTab"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center py-20">
-      <p className="text-[#8b9bb4] font-pixel text-xs animate-pulse">Loading emulator...</p>
-    </div>
-  ),
-});
-
-type Tab = "team" | "analysis" | "stats" | "damage" | "battle" | "wild" | "emulator" | "pokedex" | "achievements";
-
-const tabs: { id: Tab; label: string; short: string }[] = [
-  { id: "team", label: "Team", short: "TM" },
-  { id: "analysis", label: "Coverage", short: "CV" },
-  { id: "stats", label: "Stats", short: "ST" },
-  { id: "damage", label: "Damage", short: "DM" },
-  { id: "battle", label: "Battle", short: "BT" },
-  { id: "wild", label: "Wild", short: "WD" },
-  { id: "emulator", label: "Emulator", short: "EM" },
-  { id: "pokedex", label: "Pokédex", short: "PD" },
-  { id: "achievements", label: "Badges", short: "BD" },
-];
+import TypeReference from "@/components/TypeReference";
+import DataManagerButton from "@/components/DataManagerButton";
+import { TAB_REGISTRY, type Tab, type TabPanelContext } from "@/app/tabRegistry";
 
 export default function Home() {
   const {
@@ -111,65 +40,8 @@ export default function Home() {
   const prevTeamSize = useRef(0);
   const shouldReduceMotion = useReducedMotion();
 
-  // Load team from URL params on mount
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const addParam = params.get("add");
-    if (addParam) {
-      fetchPokemon(addParam).then((pokemon) => {
-        if (pokemon) addPokemon(pokemon);
-      }).catch(() => {});
-      window.history.replaceState({}, "", "/");
-    }
-
-    const encoded = params.get("team");
-    if (encoded) {
-      const decoded = decodeTeam(encoded);
-      if (decoded.length === 0) return;
-
-      if (typeof decoded[0] === "number") {
-        // Old format — just IDs
-        (decoded as number[]).forEach(async (id) => {
-          try {
-            const pokemon = await fetchPokemon(id);
-            addPokemon(pokemon);
-          } catch {
-            // skip invalid
-          }
-        });
-      } else {
-        // New format — full team data
-        const slots = decoded as DecodedTeamData;
-        Promise.all(
-          slots.map(async (s) => {
-            try {
-              const pokemon = await fetchPokemon(s.id);
-              const nature = s.n ? NATURES.find((n) => n.name === s.n) ?? null : null;
-              return {
-                pokemon,
-                position: 0,
-                nature,
-                evs: s.e ? { hp: s.e[0], attack: s.e[1], defense: s.e[2], spAtk: s.e[3], spDef: s.e[4], speed: s.e[5] } : { ...DEFAULT_EVS },
-                ivs: s.i ? { hp: s.i[0], attack: s.i[1], defense: s.i[2], spAtk: s.i[3], spDef: s.i[4], speed: s.i[5] } : { ...DEFAULT_IVS },
-                ability: s.a ?? pokemon.abilities?.[0]?.ability.name ?? null,
-                heldItem: s.h ?? null,
-                selectedMoves: s.m ?? [],
-                teraConfig: s.t ? { teraType: s.t as string } : undefined,
-                formeOverride: s.f ?? undefined,
-              } as TeamSlot;
-            } catch {
-              return null;
-            }
-          })
-        ).then((results) => {
-          const validSlots = results
-            .filter((s): s is TeamSlot => s !== null)
-            .map((s, i) => ({ ...s, position: i }));
-          if (validSlots.length > 0) setTeam(validSlots);
-        }).catch(() => { /* URL team decode failed — ignore */ });
-      }
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Load team from URL params on mount (?add=<id>, ?team=<encoded>)
+  useTeamFromUrl(addPokemon, setTeam);
 
   // Auto-register team Pokemon in Pokedex + track totalTeamsBuilt
   useEffect(() => {
@@ -220,10 +92,46 @@ export default function Home() {
 
   const [selectedTeamPokemonIdx, setSelectedTeamPokemonIdx] = useState(0);
 
-  const visibleTabs = tabs.filter((tab) => {
-    if (tab.id === "emulator" && !features.enableEmulator) return false;
-    return true;
-  });
+  useEffect(() => {
+    if (selectedTeamPokemonIdx >= team.length && team.length > 0) {
+      setSelectedTeamPokemonIdx(team.length - 1);
+    }
+  }, [team.length, selectedTeamPokemonIdx]);
+
+  const visibleTabs = useMemo(
+    () => TAB_REGISTRY.filter((tab) => !tab.visible || tab.visible(features)),
+    [features]
+  );
+
+  // If the active tab disappears (a feature flag flips off mid-session), fall
+  // back to the first visible tab instead of leaving activeTab pointing at an
+  // entry that's no longer in visibleTabs — see activeEntry below.
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.id === activeTab)) {
+      const next = visibleTabs[0];
+      if (next) setActiveTab(next.id);
+    }
+  }, [visibleTabs, activeTab]);
+
+  // Ctrl+1..9 keyboard shortcuts for tab switching, plus Ctrl+0 for the 10th
+  // tab — there's no "Ctrl+10", so 0 is the conventional stand-in once the
+  // registry grows past 9 entries (it currently has 10, incl. Daily).
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const digit = parseInt(e.key, 10);
+      if (Number.isNaN(digit)) return;
+      const tabNumber = digit === 0 ? 10 : digit;
+      if (tabNumber >= 1 && tabNumber <= visibleTabs.length) {
+        e.preventDefault();
+        setActiveTab(visibleTabs[tabNumber - 1].id);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [visibleTabs]);
 
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent, tabId: Tab) => {
@@ -244,8 +152,51 @@ export default function Home() {
     [visibleTabs]
   );
 
-  const teamPokemon = team.map((s) => s.pokemon);
+  const teamPokemon = useMemo(() => team.map((s) => s.pokemon), [team]);
   const motionDuration = shouldReduceMotion ? 0 : 0.2;
+
+  // Bundles the props every tab panel needs — built once per render, passed to the registry.
+  const panelContext: TabPanelContext = useMemo(
+    () => ({
+      team,
+      teamPokemon,
+      addPokemon,
+      removePokemon,
+      isFull,
+      setNature,
+      setEvs,
+      setIvs,
+      setAbility,
+      setHeldItem,
+      setMoves,
+      setTeraType,
+      setForme,
+      setTeam,
+      handleLoadTemplate,
+      selectedTeamPokemonIdx,
+      setSelectedTeamPokemonIdx,
+      isEmulatorTabActive: activeTab === "emulator",
+    }),
+    [
+      team,
+      teamPokemon,
+      addPokemon,
+      removePokemon,
+      isFull,
+      setNature,
+      setEvs,
+      setIvs,
+      setAbility,
+      setHeldItem,
+      setMoves,
+      setTeraType,
+      setForme,
+      setTeam,
+      handleLoadTemplate,
+      selectedTeamPokemonIdx,
+      activeTab,
+    ]
+  );
 
   if (features.maintenanceMode) {
     return (
@@ -261,6 +212,11 @@ export default function Home() {
       </div>
     );
   }
+
+  const tabpanelId = `tabpanel-${activeTab}`;
+  // Resolve from visibleTabs, not TAB_REGISTRY — a tab hidden by a feature flag
+  // must not render its panel just because TAB_REGISTRY still has the entry.
+  const activeEntry = visibleTabs.find((t) => t.id === activeTab);
 
   return (
     <div className="min-h-screen bg-[#1a1c2c]">
@@ -308,7 +264,9 @@ export default function Home() {
                   </button>
                 )}
                 <button
-                  onClick={clearTeam}
+                  onClick={() => {
+                    if (window.confirm("Clear your entire team?")) clearTeam();
+                  }}
                   aria-label="Clear all team members"
                   className="rounded-lg bg-[#3a4466] px-4 py-2 text-base text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
                 >
@@ -316,6 +274,7 @@ export default function Home() {
                 </button>
               </>
             )}
+            <DataManagerButton />
             <span className="text-base text-[#8b9bb4]" aria-live="polite">
               {team.length}/6
             </span>
@@ -355,132 +314,49 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Content */}
-      <main
-        id="main-content"
-        className="mx-auto max-w-[1400px] px-6 py-8"
-        role="tabpanel"
-        aria-labelledby={`tab-${activeTab}`}
-      >
-        {/* Emulator stays mounted to preserve WASM state across tab switches */}
-        {features.enableEmulator && (
-          <div style={{ display: activeTab === "emulator" ? "block" : "none" }}>
-            <ErrorBoundary fallbackLabel="Emulator failed to load">
-              <UnifiedEmulatorTab />
+      {/* Content — id="main-content" is a stable target for the skip link above;
+          the dynamic tabpanel id/role/aria-labelledby move onto whichever inner
+          wrapper is currently showing (keep-mounted tab or the animated one). */}
+      <main id="main-content" className="mx-auto max-w-[1400px] px-6 py-8">
+        {/* Keep-mounted tabs (e.g. emulator) stay in the DOM so internal state — like
+            WASM/audio — survives switching away from and back to this tab. */}
+        {TAB_REGISTRY.filter(
+          (entry) => entry.keepMounted && (!entry.visible || entry.visible(features))
+        ).map((entry) => (
+          <div
+            key={entry.id}
+            id={activeTab === entry.id ? tabpanelId : undefined}
+            role={activeTab === entry.id ? "tabpanel" : undefined}
+            aria-labelledby={activeTab === entry.id ? `tab-${entry.id}` : undefined}
+            style={{ display: activeTab === entry.id ? "block" : "none" }}
+          >
+            <ErrorBoundary fallbackLabel={entry.fallbackLabel}>
+              {entry.panel(panelContext)}
             </ErrorBoundary>
           </div>
-        )}
+        ))}
 
         <AnimatePresence mode="wait">
-          {activeTab !== "emulator" && (
+          {activeEntry && !activeEntry.keepMounted && (
             <motion.div
               key={activeTab}
+              id={tabpanelId}
+              role="tabpanel"
+              aria-labelledby={`tab-${activeTab}`}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: motionDuration }}
             >
-              {activeTab === "team" && (
-                <ErrorBoundary fallbackLabel="Team builder crashed">
-                  <div className="space-y-6">
-                    <TeamRoster
-                      team={team}
-                      onAdd={addPokemon}
-                      onRemove={removePokemon}
-                      isFull={isFull}
-                      onSetNature={setNature}
-                      onSetEvs={setEvs}
-                      onSetIvs={setIvs}
-                      onSetAbility={setAbility}
-                      onSetHeldItem={setHeldItem}
-                      onSetMoves={setMoves}
-                      onSetTeraType={setTeraType}
-                      onSetForme={setForme}
-                      onSetTeam={setTeam}
-                    />
-                    <TierWarnings team={team} />
-                    <TeamTemplates onLoadTeam={handleLoadTemplate} />
-                  </div>
-                </ErrorBoundary>
-              )}
-              {activeTab === "analysis" && (
-                <ErrorBoundary fallbackLabel="Coverage analysis crashed">
-                  <div className="space-y-6">
-                    <TypeCoverage team={teamPokemon} />
-                    <TeamWeaknessPanel team={team} />
-                  </div>
-                </ErrorBoundary>
-              )}
-              {activeTab === "stats" && (
-                <ErrorBoundary fallbackLabel="Stats view crashed">
-                  <div className="space-y-6">
-                    <StatRadar team={team} />
-                    <SpeedTierChart team={team} />
-                    <PokemonComparison team={team} />
-                    <TeamSummary team={teamPokemon} />
-                    {team.length > 0 && (
-                      <>
-                        <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <h3 className="text-sm font-bold text-[#f0f0e8] font-pixel">Move Pool</h3>
-                            <div className="flex gap-1">
-                              {team.map((s, i) => (
-                                <button
-                                  type="button"
-                                  key={i}
-                                  onClick={() => setSelectedTeamPokemonIdx(i)}
-                                  className={`px-2 py-0.5 text-[10px] font-pixel rounded transition-colors ${
-                                    selectedTeamPokemonIdx === i
-                                      ? "bg-[#e8433f] text-[#f0f0e8]"
-                                      : "bg-[#3a4466] text-[#8b9bb4] hover:text-[#f0f0e8]"
-                                  }`}
-                                  aria-label={`View moves for ${s.pokemon.name}`}
-                                >
-                                  {s.pokemon.name.charAt(0).toUpperCase() + s.pokemon.name.slice(1, 6)}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          <MovePoolBrowser pokemon={team[selectedTeamPokemonIdx]?.pokemon} />
-                        </div>
-                        <EvolutionTreeViewer pokemonId={team[selectedTeamPokemonIdx]?.pokemon.id} />
-                      </>
-                    )}
-                  </div>
-                </ErrorBoundary>
-              )}
-              {activeTab === "damage" && (
-                <ErrorBoundary fallbackLabel="Damage calculator crashed">
-                  <div className="space-y-6">
-                    <DamageCalculator team={teamPokemon} />
-                    <DamageMatrix team={team} />
-                  </div>
-                </ErrorBoundary>
-              )}
-              {activeTab === "battle" && (
-                <ErrorBoundary fallbackLabel="Battle system crashed">
-                  <BattleTab team={team} />
-                </ErrorBoundary>
-              )}
-              {activeTab === "wild" && (
-                <ErrorBoundary fallbackLabel="Wild area crashed">
-                  <WildTab team={team} onAddToTeam={addPokemon} onSetEvs={setEvs} onSetMoves={setMoves} />
-                </ErrorBoundary>
-              )}
-              {activeTab === "pokedex" && (
-                <ErrorBoundary fallbackLabel="Pokedex crashed">
-                  <PokedexTracker />
-                </ErrorBoundary>
-              )}
-              {activeTab === "achievements" && (
-                <ErrorBoundary fallbackLabel="Achievements crashed">
-                  <AchievementPanel team={team} />
-                </ErrorBoundary>
-              )}
+              <ErrorBoundary fallbackLabel={activeEntry.fallbackLabel}>
+                {activeEntry.panel(panelContext)}
+              </ErrorBoundary>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
+
+      <TypeReference />
     </div>
   );
 }

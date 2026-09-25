@@ -33,11 +33,31 @@ interface KeyRemapDialogProps {
   onClose: () => void;
 }
 
+interface PendingRemap {
+  button: EmulatorButton;
+  key: string;
+  conflictButton: EmulatorButton;
+}
+
 export default function KeyRemapDialog({ onClose }: KeyRemapDialogProps) {
   const [binds, setBinds] = useState(() => loadKeybinds());
   const [listeningFor, setListeningFor] = useState<EmulatorButton | null>(null);
+  const [pendingRemap, setPendingRemap] = useState<PendingRemap | null>(null);
 
   const buttonToKey = getButtonToKey(binds);
+
+  const commitRemap = useCallback((button: EmulatorButton, key: string) => {
+    const next: Record<string, EmulatorButton> = {};
+    for (const [k, b] of Object.entries(binds)) {
+      if (b !== button && k !== key) {
+        next[k] = b;
+      }
+    }
+    next[key] = button;
+
+    setBinds(next);
+    saveKeybinds(next);
+  }, [binds]);
 
   // Listen for key press when remapping
   useEffect(() => {
@@ -50,39 +70,49 @@ export default function KeyRemapDialog({ onClose }: KeyRemapDialogProps) {
       const key = e.key.toLowerCase();
       if (IGNORE_KEYS.has(key)) return;
 
-      // Remove old binding for this key and for this button
-      const next: Record<string, EmulatorButton> = {};
-      for (const [k, b] of Object.entries(binds)) {
-        if (b !== listeningFor && k !== key) {
-          next[k] = b;
-        }
+      const conflictButton = binds[key];
+      if (conflictButton && conflictButton !== listeningFor) {
+        // Key is already bound elsewhere — surface a warning instead of
+        // silently stripping the other button's binding.
+        setPendingRemap({ button: listeningFor, key, conflictButton });
+        setListeningFor(null);
+        return;
       }
-      next[key] = listeningFor;
 
-      setBinds(next);
-      saveKeybinds(next);
+      commitRemap(listeningFor, key);
       setListeningFor(null);
     };
 
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
-  }, [listeningFor, binds]);
+  }, [listeningFor, binds, commitRemap]);
 
-  // Close on Escape (only when not listening for a key)
+  // Close on Escape (only when not listening for a key or resolving a conflict)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !listeningFor) {
+      if (e.key === "Escape" && !listeningFor && !pendingRemap) {
         onClose();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onClose, listeningFor]);
+  }, [onClose, listeningFor, pendingRemap]);
+
+  const handleConfirmRemap = useCallback(() => {
+    if (!pendingRemap) return;
+    commitRemap(pendingRemap.button, pendingRemap.key);
+    setPendingRemap(null);
+  }, [pendingRemap, commitRemap]);
+
+  const handleCancelRemap = useCallback(() => {
+    setPendingRemap(null);
+  }, []);
 
   const handleReset = useCallback(() => {
     const defaults = resetKeybinds();
     setBinds(defaults);
     setListeningFor(null);
+    setPendingRemap(null);
   }, []);
 
   return (
@@ -91,6 +121,34 @@ export default function KeyRemapDialog({ onClose }: KeyRemapDialogProps) {
         <h2 className="text-[#f0f0e8] font-pixel text-sm mb-4 text-center">
           Remap Controls
         </h2>
+
+        {/* Conflict warning */}
+        {pendingRemap && (
+          <div className="bg-[#e8433f]/20 border border-[#e8433f] rounded-lg p-3 text-sm text-[#f0f0e8] mb-4">
+            <p className="font-pixel text-xs mb-2">Key Already Bound</p>
+            <p className="text-xs mb-3">
+              &ldquo;{pendingRemap.key}&rdquo; is already bound to{" "}
+              <span className="font-bold">{BUTTON_LABELS[pendingRemap.conflictButton]}</span>.
+              Continuing will clear that binding.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleConfirmRemap}
+                className="px-3 py-1.5 rounded bg-[#e8433f] text-[#f0f0e8] text-[10px] font-pixel hover:bg-[#f05050] transition-colors"
+              >
+                Clear It &amp; Rebind
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelRemap}
+                className="px-3 py-1.5 rounded bg-[#3a4466] text-[#f0f0e8] text-[10px] font-pixel hover:bg-[#4a5577] transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Button grid */}
         <div className="space-y-1">
@@ -106,8 +164,9 @@ export default function KeyRemapDialog({ onClose }: KeyRemapDialogProps) {
                 </span>
                 <button
                   type="button"
+                  disabled={!!pendingRemap}
                   onClick={() => setListeningFor(isListening ? null : button)}
-                  className={`px-3 py-1 rounded text-xs font-pixel min-w-[80px] text-center transition-colors ${
+                  className={`px-3 py-1 rounded text-xs font-pixel min-w-[80px] text-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                     isListening
                       ? "bg-[#e8433f] text-[#f0f0e8] animate-pulse"
                       : "bg-[#3a4466] text-[#f0f0e8] hover:bg-[#4a5577]"

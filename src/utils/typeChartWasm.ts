@@ -9,8 +9,9 @@ type TypeChartWasmModule = {
 };
 
 const wrapper = createWasmWrapper<TypeChartWasmModule>("pkmn-type-chart", async () => {
-  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-type-chart/pkg/pkmn_type_chart.js");
+  // @ts-ignore -- dynamic WASM import
+  const wasmModulePath = "/wasm/pkmn_type_chart.js";
+  const mod = await import(/* webpackIgnore: true */ /* @vite-ignore */ wasmModulePath);
   await mod.default("/wasm/pkmn_type_chart_bg.wasm");
   return {
     get_effectiveness: mod.get_effectiveness,

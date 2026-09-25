@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { POKEMON_IDS } from "@/data/pokemonIds";
 import { TYPE_COLORS } from "@/data/typeColors";
+import { formatName } from "@/utils/format";
 
 export const revalidate = 86400;
 
@@ -89,9 +90,7 @@ export async function generateMetadata({
   params: Promise<{ name: string }>;
 }): Promise<Metadata> {
   const { name } = await params;
-  const displayName = name.replace(/-/g, " ");
-  const capitalName =
-    displayName.charAt(0).toUpperCase() + displayName.slice(1);
+  const capitalName = formatName(name);
   const id = POKEMON_IDS[name.toLowerCase()] || null;
   const idStr = id ? ` #${String(id).padStart(3, "0")}` : "";
 

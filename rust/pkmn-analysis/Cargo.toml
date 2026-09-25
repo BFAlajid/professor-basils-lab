@@ -9,3 +9,5 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 wasm-bindgen = "0.2"
 pkmn-type-chart = { path = "../pkmn-type-chart" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

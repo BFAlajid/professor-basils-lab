@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { TypeName } from "@/types";
 import { typeColors } from "@/data/typeColors";
+import { capitalize } from "@/utils/format";
 
 type LearnMethod = "level-up" | "machine" | "egg" | "tutor";
 type SortKey = "level" | "power" | "type" | "name";
@@ -94,7 +95,7 @@ export default function MoveTable({
             }`}
             aria-label={`Sort by ${key}`}
           >
-            {key === "level" ? "Lv" : key.charAt(0).toUpperCase() + key.slice(1)}
+            {key === "level" ? "Lv" : capitalize(key)}
           </button>
         ))}
       </div>

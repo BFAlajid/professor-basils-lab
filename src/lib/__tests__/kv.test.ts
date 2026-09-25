@@ -9,6 +9,7 @@ const {
   mockHset,
   mockHdel,
   mockHmget,
+  mockHget,
   mockIncr,
   mockExpire,
 } = vi.hoisted(() => ({
@@ -20,6 +21,7 @@ const {
   mockHset: vi.fn(),
   mockHdel: vi.fn(),
   mockHmget: vi.fn(),
+  mockHget: vi.fn(),
   mockIncr: vi.fn(),
   mockExpire: vi.fn(),
 }));
@@ -34,6 +36,7 @@ vi.mock("@vercel/kv", () => ({
     hset: mockHset,
     hdel: mockHdel,
     hmget: mockHmget,
+    hget: mockHget,
     incr: mockIncr,
     expire: mockExpire,
   },
@@ -43,8 +46,15 @@ vi.mock("@/data/constants", () => ({
   LEADERBOARD_MAX_ENTRIES: 100,
 }));
 
-import { submitScore, getLeaderboard, getPlayerRank, checkRateLimit } from "../kv";
+import {
+  submitScore,
+  getLeaderboard,
+  getPlayerRank,
+  checkRateLimit,
+  LeaderboardOwnershipError,
+} from "../kv";
 import type { LeaderboardEntry } from "@/types/leaderboard";
+import { createHash } from "crypto";
 
 function makeEntry(overrides: Partial<LeaderboardEntry> = {}): LeaderboardEntry {
   return {
@@ -57,17 +67,25 @@ function makeEntry(overrides: Partial<LeaderboardEntry> = {}): LeaderboardEntry 
   };
 }
 
+function hashOf(deviceKey: string): string {
+  return createHash("sha256").update(deviceKey).digest("hex");
+}
+
+const DEVICE_KEY = "a".repeat(64);
+const OTHER_DEVICE_KEY = "b".repeat(64);
+
 describe("submitScore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockZcard.mockResolvedValue(1);
     mockZrevrank.mockResolvedValue(0);
     mockZrange.mockResolvedValue([]);
+    mockHget.mockResolvedValue(null);
   });
 
   it("adds member via zadd with correct key and score", async () => {
     const entry = makeEntry({ score: 99 });
-    await submitScore("battle-tower", entry);
+    await submitScore("battle-tower", entry, DEVICE_KEY);
 
     expect(mockZadd).toHaveBeenCalledWith(
       "leaderboard:battle-tower",
@@ -77,7 +95,7 @@ describe("submitScore", () => {
 
   it("stores metadata in hash via hset", async () => {
     const entry = makeEntry();
-    await submitScore("battle-tower", entry);
+    await submitScore("battle-tower", entry, DEVICE_KEY);
 
     expect(mockHset).toHaveBeenCalledWith(
       "leaderboard:battle-tower:data",
@@ -95,7 +113,7 @@ describe("submitScore", () => {
     mockZcard.mockResolvedValue(105);
     mockZrange.mockResolvedValue(["old1", "old2", "old3", "old4", "old5"]);
 
-    await submitScore("elo-rating", makeEntry());
+    await submitScore("elo-rating", makeEntry(), DEVICE_KEY);
 
     expect(mockZremrangebyrank).toHaveBeenCalledWith(
       "leaderboard:elo-rating",
@@ -106,12 +124,16 @@ describe("submitScore", () => {
       "leaderboard:elo-rating:data",
       "old1", "old2", "old3", "old4", "old5"
     );
+    expect(mockHdel).toHaveBeenCalledWith(
+      "leaderboard:elo-rating:owner",
+      "old1", "old2", "old3", "old4", "old5"
+    );
   });
 
   it("does not trim when count is within limit", async () => {
     mockZcard.mockResolvedValue(50);
 
-    await submitScore("battle-tower", makeEntry());
+    await submitScore("battle-tower", makeEntry(), DEVICE_KEY);
 
     expect(mockZremrangebyrank).not.toHaveBeenCalled();
   });
@@ -119,7 +141,7 @@ describe("submitScore", () => {
   it("returns 1-indexed rank", async () => {
     mockZrevrank.mockResolvedValue(2);
 
-    const result = await submitScore("battle-tower", makeEntry());
+    const result = await submitScore("battle-tower", makeEntry(), DEVICE_KEY);
 
     expect(result).toEqual({ rank: 3 });
   });
@@ -127,9 +149,54 @@ describe("submitScore", () => {
   it("returns rank 1 when zrevrank returns null", async () => {
     mockZrevrank.mockResolvedValue(null);
 
-    const result = await submitScore("hall-of-fame", makeEntry());
+    const result = await submitScore("hall-of-fame", makeEntry(), DEVICE_KEY);
 
     expect(result).toEqual({ rank: 1 });
+  });
+
+  // --- Ownership binding ---
+
+  it("claims ownership on first submission by storing the deviceKey hash", async () => {
+    mockHget.mockResolvedValue(null);
+
+    await submitScore("battle-tower", makeEntry(), DEVICE_KEY);
+
+    expect(mockHset).toHaveBeenCalledWith("leaderboard:battle-tower:owner", {
+      "12345": hashOf(DEVICE_KEY),
+    });
+  });
+
+  it("allows a resubmission from the same device (matching hash)", async () => {
+    mockHget.mockResolvedValue(hashOf(DEVICE_KEY));
+
+    const result = await submitScore("battle-tower", makeEntry(), DEVICE_KEY);
+
+    expect(result).toEqual({ rank: 1 });
+    expect(mockZadd).toHaveBeenCalled();
+    // Owner hash already recorded — should not rewrite it
+    expect(mockHset).not.toHaveBeenCalledWith(
+      "leaderboard:battle-tower:owner",
+      expect.anything()
+    );
+  });
+
+  it("rejects a submission with a mismatched deviceKey and does not write", async () => {
+    mockHget.mockResolvedValue(hashOf(DEVICE_KEY));
+
+    await expect(
+      submitScore("battle-tower", makeEntry(), OTHER_DEVICE_KEY)
+    ).rejects.toThrow(LeaderboardOwnershipError);
+
+    expect(mockZadd).not.toHaveBeenCalled();
+    expect(mockHset).not.toHaveBeenCalled();
+  });
+
+  it("checks the owner hash before writing, keyed by trainerId", async () => {
+    mockHget.mockResolvedValue(null);
+
+    await submitScore("elo-rating", makeEntry({ trainerId: "54321" }), DEVICE_KEY);
+
+    expect(mockHget).toHaveBeenCalledWith("leaderboard:elo-rating:owner", "54321");
   });
 });
 
@@ -280,12 +347,12 @@ describe("checkRateLimit", () => {
     expect(mockExpire).toHaveBeenCalledWith("rate:1.2.3.4:leaderboard", 3600);
   });
 
-  it("does not set TTL on subsequent increments", async () => {
+  it("sets TTL on every increment for atomicity safety", async () => {
     mockIncr.mockResolvedValue(2);
 
     await checkRateLimit("1.2.3.4", 10);
 
-    expect(mockExpire).not.toHaveBeenCalled();
+    expect(mockExpire).toHaveBeenCalledWith("rate:1.2.3.4:leaderboard", 3600);
   });
 
   it("uses correct rate limit key format", async () => {

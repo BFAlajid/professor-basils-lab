@@ -141,7 +141,7 @@ export default function HallOfFame({ onClose }: HallOfFameProps) {
                           className="pixelated"
                         />
                       ) : (
-                        <div className="flex h-8 w-8 items-center justify-center rounded bg-[#3a4466] font-pixel text-[8px] text-[#8b9bb4]">
+                        <div className="flex h-8 w-8 items-center justify-center rounded bg-[#3a4466] font-pixel text-[10px] text-[#8b9bb4]">
                           ?
                         </div>
                       )}

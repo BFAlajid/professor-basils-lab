@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Pokemon, TypeName } from "@/types";
+import { Move, Pokemon, PokemonMoveRef, TypeName } from "@/types";
+import { fetchPokemonData, fetchMoveData } from "@/utils/pokeApiClient";
 import { formatName } from "@/utils/format";
 import MoveTable from "./MoveTable";
 
@@ -23,26 +24,6 @@ interface MoveEntry {
 interface MovePoolBrowserProps {
   pokemonId?: number;
   pokemon?: Pokemon;
-}
-
-interface PokeAPIMoveDetail {
-  name: string;
-  type: { name: string };
-  power: number | null;
-  accuracy: number | null;
-  pp: number | null;
-  damage_class: { name: string };
-}
-
-interface PokeAPIVersionGroupDetail {
-  move_learn_method: { name: string };
-  level_learned_at: number;
-  version_group: { name: string };
-}
-
-interface PokeAPIMoveRef {
-  move: { name: string; url: string };
-  version_group_details: PokeAPIVersionGroupDetail[];
 }
 
 function classifyMethod(method: string): LearnMethod {
@@ -71,46 +52,34 @@ export default function MovePoolBrowser({ pokemonId, pokemon }: MovePoolBrowserP
 
     (async () => {
       try {
-        const pokemonRes = await fetch(
-          `https://pokeapi.co/api/v2/pokemon/${resolvedId}`
-        );
-        if (!pokemonRes.ok) throw new Error("Failed to fetch");
-        const data = await pokemonRes.json();
+        const data = await fetchPokemonData(resolvedId);
+        const moveRefs: PokemonMoveRef[] = data.moves;
 
-        const moveRefs: PokeAPIMoveRef[] = data.moves;
-
-        const grouped = new Map<string, { method: LearnMethod; level: number; url: string }>();
+        const grouped = new Map<string, { method: LearnMethod; level: number }>();
         for (const ref of moveRefs) {
-          for (const detail of ref.version_group_details) {
+          for (const detail of ref.version_group_details ?? []) {
             const method = classifyMethod(detail.move_learn_method.name);
             const key = `${ref.move.name}-${method}`;
             if (!grouped.has(key)) {
               grouped.set(key, {
                 method,
                 level: detail.level_learned_at,
-                url: ref.move.url,
               });
             }
           }
         }
 
-        const uniqueUrls = new Map<string, string>();
-        for (const ref of moveRefs) {
-          uniqueUrls.set(ref.move.name, ref.move.url);
-        }
+        const uniqueNames = Array.from(new Set(moveRefs.map((ref) => ref.move.name)));
 
         const batchSize = 30;
-        const urlEntries = Array.from(uniqueUrls.entries());
-        const moveDetails = new Map<string, PokeAPIMoveDetail>();
+        const moveDetails = new Map<string, Move>();
 
-        for (let i = 0; i < urlEntries.length; i += batchSize) {
+        for (let i = 0; i < uniqueNames.length; i += batchSize) {
           if (cancelled) return;
-          const batch = urlEntries.slice(i, i + batchSize);
+          const batch = uniqueNames.slice(i, i + batchSize);
           const results = await Promise.allSettled(
-            batch.map(async ([name, url]) => {
-              const res = await fetch(url);
-              if (!res.ok) return null;
-              const detail: PokeAPIMoveDetail = await res.json();
+            batch.map(async (name) => {
+              const detail = await fetchMoveData(name);
               return { name, detail };
             })
           );
@@ -132,11 +101,11 @@ export default function MovePoolBrowser({ pokemonId, pokemon }: MovePoolBrowserP
           entries.push({
             name: moveName,
             displayName: formatName(moveName),
-            type: detail.type.name as TypeName,
+            type: detail.type.name,
             power: detail.power,
             accuracy: detail.accuracy,
             pp: detail.pp,
-            damageClass: detail.damage_class.name as MoveEntry["damageClass"],
+            damageClass: detail.damage_class.name,
             learnMethod: info.method,
             levelLearnedAt: info.level,
           });

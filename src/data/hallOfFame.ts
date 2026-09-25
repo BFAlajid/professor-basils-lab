@@ -1,3 +1,5 @@
+import { STORAGE_KEYS, readStorage, writeStorage, removeStorage } from "@/utils/persistence";
+
 export interface HallOfFameEntry {
   id: string;
   date: string; // ISO
@@ -12,7 +14,6 @@ export interface HallOfFameEntry {
   gymBadges?: number; // for gym challenge
 }
 
-const STORAGE_KEY = "pokemon-hall-of-fame";
 const MAX_ENTRIES = 50;
 
 function generateId(): string {
@@ -26,29 +27,14 @@ export function saveToHallOfFame(entry: HallOfFameEntry): void {
     id: entry.id || generateId(),
   };
   const updated = [entryWithId, ...existing].slice(0, MAX_ENTRIES);
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  } catch {
-    // localStorage full or unavailable — silently fail
-  }
+  writeStorage(STORAGE_KEYS.hallOfFame, updated);
 }
 
 export function loadHallOfFame(): HallOfFameEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed as HallOfFameEntry[];
-  } catch {
-    return [];
-  }
+  const entries = readStorage<unknown>(STORAGE_KEYS.hallOfFame, []);
+  return Array.isArray(entries) ? (entries as HallOfFameEntry[]) : [];
 }
 
 export function clearHallOfFame(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // silently fail
-  }
+  removeStorage(STORAGE_KEYS.hallOfFame);
 }

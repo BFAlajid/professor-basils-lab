@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { Pokemon, TypeName } from "@/types";
+import { TeamSlot, TypeName } from "@/types";
 import { typeColors } from "@/data/typeColors";
 import { TYPE_LIST } from "@/data/typeChart";
 import {
@@ -11,19 +11,44 @@ import {
   getResistances,
   getOffensiveCoverage,
 } from "@/utils/teamAnalysisWasm";
+import { getCachedMove } from "@/utils/pokeApiClient";
 import TypeBadge from "./TypeBadge";
 
 interface TypeCoverageProps {
-  team: Pokemon[];
+  team: TeamSlot[];
+}
+
+/** Extract damaging move types from all team slots using the move cache. */
+function collectMoveTypes(team: TeamSlot[]): TypeName[] {
+  const types = new Set<TypeName>();
+  for (const slot of team) {
+    if (!slot.selectedMoves) continue;
+    for (const moveName of slot.selectedMoves) {
+      const move = getCachedMove(moveName);
+      if (move && move.damage_class.name !== "status") {
+        types.add(move.type.name);
+      }
+    }
+  }
+  return Array.from(types);
 }
 
 export default function TypeCoverage({ team }: TypeCoverageProps) {
-  const coverage = useMemo(() => analyzeDefensiveCoverage(team), [team]);
+  const teamPokemon = useMemo(() => team.map((s) => s.pokemon), [team]);
+  const moveTypes = useMemo(() => collectMoveTypes(team), [team]);
+  const coverage = useMemo(
+    () => analyzeDefensiveCoverage(teamPokemon, moveTypes),
+    [teamPokemon, moveTypes]
+  );
   const weaknesses = useMemo(() => getWeaknesses(coverage), [coverage]);
   const resistances = useMemo(() => getResistances(coverage), [coverage]);
   const offensiveCov = useMemo(() => getOffensiveCoverage(coverage), [coverage]);
 
-  if (team.length < 2) {
+  const hasMovesSelected = team.some(
+    (s) => s.selectedMoves && s.selectedMoves.length > 0
+  );
+
+  if (teamPokemon.length < 2) {
     return (
       <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-6 text-center text-[#8b9bb4]">
         Add at least 2 Pokemon to see type coverage analysis
@@ -102,11 +127,11 @@ export default function TypeCoverage({ team }: TypeCoverageProps) {
 
         <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
           <h4 className="mb-3 text-sm font-semibold text-[#38b764]">
-            STAB Coverage ({offensiveCov.length}/{TYPE_LIST.length})
+            {hasMovesSelected ? "Offensive" : "STAB"} Coverage ({offensiveCov.length}/{TYPE_LIST.length})
           </h4>
           <div className="flex flex-wrap gap-1.5">
             {offensiveCov.length === 0 ? (
-              <span className="text-sm text-[#8b9bb4]">No STAB coverage</span>
+              <span className="text-sm text-[#8b9bb4]">No coverage</span>
             ) : (
               offensiveCov.map((t) => <TypeBadge key={t} type={t} size="sm" />)
             )}

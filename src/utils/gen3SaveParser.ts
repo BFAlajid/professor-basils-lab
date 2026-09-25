@@ -100,7 +100,7 @@ export function decodeGen3String(data: Uint8Array, offset: number, maxLen: numbe
 /**
  * Detect game version from section 0 data
  */
-function detectGameCode(section0: Uint8Array): string {
+function detectGameCode(_section0: Uint8Array): string {
   // Game code is at offset 0xAC in the ROM header, but in save files
   // we can detect based on security key location/value and section sizes
   // For simplicity, we'll check the save size patterns

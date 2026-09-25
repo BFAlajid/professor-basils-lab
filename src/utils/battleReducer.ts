@@ -5,20 +5,24 @@ import {
   BattleTeam,
   BattleTurnAction,
   BattleLogEntry,
+  DoublesTarget,
   TeamSlot,
   GenerationalMechanic,
   AltFormeData,
   FieldState,
-  SideConditions,
   StatStages,
 } from "@/types";
 import { extractBaseStats } from "./damage";
 import { calculateAllStats, DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { isMegaStone } from "@/data/megaStones";
+import { getCachedMoves } from "./battleHelpers";
 import { getAbilityHooks } from "@/data/abilities";
+import { battleRandom, seedBattleRng, clearBattleRng, deriveTurnSeed } from "./battleRng";
 import {
   initStatStages,
   getActivePokemon,
+  getActivePokemonBySlot,
+  getActiveDoublesSlots,
   getEffectiveSpeed,
   updatePokemon,
   getMoveIndexFromAction,
@@ -26,8 +30,72 @@ import {
   initSideConditions,
   triggerOnStatDrop,
 } from "./battleHelpers";
+
+// Cap the battle log at the source so long battles (esp. online PvP) don't grow an
+// unbounded array — BattleLog renders every entry each turn.
+const MAX_LOG_ENTRIES = 200;
+
+function capLog(log: BattleLogEntry[]): BattleLogEntry[] {
+  return log.length > MAX_LOG_ENTRIES ? log.slice(log.length - MAX_LOG_ENTRIES) : log;
+}
+
+// --- Volatile status cleanup on switch ---
+function clearVolatileStatus(): Partial<BattlePokemon> {
+  return {
+    statStages: initStatStages(),
+    confusionTurns: 0,
+    toxicCounter: 0,
+    // A Choice/lock-in mon that switches out must not come back in still
+    // carrying the pre-switch move — otherwise a bail (paralysis, etc.) after
+    // switching back in reads this stale value (see applyMoveLocks below).
+    lastMoveUsed: null,
+    focusEnergy: false,
+    substituteHp: 0,
+    chargingMove: null,
+    semiInvulnerable: null,
+    yawnTurns: 0,
+    choiceLockedMove: null,
+    lockInMove: null,
+    lockInTurns: 0,
+    consecutiveProtects: 0,
+    isProtected: false,
+    isFlinched: false,
+    isSeeded: false,
+    seededBy: null,
+    bindingTurns: 0,
+    bindingMove: null,
+    boundBy: null,
+    taunted: 0,
+    encored: 0,
+    encoredMove: null,
+    disabledMove: null,
+    disabledTurns: 0,
+    tormented: false,
+    aquaRing: false,
+    ingrain: false,
+    cursed: false,
+    healBlocked: 0,
+    embargoed: 0,
+    perishCount: 0,
+  };
+}
+
+// --- Lock-in moves (2-3 turn lock, then confusion) ---
+const LOCK_IN_MOVES = new Set(["outrage", "thrash", "petal-dance"]);
+
+// --- Choice items ---
+const CHOICE_ITEMS = new Set(["choice-band", "choice-specs", "choice-scarf"]);
+
+// --- Doubles Constants ---
+export const SPREAD_MOVES = new Set([
+  "earthquake", "surf", "rock-slide", "heat-wave", "dazzling-gleam",
+  "discharge", "muddy-water", "blizzard", "sludge-wave",
+]);
+export const ALLY_TARGET_MOVES = new Set(["helping-hand"]);
+export const SPREAD_DAMAGE_MODIFIER = 0.75;
 import { applyMegaEvolution, applyTerastallization, applyDynamax, endDynamax } from "./battleMechanics";
 import { executeMove } from "./battleExecution";
+import { executeDamagingMove } from "./battleExecutionDamage";
 import { applyEndOfTurnEffects, applyHazardsOnSwitchIn } from "./battleEffects";
 
 // --- Initialization ---
@@ -50,6 +118,15 @@ export function initBattlePokemon(slot: TeamSlot, megaFormeCache?: Map<string, A
     ? Math.max(1, Math.floor(calc.hp * slot.startingHpPercent))
     : calc.hp;
 
+  // Initialize move PP from cached move data
+  const cachedMoves = getCachedMoves();
+  const selectedMoves = slot.selectedMoves ?? [];
+  const moveMaxPP = selectedMoves.map((moveName) => {
+    const cached = cachedMoves.get(moveName);
+    return cached?.pp ?? 15;
+  });
+  const movePP = [...moveMaxPP];
+
   return {
     slot,
     currentHp: startHp,
@@ -60,12 +137,20 @@ export function initBattlePokemon(slot: TeamSlot, megaFormeCache?: Map<string, A
     isFainted: false,
     toxicCounter: 0,
     sleepTurns: 0,
+    confusionTurns: 0,
+    movePP,
+    moveMaxPP,
     turnsOnField: 0,
     isProtected: false,
     lastMoveUsed: null,
+    lastMoveTurn: 0,
     consecutiveProtects: 0,
     isFlinched: false,
     choiceLockedMove: null,
+    focusEnergy: false,
+    substituteHp: 0,
+    chargingMove: null,
+    semiInvulnerable: null,
     isMegaEvolved: false,
     isTerastallized: false,
     isDynamaxed: false,
@@ -77,17 +162,46 @@ export function initBattlePokemon(slot: TeamSlot, megaFormeCache?: Map<string, A
     hasMegaEvolved: false,
     hasTerastallized: false,
     hasDynamaxed: false,
+    roostActive: false,
+    yawnTurns: 0,
+    // Volatile status defaults
+    isSeeded: false,
+    seededBy: null,
+    bindingTurns: 0,
+    bindingMove: null,
+    boundBy: null,
+    taunted: 0,
+    encored: 0,
+    encoredMove: null,
+    disabledMove: null,
+    disabledTurns: 0,
+    tormented: false,
+    perishCount: 0,
+    aquaRing: false,
+    ingrain: false,
+    cursed: false,
+    lockInMove: null,
+    lockInTurns: 0,
+    healBlocked: 0,
+    embargoed: 0,
+    itemConsumed: false,
   };
 }
 
 export function initBattleTeam(
   slots: TeamSlot[],
   mechanic: GenerationalMechanic = null,
-  megaFormeCache?: Map<string, AltFormeData>
+  megaFormeCache?: Map<string, AltFormeData>,
+  format: "singles" | "doubles" = "singles"
 ): BattleTeam {
   const pokemon = slots.map((s) => initBattlePokemon(s, megaFormeCache));
   if (pokemon.length > 0) pokemon[0].isActive = true;
-  return { pokemon, activePokemonIndex: 0, selectedMechanic: mechanic };
+  let activePokemonIndex2: number | null = null;
+  if (format === "doubles" && pokemon.length > 1) {
+    pokemon[1].isActive = true;
+    activePokemonIndex2 = 1;
+  }
+  return { pokemon, activePokemonIndex: 0, activePokemonIndex2, selectedMechanic: mechanic };
 }
 
 // --- Initial State ---
@@ -97,6 +211,7 @@ const initialFieldState: FieldState = {
   weatherTurnsLeft: 0,
   terrain: null,
   terrainTurnsLeft: 0,
+  trickRoom: 0,
   player1Side: initSideConditions(),
   player2Side: initSideConditions(),
 };
@@ -104,16 +219,19 @@ const initialFieldState: FieldState = {
 export const initialBattleState: BattleState = {
   phase: "setup",
   mode: "ai",
+  format: "singles",
   turn: 0,
-  player1: { pokemon: [], activePokemonIndex: 0, selectedMechanic: null },
-  player2: { pokemon: [], activePokemonIndex: 0, selectedMechanic: null },
+  player1: { pokemon: [], activePokemonIndex: 0, activePokemonIndex2: null, selectedMechanic: null },
+  player2: { pokemon: [], activePokemonIndex: 0, activePokemonIndex2: null, selectedMechanic: null },
   log: [],
   winner: null,
   waitingForSwitch: null,
+  waitingForSwitchSlot: null,
   currentTurnPlayer: "player1",
   field: { ...initialFieldState },
   difficulty: "normal",
   pendingPivotSwitch: null,
+  pendingBatonPass: false,
 };
 
 // --- Battle Reducer ---
@@ -121,31 +239,80 @@ export const initialBattleState: BattleState = {
 export function battleReducer(state: BattleState, action: BattleAction): BattleState {
   switch (action.type) {
     case "START_BATTLE": {
-      const p1 = initBattleTeam(action.player1Team, action.player1Mechanic ?? null, action.megaFormeCache);
-      const p2 = initBattleTeam(action.player2Team, action.player2Mechanic ?? null, action.megaFormeCache);
+      const format = action.format ?? "singles";
+      const p1 = initBattleTeam(action.player1Team, action.player1Mechanic ?? null, action.megaFormeCache, format);
+      const p2 = initBattleTeam(action.player2Team, action.player2Mechanic ?? null, action.megaFormeCache, format);
       const log: BattleLogEntry[] = [
-        { turn: 1, message: `Battle start!`, kind: "info" },
-        { turn: 1, message: `${action.player1Team[0].pokemon.name} was sent out!`, kind: "switch" },
-        { turn: 1, message: `${action.player2Team[0].pokemon.name} was sent out!`, kind: "switch" },
+        { turn: 0, message: `${format === "doubles" ? "Doubles b" : "B"}attle start!`, kind: "info" },
+        { turn: 0, message: `${action.player1Team[0]?.pokemon.name ?? "Unknown"} was sent out!`, kind: "switch" },
+        { turn: 0, message: `${action.player2Team[0]?.pokemon.name ?? "Unknown"} was sent out!`, kind: "switch" },
       ];
-      return {
+      if (format === "doubles") {
+        if (action.player1Team.length > 1) {
+          log.push({ turn: 0, message: `${action.player1Team[1].pokemon.name} was sent out!`, kind: "switch" });
+        }
+        if (action.player2Team.length > 1) {
+          log.push({ turn: 0, message: `${action.player2Team[1].pokemon.name} was sent out!`, kind: "switch" });
+        }
+      }
+      let newState: BattleState = {
         ...state,
         phase: "action_select",
         mode: action.mode,
-        turn: 1,
+        format,
+        turn: 0,
         player1: p1,
         player2: p2,
         log,
         winner: null,
         waitingForSwitch: null,
+        waitingForSwitchSlot: null,
         currentTurnPlayer: "player1",
         field: { ...initialFieldState },
         difficulty: action.difficulty ?? "normal",
         pendingPivotSwitch: null,
+        pendingBatonPass: false,
+        rngSeed: action.rngSeed,
       };
+
+      // Trigger lead abilities (Intimidate, Drizzle, etc.) for both players
+      for (const player of ["player1", "player2"] as const) {
+        const oppPlayer = player === "player1" ? "player2" : "player1";
+        const switchedIn = getActivePokemon(newState[player]);
+        const opp = getActivePokemon(newState[oppPlayer]);
+        const abilityHooks = getAbilityHooks(switchedIn.slot.ability);
+        if (abilityHooks?.onSwitchIn && !opp.isFainted) {
+          const effect = abilityHooks.onSwitchIn({ pokemon: switchedIn, opponent: opp });
+          if (effect) {
+            if (effect.message) {
+              newState = { ...newState, log: [...newState.log, { turn: 0, message: effect.message, kind: "status" }] };
+            }
+            if (effect.type === "stat_drop" && effect.stat && effect.stages) {
+              const target = getActivePokemon(newState[oppPlayer]);
+              const statKey = effect.stat as keyof StatStages;
+              const oldStage = target.statStages[statKey] ?? 0;
+              const newStage = Math.max(-6, oldStage + effect.stages);
+              if (newStage !== oldStage) {
+                newState = updatePokemon(newState, oppPlayer, newState[oppPlayer].activePokemonIndex, {
+                  ...target, statStages: { ...target.statStages, [statKey]: newStage },
+                });
+              }
+            } else if (effect.type === "weather" && effect.weather) {
+              newState = { ...newState, field: { ...newState.field, weather: effect.weather, weatherTurnsLeft: effect.weatherTurns ?? 5 } };
+            } else if (effect.type === "terrain" && effect.terrain) {
+              newState = { ...newState, field: { ...newState.field, terrain: effect.terrain, terrainTurnsLeft: effect.terrainTurns ?? 5 } };
+            }
+          }
+        }
+      }
+
+      return newState;
     }
 
     case "EXECUTE_TURN": {
+      if (state.format === "doubles" && action.player1Action2 && action.player2Action2) {
+        return executeDoublesTurn(state, action.player1Action, action.player1Action2, action.player2Action, action.player2Action2);
+      }
       return executeTurn(state, action.player1Action, action.player2Action);
     }
 
@@ -153,24 +320,72 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       const team = { ...state[action.player] };
       const newPokemon = [...team.pokemon];
 
-      newPokemon[team.activePokemonIndex] = {
-        ...newPokemon[team.activePokemonIndex],
+      // Determine which active slot is being replaced
+      const switchSlot = action.slot ?? state.waitingForSwitchSlot ?? 0;
+      const oldIndex = switchSlot === 1 && team.activePokemonIndex2 !== null
+        ? team.activePokemonIndex2
+        : team.activePokemonIndex;
+
+      // Switch-out ability effects (Regenerator, Natural Cure)
+      const switchOutLog: BattleLogEntry[] = [];
+      let switchingOutPokemon = { ...newPokemon[oldIndex] };
+      if (!switchingOutPokemon.isFainted) {
+        const switchOutHooks = getAbilityHooks(switchingOutPokemon.slot.ability);
+        if (switchOutHooks?.onSwitchOut) {
+          const switchOutEffect = switchOutHooks.onSwitchOut({ pokemon: switchingOutPokemon });
+          if (switchOutEffect) {
+            if (switchOutEffect.type === "heal" && switchOutEffect.healFraction) {
+              const healAmount = Math.max(1, Math.floor(switchingOutPokemon.maxHp * switchOutEffect.healFraction));
+              switchingOutPokemon = {
+                ...switchingOutPokemon,
+                currentHp: Math.min(switchingOutPokemon.maxHp, switchingOutPokemon.currentHp + healAmount),
+              };
+            } else if (switchOutEffect.type === "cure_status") {
+              switchingOutPokemon = { ...switchingOutPokemon, status: null, toxicCounter: 0 };
+            }
+            if (switchOutEffect.message) {
+              switchOutLog.push({ turn: state.turn, message: switchOutEffect.message, kind: "status" });
+            }
+          }
+        }
+      }
+
+      // Baton Pass transfers stat stages/volatile status to the replacement
+      // instead of the switch clearing them as normal — see pendingBatonPass
+      // on BattleState and the Baton Pass effect in battleExecutionStatus.ts.
+      // U-turn/Volt Switch share the same force-switch machinery but never
+      // set this flag, so they fall through to the ordinary clear below.
+      const isBatonPass = state.pendingBatonPass;
+
+      newPokemon[oldIndex] = {
+        ...switchingOutPokemon,
         isActive: false,
+        ...clearVolatileStatus(),
+        turnsOnField: 0,
       };
       newPokemon[action.pokemonIndex] = {
         ...newPokemon[action.pokemonIndex],
         isActive: true,
         turnsOnField: 0,
+        ...(isBatonPass ? {
+          statStages: switchingOutPokemon.statStages,
+          focusEnergy: switchingOutPokemon.focusEnergy,
+          substituteHp: switchingOutPokemon.substituteHp,
+          aquaRing: switchingOutPokemon.aquaRing,
+          ingrain: switchingOutPokemon.ingrain,
+        } : {}),
       };
 
       const updatedTeam: BattleTeam = {
         pokemon: newPokemon,
-        activePokemonIndex: action.pokemonIndex,
+        activePokemonIndex: switchSlot === 0 ? action.pokemonIndex : team.activePokemonIndex,
+        activePokemonIndex2: switchSlot === 1 ? action.pokemonIndex : team.activePokemonIndex2,
         selectedMechanic: team.selectedMechanic,
       };
 
       const log = [
         ...state.log,
+        ...switchOutLog,
         {
           turn: state.turn,
           message: `${newPokemon[action.pokemonIndex].slot.pokemon.name} was sent out!`,
@@ -182,10 +397,12 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         ...state,
         [action.player]: updatedTeam,
         log,
+        pendingBatonPass: false,
       };
 
-      // Apply ability onSwitchIn
-      const switchedIn = getActivePokemon(newState[action.player]);
+      // Apply ability onSwitchIn (use correct slot for doubles)
+      const switchedInIdx = switchSlot === 1 ? updatedTeam.activePokemonIndex2 : updatedTeam.activePokemonIndex;
+      const switchedIn = switchedInIdx !== null ? newState[action.player].pokemon[switchedInIdx] : getActivePokemon(newState[action.player]);
       const oppPlayer = action.player === "player1" ? "player2" : "player1";
       const opp = getActivePokemon(newState[oppPlayer]);
       const abilityHooks = getAbilityHooks(switchedIn.slot.ability);
@@ -193,7 +410,8 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         const effect = abilityHooks.onSwitchIn({ pokemon: switchedIn, opponent: opp });
         if (effect) {
           if (effect.message) {
-            newState.log.push({ turn: state.turn, message: effect.message, kind: "status" });
+            const log: BattleLogEntry[] = [...newState.log, { turn: state.turn, message: effect.message, kind: "status" }];
+            newState = { ...newState, log };
           }
           if (effect.type === "stat_drop" && effect.stat && effect.stages) {
             const target = getActivePokemon(newState[oppPlayer]);
@@ -207,6 +425,8 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
             }
           } else if (effect.type === "weather" && effect.weather) {
             newState = { ...newState, field: { ...newState.field, weather: effect.weather, weatherTurnsLeft: effect.weatherTurns ?? 5 } };
+          } else if (effect.type === "terrain" && effect.terrain) {
+            newState = { ...newState, field: { ...newState.field, terrain: effect.terrain, terrainTurnsLeft: effect.terrainTurns ?? 5 } };
           }
         }
       }
@@ -214,7 +434,7 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       newState = applyHazardsOnSwitchIn(newState, action.player, newState.log);
 
       if (state.waitingForSwitch === action.player) {
-        return { ...newState, phase: "action_select", waitingForSwitch: null };
+        return { ...newState, phase: "action_select", waitingForSwitch: null, waitingForSwitchSlot: null };
       }
       return newState;
     }
@@ -227,6 +447,69 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
   }
 }
 
+// --- Move lock helpers ---
+
+/** Apply Choice item lock and Outrage/Thrash/Petal Dance lock-in after a move executes. */
+function applyMoveLocks(
+  state: BattleState,
+  player: "player1" | "player2",
+  slot: 0 | 1,
+  log: BattleLogEntry[]
+): BattleState {
+  const idx = slot === 1 ? state[player].activePokemonIndex2 : state[player].activePokemonIndex;
+  if (idx === null) return state;
+  const active = state[player].pokemon[idx];
+  if (!active || active.isFainted) return state;
+
+  // executeMove/executeMoveDoubles bail out early (paralysis, sleep, freeze, flinch,
+  // confusion self-hit, Taunt, Disable, Torment, 0 PP) WITHOUT updating lastMoveTurn —
+  // skip locking in that case instead of reading a stale lastMoveUsed left over from
+  // a previous turn (or from before a switch out/in).
+  if (active.lastMoveTurn !== state.turn) return state;
+
+  const moveName = active.lastMoveUsed;
+  if (!moveName) return state;
+
+  const updates: Partial<BattlePokemon> = {};
+
+  // Choice item lock: set choiceLockedMove when holding a Choice item
+  if (CHOICE_ITEMS.has(active.slot.heldItem ?? "")) {
+    updates.choiceLockedMove = moveName;
+  }
+
+  // Lock-in move handling (Outrage, Thrash, Petal Dance)
+  if (LOCK_IN_MOVES.has(moveName)) {
+    if ((active.lockInTurns ?? 0) === 0) {
+      // First use + 1-2 additional forced turns = 2-3 total attacks before fatigue
+      updates.lockInMove = moveName;
+      updates.lockInTurns = 1 + Math.floor(battleRandom() * 2);
+    } else {
+      // Already locked in: decrement turns
+      const remaining = (active.lockInTurns ?? 0) - 1;
+      if (remaining <= 0) {
+        // Lock-in ended: apply confusion from fatigue
+        updates.lockInMove = null;
+        updates.lockInTurns = 0;
+        updates.confusionTurns = 2 + Math.floor(battleRandom() * 4);
+        log.push({
+          turn: state.turn,
+          message: `${active.slot.pokemon.name} became confused due to fatigue!`,
+          kind: "status",
+        });
+      } else {
+        updates.lockInTurns = remaining;
+      }
+    }
+  }
+
+  if (Object.keys(updates).length === 0) return state;
+
+  return updatePokemon(state, player, idx, {
+    ...active,
+    ...updates,
+  });
+}
+
 // --- Turn Execution ---
 
 function executeTurn(
@@ -234,6 +517,13 @@ function executeTurn(
   p1Action: BattleTurnAction,
   p2Action: BattleTurnAction
 ): BattleState {
+  // Online PvP: seed a deterministic RNG stream for this turn so both clients compute
+  // identical outcomes. Local/AI battles never set rngSeed, so battleRandom() falls
+  // through to Math.random() and behavior is unchanged.
+  if (state.rngSeed != null) {
+    seedBattleRng(deriveTurnSeed(state.rngSeed, state.turn + 1));
+  }
+
   let newState = { ...state, turn: state.turn + 1 };
   const log: BattleLogEntry[] = [...state.log];
 
@@ -247,6 +537,7 @@ function executeTurn(
         ...active,
         isProtected: false,
         isFlinched: false,
+        roostActive: false,
         turnsOnField: (active.turnsOnField ?? 0) + 1,
       });
     }
@@ -272,11 +563,18 @@ function executeTurn(
   const p1Priority = getMovePriority(p1Active, p1Action);
   const p2Priority = getMovePriority(p2Active, p2Action);
 
-  const p1Speed = getEffectiveSpeed(p1Active);
-  const p2Speed = getEffectiveSpeed(p2Active);
+  let p1Speed = getEffectiveSpeed(p1Active, newState.field.player1Side, newState.field.weather);
+  let p2Speed = getEffectiveSpeed(p2Active, newState.field.player2Side, newState.field.weather);
+
+  // Trick Room reverses speed order
+  if (newState.field.trickRoom > 0) {
+    const temp = p1Speed;
+    p1Speed = p2Speed;
+    p2Speed = temp;
+  }
 
   if (p1Priority > p2Priority ||
-      (p1Priority === p2Priority && (p1Speed > p2Speed || (p1Speed === p2Speed && Math.random() < 0.5)))) {
+      (p1Priority === p2Priority && (p1Speed > p2Speed || (p1Speed === p2Speed && battleRandom() < 0.5)))) {
     firstPlayer = "player1";
     secondPlayer = "player2";
     firstAction = p1Action;
@@ -299,6 +597,7 @@ function executeTurn(
       newState = applyDynamax(newState, firstPlayer, log);
     }
     newState = executeMove(newState, firstPlayer, firstMoveIdx, log);
+    newState = applyMoveLocks(newState, firstPlayer, 0, log);
   }
 
   // Execute second action if not fainted
@@ -313,6 +612,7 @@ function executeTurn(
       newState = applyDynamax(newState, secondPlayer, log);
     }
     newState = executeMove(newState, secondPlayer, secondMoveIdx, log);
+    newState = applyMoveLocks(newState, secondPlayer, 0, log);
   }
 
   // Dynamax turn countdown
@@ -339,7 +639,10 @@ function executeTurn(
   // Check for faints and handle forced switches
   newState = checkFaints(newState, log);
 
-  // Handle pivot switch (U-turn/Volt Switch)
+  // Handle pivot switch (U-turn/Volt Switch, Baton Pass). pendingBatonPass
+  // (if set) rides along into force_switch untouched — the FORCE_SWITCH
+  // reducer case reads it to decide whether to transfer stat stages — and is
+  // cleared here whenever the pivot doesn't actually reach a switch.
   if (newState.pendingPivotSwitch && newState.phase !== "ended") {
     const pivotPlayer = newState.pendingPivotSwitch;
     const pivotActive = getActivePokemon(newState[pivotPlayer]);
@@ -349,15 +652,331 @@ function executeTurn(
         newState = { ...newState, phase: "force_switch", waitingForSwitch: pivotPlayer, pendingPivotSwitch: null };
         log.push({ turn: newState.turn, message: `${pivotActive.slot.pokemon.name} went back!`, kind: "switch" });
       } else {
-        newState = { ...newState, pendingPivotSwitch: null };
+        newState = { ...newState, pendingPivotSwitch: null, pendingBatonPass: false };
       }
     } else {
-      newState = { ...newState, pendingPivotSwitch: null };
+      newState = { ...newState, pendingPivotSwitch: null, pendingBatonPass: false };
     }
   }
 
-  newState.log = log;
+  newState.log = capLog(log);
+  clearBattleRng();
   return newState;
+}
+
+// --- Doubles Turn Execution ---
+
+interface DoublesActionEntry {
+  player: "player1" | "player2";
+  slot: 0 | 1;
+  action: BattleTurnAction;
+  pokemonIndex: number;
+}
+
+function executeDoublesTurn(
+  state: BattleState,
+  p1Action1: BattleTurnAction,
+  p1Action2: BattleTurnAction,
+  p2Action1: BattleTurnAction,
+  p2Action2: BattleTurnAction,
+): BattleState {
+  if (state.rngSeed != null) {
+    seedBattleRng(deriveTurnSeed(state.rngSeed, state.turn + 1));
+  }
+
+  let newState = { ...state, turn: state.turn + 1 };
+  const log: BattleLogEntry[] = [...state.log];
+
+  log.push({ turn: newState.turn, message: `--- Turn ${newState.turn} ---`, kind: "info" });
+
+  // Reset per-turn flags for all active Pokemon
+  for (const player of ["player1", "player2"] as const) {
+    const slots = getActiveDoublesSlots(newState[player]);
+    for (const { index, pokemon } of slots) {
+      newState = updatePokemon(newState, player, index, {
+        ...pokemon,
+        isProtected: false,
+        isFlinched: false,
+        roostActive: false,
+        turnsOnField: (pokemon.turnsOnField ?? 0) + 1,
+      });
+    }
+  }
+
+  // Build action entries with their Pokemon
+  const allEntries: DoublesActionEntry[] = [
+    { player: "player1", slot: 0, action: p1Action1, pokemonIndex: newState.player1.activePokemonIndex },
+    { player: "player1", slot: 1, action: p1Action2, pokemonIndex: newState.player1.activePokemonIndex2 ?? -1 },
+    { player: "player2", slot: 0, action: p2Action1, pokemonIndex: newState.player2.activePokemonIndex },
+    { player: "player2", slot: 1, action: p2Action2, pokemonIndex: newState.player2.activePokemonIndex2 ?? -1 },
+  ];
+  const entries = allEntries.filter(e => e.pokemonIndex >= 0);
+
+  // Handle switches first (switches always go before moves)
+  for (const entry of entries) {
+    if (entry.action.type === "SWITCH") {
+      newState = performDoublesSwitch(newState, entry.player, entry.slot, entry.action.pokemonIndex, log);
+    }
+  }
+
+  // Sort remaining move actions by priority, then speed
+  const moveEntries = entries.filter(e => e.action.type !== "SWITCH");
+  moveEntries.sort((a, b) => {
+    const aPkmn = getActivePokemonBySlot(newState[a.player], a.slot);
+    const bPkmn = getActivePokemonBySlot(newState[b.player], b.slot);
+    if (!aPkmn || !bPkmn) return 0;
+
+    const aPri = getMovePriority(aPkmn, a.action);
+    const bPri = getMovePriority(bPkmn, b.action);
+    if (aPri !== bPri) return bPri - aPri; // higher priority first
+
+    const aSideKey = a.player === "player1" ? "player1Side" : "player2Side";
+    const bSideKey = b.player === "player1" ? "player1Side" : "player2Side";
+    let aSpeed = getEffectiveSpeed(aPkmn, newState.field[aSideKey], newState.field.weather);
+    let bSpeed = getEffectiveSpeed(bPkmn, newState.field[bSideKey], newState.field.weather);
+
+    if (newState.field.trickRoom > 0) {
+      const tmp = aSpeed;
+      aSpeed = bSpeed;
+      bSpeed = tmp;
+    }
+
+    if (aSpeed !== bSpeed) return bSpeed - aSpeed; // higher speed first
+    return battleRandom() < 0.5 ? -1 : 1; // speed tie
+  });
+
+  // Execute each move action
+  for (const entry of moveEntries) {
+    const pokemon = getActivePokemonBySlot(newState[entry.player], entry.slot);
+    if (!pokemon || pokemon.isFainted) continue;
+
+    const moveIdx = getMoveIndexFromAction(entry.action);
+    if (moveIdx === null) continue;
+
+    // Apply mechanic transformations
+    if (entry.action.type === "MEGA_EVOLVE") {
+      newState = applyMegaEvolution(newState, entry.player, log);
+    } else if (entry.action.type === "TERASTALLIZE") {
+      newState = applyTerastallization(newState, entry.player, log);
+    } else if (entry.action.type === "DYNAMAX") {
+      newState = applyDynamax(newState, entry.player, log);
+    }
+
+    // Determine target for doubles
+    const target = "target" in entry.action ? entry.action.target : undefined;
+    newState = executeMoveDoubles(newState, entry.player, entry.slot, moveIdx, target, log);
+    newState = applyMoveLocks(newState, entry.player, entry.slot, log);
+  }
+
+  // End-of-turn effects
+  newState = applyEndOfTurnEffects(newState, log);
+
+  // Tick field effects
+  newState = tickFieldEffects(newState, log);
+
+  // Check for faints
+  newState = checkFaints(newState, log);
+
+  newState.log = capLog(log);
+  clearBattleRng();
+  return newState;
+}
+
+function performDoublesSwitch(
+  state: BattleState,
+  player: "player1" | "player2",
+  slot: 0 | 1,
+  pokemonIndex: number,
+  log: BattleLogEntry[]
+): BattleState {
+  const team = state[player];
+  const oldIndex = slot === 0 ? team.activePokemonIndex : (team.activePokemonIndex2 ?? -1);
+  if (oldIndex < 0) return state;
+
+  const oldActive = team.pokemon[oldIndex];
+  const newPokemon = [...team.pokemon];
+
+  // Switch-out ability effects (Regenerator, Natural Cure)
+  let switchingOut = { ...oldActive };
+  if (!switchingOut.isFainted) {
+    const switchOutHooks = getAbilityHooks(switchingOut.slot.ability);
+    if (switchOutHooks?.onSwitchOut) {
+      const switchOutEffect = switchOutHooks.onSwitchOut({ pokemon: switchingOut });
+      if (switchOutEffect) {
+        if (switchOutEffect.type === "heal" && switchOutEffect.healFraction) {
+          const healAmount = Math.max(1, Math.floor(switchingOut.maxHp * switchOutEffect.healFraction));
+          switchingOut = {
+            ...switchingOut,
+            currentHp: Math.min(switchingOut.maxHp, switchingOut.currentHp + healAmount),
+          };
+        } else if (switchOutEffect.type === "cure_status") {
+          switchingOut = { ...switchingOut, status: null, toxicCounter: 0 };
+        }
+        if (switchOutEffect.message) {
+          log.push({ turn: state.turn, message: switchOutEffect.message, kind: "status" });
+        }
+      }
+    }
+  }
+
+  newPokemon[oldIndex] = {
+    ...switchingOut,
+    isActive: false,
+    ...clearVolatileStatus(),
+  };
+  newPokemon[pokemonIndex] = {
+    ...newPokemon[pokemonIndex],
+    isActive: true,
+    turnsOnField: 0,
+  };
+
+  log.push({
+    turn: state.turn,
+    message: `${oldActive.slot.pokemon.name} was withdrawn! ${newPokemon[pokemonIndex].slot.pokemon.name} was sent out!`,
+    kind: "switch",
+  });
+
+  const updatedTeam: BattleTeam = {
+    pokemon: newPokemon,
+    activePokemonIndex: slot === 0 ? pokemonIndex : team.activePokemonIndex,
+    activePokemonIndex2: slot === 1 ? pokemonIndex : team.activePokemonIndex2,
+    selectedMechanic: team.selectedMechanic,
+  };
+
+  let result: BattleState = { ...state, [player]: updatedTeam };
+  result = applyHazardsOnSwitchIn(result, player, log);
+  return result;
+}
+
+function executeMoveDoubles(
+  state: BattleState,
+  attackerPlayer: "player1" | "player2",
+  attackerSlot: 0 | 1,
+  moveIndex: number,
+  target: DoublesTarget | undefined,
+  log: BattleLogEntry[]
+): BattleState {
+  const defenderPlayer = attackerPlayer === "player1" ? "player2" : "player1";
+  const attackerTeam = state[attackerPlayer];
+  const attackerPokemon = getActivePokemonBySlot(attackerTeam, attackerSlot);
+  if (!attackerPokemon || attackerPokemon.isFainted) return state;
+
+  const moveName = (attackerPokemon.slot.selectedMoves ?? [])[moveIndex] ?? "";
+  const isSpread = SPREAD_MOVES.has(moveName);
+
+  if (isSpread || target === "spread") {
+    // Hit both opponent slots at 0.75x damage. PP decrement, the "used X!" log, and
+    // attacker-side effects (Life Orb recoil, Choice lock, lastMoveUsed) must happen
+    // ONCE per move use — only the per-target damage application should iterate.
+    const oppSlots = getActiveDoublesSlots(state[defenderPlayer]);
+    if (oppSlots.length === 0) return state;
+
+    const ppBefore = attackerPokemon.movePP?.[moveIndex] ?? 0;
+
+    // First target: full pipeline (pre-move checks, PP decrement, "used X!" log, trailer)
+    let result = executeMoveSingleTarget(state, attackerPlayer, attackerSlot, defenderPlayer, oppSlots[0].slot, moveIndex, log, true);
+
+    // Did the move actually execute? Pre-move checks (paralysis/sleep/freeze/flinch/
+    // confusion self-hit) return early WITHOUT decrementing PP — only proceed to the
+    // remaining targets if PP was actually spent (or the attacker fainted, e.g. from a
+    // confusion self-hit, in which case there's nothing left to hit with anyway).
+    const attackerAfterFirst = getActivePokemonBySlot(result[attackerPlayer], attackerSlot);
+    const moveExecuted = !attackerAfterFirst || attackerAfterFirst.isFainted ||
+      (attackerAfterFirst.movePP?.[moveIndex] ?? ppBefore) < ppBefore;
+
+    if (moveExecuted) {
+      for (let i = 1; i < oppSlots.length; i++) {
+        if (oppSlots[i].pokemon.isFainted) continue;
+        result = executeMoveSingleTarget(result, attackerPlayer, attackerSlot, defenderPlayer, oppSlots[i].slot, moveIndex, log, true, false);
+      }
+    }
+    return result;
+  }
+
+  // Single target move
+  const targetSlot = resolveDoublesTarget(target, defenderPlayer, state);
+  return executeMoveSingleTarget(state, attackerPlayer, attackerSlot, defenderPlayer, targetSlot, moveIndex, log, false);
+}
+
+function resolveDoublesTarget(
+  target: DoublesTarget | undefined,
+  defenderPlayer: "player1" | "player2",
+  state: BattleState,
+): 0 | 1 {
+  if (target === "opp1") {
+    const p1 = getActivePokemonBySlot(state[defenderPlayer], 1);
+    if (p1 && !p1.isFainted) return 1;
+    return 0; // fallback to slot 0 if slot 1 is fainted
+  }
+  // Default to slot 0
+  return 0;
+}
+
+function executeMoveSingleTarget(
+  state: BattleState,
+  attackerPlayer: "player1" | "player2",
+  attackerSlot: 0 | 1,
+  defenderPlayer: "player1" | "player2",
+  defenderSlot: 0 | 1,
+  moveIndex: number,
+  log: BattleLogEntry[],
+  isSpread: boolean,
+  // false for the 2nd+ target of a spread move: skips the pre-move checks, PP decrement,
+  // "used X!" log, and attacker-side trailer (already resolved by the first target's call).
+  runFullPipeline: boolean = true,
+): BattleState {
+  // For doubles, we need to temporarily point the active indices at the right Pokemon
+  // so that executeMove (which uses getActivePokemon) resolves to the correct targets.
+  const origAttackerIdx = state[attackerPlayer].activePokemonIndex;
+  const origDefenderIdx = state[defenderPlayer].activePokemonIndex;
+
+  const attackerIdx = attackerSlot === 0
+    ? state[attackerPlayer].activePokemonIndex
+    : (state[attackerPlayer].activePokemonIndex2 ?? state[attackerPlayer].activePokemonIndex);
+  const defenderIdx = defenderSlot === 0
+    ? state[defenderPlayer].activePokemonIndex
+    : (state[defenderPlayer].activePokemonIndex2 ?? state[defenderPlayer].activePokemonIndex);
+
+  // Temporarily swap indices
+  let tempState = {
+    ...state,
+    [attackerPlayer]: { ...state[attackerPlayer], activePokemonIndex: attackerIdx },
+    [defenderPlayer]: { ...state[defenderPlayer], activePokemonIndex: defenderIdx },
+  };
+
+  // Store spread flag on state for damage calculation to pick up
+  if (isSpread) {
+    tempState = { ...tempState, spreadDamageModifier: SPREAD_DAMAGE_MODIFIER };
+  }
+
+  if (runFullPipeline) {
+    // Execute using existing single-target logic (checks + PP + log + damage + trailer)
+    tempState = executeMove(tempState, attackerPlayer, moveIndex, log);
+  } else {
+    // Additional spread target: damage-only pass, skip PP/log/attacker trailer
+    const attackerNow = getActivePokemon(tempState[attackerPlayer]);
+    const moveName = (attackerNow.slot.selectedMoves ?? [])[moveIndex] ?? "";
+    tempState = executeDamagingMove(tempState, attackerPlayer, defenderPlayer, moveName, moveIndex, log, false);
+  }
+
+  // Clean up spread flag
+  if (isSpread) {
+    const cleanState = { ...tempState };
+    delete cleanState.spreadDamageModifier;
+    tempState = cleanState;
+  }
+
+  // Restore original active indices (but keep Pokemon state changes)
+  // Only restore if the Pokemon at the original index is not fainted (a faint may have changed indices)
+  const attackerFainted = tempState[attackerPlayer].pokemon[origAttackerIdx]?.isFainted;
+  const defenderFainted = tempState[defenderPlayer].pokemon[origDefenderIdx]?.isFainted;
+  const result = {
+    ...tempState,
+    [attackerPlayer]: { ...tempState[attackerPlayer], activePokemonIndex: attackerFainted ? tempState[attackerPlayer].activePokemonIndex : origAttackerIdx },
+    [defenderPlayer]: { ...tempState[defenderPlayer], activePokemonIndex: defenderFainted ? tempState[defenderPlayer].activePokemonIndex : origDefenderIdx },
+  };
+
+  return result;
 }
 
 function performSwitch(
@@ -368,13 +987,50 @@ function performSwitch(
 ): BattleState {
   const team = state[player];
   const oldActive = getActivePokemon(team);
+
+  // Check trapping abilities — opponent's ability may prevent switching
+  const trapOpponentPlayer = player === "player1" ? "player2" : "player1";
+  const trapOpponent = getActivePokemon(state[trapOpponentPlayer]);
+  if (!trapOpponent.isFainted) {
+    const oppHooks = getAbilityHooks(trapOpponent.slot.ability);
+    if (oppHooks?.onTrapping) {
+      const trapped = oppHooks.onTrapping({ pokemon: trapOpponent, opponent: oldActive });
+      if (trapped) {
+        log.push({ turn: state.turn, message: `${oldActive.slot.pokemon.name} can't escape!`, kind: "status" });
+        return state;
+      }
+    }
+  }
+
   const newPokemon = [...team.pokemon];
 
+  // Apply onSwitchOut ability effects (Regenerator, Natural Cure) before deactivating
+  let switchOutPokemon = { ...oldActive };
+  if (!switchOutPokemon.isFainted) {
+    const switchOutHooks = getAbilityHooks(switchOutPokemon.slot.ability);
+    if (switchOutHooks?.onSwitchOut) {
+      const switchOutEffect = switchOutHooks.onSwitchOut({ pokemon: switchOutPokemon });
+      if (switchOutEffect) {
+        if (switchOutEffect.type === "heal" && switchOutEffect.healFraction) {
+          const healAmount = Math.max(1, Math.floor(switchOutPokemon.maxHp * switchOutEffect.healFraction));
+          switchOutPokemon = {
+            ...switchOutPokemon,
+            currentHp: Math.min(switchOutPokemon.maxHp, switchOutPokemon.currentHp + healAmount),
+          };
+        } else if (switchOutEffect.type === "cure_status") {
+          switchOutPokemon = { ...switchOutPokemon, status: null, toxicCounter: 0 };
+        }
+        if (switchOutEffect.message) {
+          log.push({ turn: state.turn, message: switchOutEffect.message, kind: "status" });
+        }
+      }
+    }
+  }
+
   newPokemon[team.activePokemonIndex] = {
-    ...oldActive,
+    ...switchOutPokemon,
     isActive: false,
-    statStages: initStatStages(),
-    choiceLockedMove: null,
+    ...clearVolatileStatus(),
   };
   newPokemon[pokemonIndex] = {
     ...newPokemon[pokemonIndex],
@@ -403,7 +1059,7 @@ function performSwitch(
 
   let result: BattleState = {
     ...state,
-    [player]: { pokemon: newPokemon, activePokemonIndex: pokemonIndex, selectedMechanic: team.selectedMechanic },
+    [player]: { pokemon: newPokemon, activePokemonIndex: pokemonIndex, activePokemonIndex2: team.activePokemonIndex2, selectedMechanic: team.selectedMechanic },
   };
 
   // Ability: onSwitchIn
@@ -431,6 +1087,11 @@ function performSwitch(
         result = {
           ...result,
           field: { ...result.field, weather: effect.weather, weatherTurnsLeft: effect.weatherTurns ?? 5 },
+        };
+      } else if (effect.type === "terrain" && effect.terrain) {
+        result = {
+          ...result,
+          field: { ...result.field, terrain: effect.terrain, terrainTurnsLeft: effect.terrainTurns ?? 5 },
         };
       }
     }
@@ -460,22 +1121,42 @@ function tickFieldEffects(state: BattleState, log: BattleLogEntry[]): BattleStat
     }
   }
 
+  // Trick Room countdown
+  if (field.trickRoom > 0) {
+    field.trickRoom--;
+    if (field.trickRoom <= 0) {
+      log.push({ turn: state.turn, message: `The twisted dimensions returned to normal!`, kind: "status" });
+    }
+  }
+
   for (const sideKey of ["player1Side", "player2Side"] as const) {
     const side = field[sideKey];
-    if (side.reflect > 0 || side.lightScreen > 0) {
-      const updatedSide = { ...side };
-      if (updatedSide.reflect > 0) {
-        updatedSide.reflect--;
-        if (updatedSide.reflect <= 0) {
-          log.push({ turn: state.turn, message: `${sideKey === "player1Side" ? "Player 1" : "Player 2"}'s Reflect wore off!`, kind: "status" });
-        }
+    const updatedSide = { ...side };
+    let changed = false;
+
+    if (updatedSide.reflect > 0) {
+      updatedSide.reflect--;
+      changed = true;
+      if (updatedSide.reflect <= 0) {
+        log.push({ turn: state.turn, message: `${sideKey === "player1Side" ? "Player 1" : "Player 2"}'s Reflect wore off!`, kind: "status" });
       }
-      if (updatedSide.lightScreen > 0) {
-        updatedSide.lightScreen--;
-        if (updatedSide.lightScreen <= 0) {
-          log.push({ turn: state.turn, message: `${sideKey === "player1Side" ? "Player 1" : "Player 2"}'s Light Screen wore off!`, kind: "status" });
-        }
+    }
+    if (updatedSide.lightScreen > 0) {
+      updatedSide.lightScreen--;
+      changed = true;
+      if (updatedSide.lightScreen <= 0) {
+        log.push({ turn: state.turn, message: `${sideKey === "player1Side" ? "Player 1" : "Player 2"}'s Light Screen wore off!`, kind: "status" });
       }
+    }
+    if (updatedSide.tailwind > 0) {
+      updatedSide.tailwind--;
+      changed = true;
+      if (updatedSide.tailwind <= 0) {
+        log.push({ turn: state.turn, message: `${sideKey === "player1Side" ? "Player 1" : "Player 2"}'s Tailwind petered out!`, kind: "status" });
+      }
+    }
+
+    if (changed) {
       field = { ...field, [sideKey]: updatedSide };
     }
   }
@@ -484,6 +1165,11 @@ function tickFieldEffects(state: BattleState, log: BattleLogEntry[]): BattleStat
 }
 
 function checkFaints(state: BattleState, log: BattleLogEntry[]): BattleState {
+  // In doubles, check if all Pokemon on one side are fainted (not just active ones)
+  if (state.format === "doubles") {
+    return checkFaintsDoubles(state, log);
+  }
+
   for (const player of ["player1", "player2"] as const) {
     const active = getActivePokemon(state[player]);
     if (active.isFainted) {
@@ -493,7 +1179,42 @@ function checkFaints(state: BattleState, log: BattleLogEntry[]): BattleState {
         log.push({ turn: state.turn, message: `${winner === "player1" ? "Player 1" : "Player 2"} wins!`, kind: "info" });
         return { ...state, log, phase: "ended", winner };
       }
-      return { ...state, log, phase: "force_switch", waitingForSwitch: player };
+      return { ...state, log, phase: "force_switch", waitingForSwitch: player, waitingForSwitchSlot: 0 };
+    }
+  }
+
+  return { ...state, log, phase: "action_select" };
+}
+
+function checkFaintsDoubles(state: BattleState, log: BattleLogEntry[]): BattleState {
+  for (const player of ["player1", "player2"] as const) {
+    const alive = state[player].pokemon.filter((p) => !p.isFainted);
+    if (alive.length === 0) {
+      const winner = player === "player1" ? "player2" : "player1";
+      log.push({ turn: state.turn, message: `${winner === "player1" ? "Player 1" : "Player 2"} wins!`, kind: "info" });
+      return { ...state, log, phase: "ended", winner };
+    }
+  }
+
+  // Check if any active slot has a fainted Pokemon that needs replacing
+  for (const player of ["player1", "player2"] as const) {
+    const team = state[player];
+    const active1 = team.pokemon[team.activePokemonIndex];
+    const active2 = team.activePokemonIndex2 !== null ? team.pokemon[team.activePokemonIndex2] : null;
+    const benchAlive = team.pokemon.filter((p, i) =>
+      i !== team.activePokemonIndex && i !== team.activePokemonIndex2 && !p.isFainted
+    );
+
+    if (active1 && active1.isFainted && benchAlive.length > 0) {
+      return { ...state, log, phase: "force_switch", waitingForSwitch: player, waitingForSwitchSlot: 0 };
+    }
+    if (active2 && active2.isFainted && benchAlive.length > 0) {
+      // Check there's someone not already filling slot 0
+      const slot0Alive = active1 && !active1.isFainted;
+      const remainingBench = slot0Alive ? benchAlive : benchAlive.slice(1);
+      if (remainingBench.length > 0 || (slot0Alive && benchAlive.length > 0)) {
+        return { ...state, log, phase: "force_switch", waitingForSwitch: player, waitingForSwitchSlot: 1 };
+      }
     }
   }
 

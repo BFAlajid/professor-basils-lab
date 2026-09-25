@@ -5,6 +5,7 @@ import { PCBoxPokemon } from "@/types";
 import { POKE_BALLS } from "@/data/pokeBalls";
 import Image from "@/components/PokeImage";
 import ItemSprite from "@/components/ItemSprite";
+import { formatName } from "@/utils/format";
 
 interface PCBoxSlotProps {
   pokemon: PCBoxPokemon;
@@ -15,7 +16,7 @@ interface PCBoxSlotProps {
 
 export default memo(function PCBoxSlot({ pokemon, index, isSelected, onToggle }: PCBoxSlotProps) {
   const handleClick = useCallback(() => onToggle(index), [onToggle, index]);
-  const displayName = pokemon.nickname ?? (pokemon.pokemon.name.charAt(0).toUpperCase() + pokemon.pokemon.name.slice(1));
+  const displayName = pokemon.nickname ?? formatName(pokemon.pokemon.name);
   const spriteUrl = pokemon.pokemon.sprites.front_default;
   const ballColor = POKE_BALLS[pokemon.caughtWith]?.spriteColor ?? "#e8433f";
 

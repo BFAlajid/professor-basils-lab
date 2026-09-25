@@ -1,3 +1,7 @@
+import { checkRateLimit } from "@/lib/rateLimit";
+import { getTrustedClientIp } from "@/lib/ip";
+import { POKEAPI_RATE_LIMIT_PER_HOUR } from "@/data/constants";
+
 export const runtime = "edge";
 
 const ALLOWED_RESOURCES = new Set([
@@ -37,10 +41,34 @@ export async function GET(
     }
   }
 
+  // Rate limit by trusted IP. This is a read-only cached proxy that most of
+  // the app depends on, so fail OPEN on KV errors rather than taking down
+  // core data fetching if the KV store hiccups (unlike the write endpoints,
+  // which fail closed).
+  const ip = getTrustedClientIp(request);
+  try {
+    const allowed = await checkRateLimit(`pokeapi:${ip}`, POKEAPI_RATE_LIMIT_PER_HOUR);
+    if (!allowed) {
+      return Response.json({ error: "Rate limit exceeded" }, { status: 429 });
+    }
+  } catch {
+    // KV unavailable — allow the request through
+  }
+
+  const ALLOWED_PARAMS = new Set(["limit", "offset"]);
   const { searchParams } = new URL(request.url);
   const upstreamUrl = new URL(`${UPSTREAM_BASE}/${path.join("/")}`);
   searchParams.forEach((value, key) => {
-    upstreamUrl.searchParams.set(key, value);
+    if (!ALLOWED_PARAMS.has(key)) return;
+    if (key === "limit") {
+      const val = Math.min(Math.max(parseInt(value, 10) || 20, 1), 1025);
+      upstreamUrl.searchParams.set(key, String(val));
+    } else if (key === "offset") {
+      const val = Math.max(parseInt(value, 10) || 0, 0);
+      upstreamUrl.searchParams.set(key, String(val));
+    } else {
+      upstreamUrl.searchParams.set(key, value);
+    }
   });
 
   const controller = new AbortController();

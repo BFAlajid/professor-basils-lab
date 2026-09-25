@@ -1,6 +1,7 @@
 import { TypeName, TeamSlot, Pokemon } from "@/types";
 import { capitalize } from "./format";
 import { TYPE_LIST, getEffectiveness, getDefensiveMultiplier } from "@/data/typeChart";
+import { getCachedMove } from "./pokeApiClient";
 
 export interface DefensiveEntry {
   weakCount: number;
@@ -83,9 +84,8 @@ function findUncoveredWeaknesses(
 }
 
 /**
- * Determine offensive coverage. If a slot has selectedMoves we check each
- * move's type for super-effectiveness. Otherwise we fall back to STAB coverage
- * using the Pokemon's own types.
+ * Determine offensive coverage. Includes STAB types from each Pokemon plus
+ * the types of any selected damaging moves (looked up from the move cache).
  */
 function computeOffensiveCoverage(team: TeamSlot[]): {
   covered: TypeName[];
@@ -100,9 +100,15 @@ function computeOffensiveCoverage(team: TeamSlot[]): {
       attackingTypes.add(t.type.name);
     }
 
-    // If the slot has selected moves, we could potentially check move types
-    // but we don't have resolved Move objects here (only names). So STAB
-    // coverage is the primary signal.
+    // Include types from selected moves (if cached)
+    if (slot.selectedMoves) {
+      for (const moveName of slot.selectedMoves) {
+        const move = getCachedMove(moveName);
+        if (move && move.damage_class.name !== "status") {
+          attackingTypes.add(move.type.name);
+        }
+      }
+    }
   }
 
   const covered: TypeName[] = [];
@@ -305,7 +311,23 @@ export interface CoverageResult {
   bestDefensiveMultiplier: number;
 }
 
-export function analyzeDefensiveCoverage(team: Pokemon[]): CoverageResult[] {
+export function analyzeDefensiveCoverage(
+  team: Pokemon[],
+  moveTypes?: TypeName[]
+): CoverageResult[] {
+  // Build set of all offensive types: STAB + move types
+  const allOffensiveTypes = new Set<TypeName>();
+  for (const pokemon of team) {
+    for (const t of pokemon.types) {
+      allOffensiveTypes.add(t.type.name);
+    }
+  }
+  if (moveTypes) {
+    for (const mt of moveTypes) {
+      allOffensiveTypes.add(mt);
+    }
+  }
+
   return TYPE_LIST.map((attackingType) => {
     let anyResists = false;
     let worstMultiplier = 0;
@@ -326,14 +348,8 @@ export function analyzeDefensiveCoverage(team: Pokemon[]): CoverageResult[] {
       }
     }
 
-    let offensiveCovered = false;
-    for (const pokemon of team) {
-      const attackerTypes = pokemon.types.map((t) => t.type.name);
-      if (attackerTypes.includes(attackingType)) {
-        offensiveCovered = true;
-        break;
-      }
-    }
+    // offensiveCovered = team has this type via STAB or selected moves
+    const offensiveCovered = allOffensiveTypes.has(attackingType);
 
     let defensiveStatus: "resist" | "weak" | "neutral" = "neutral";
     if (anyResists) {

@@ -1,15 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchAbilityData } from "@/utils/pokeApiClient";
+import { fetchAbilityData, type AbilityData } from "@/utils/pokeApiClient";
 
-export interface AbilityData {
-  id: number;
-  name: string;
-  effect_entries: {
-    effect: string;
-    short_effect: string;
-    language: { name: string };
-  }[];
-}
+export type { AbilityData };
 
 export function useAbility(nameOrId: string | number | null) {
   return useQuery({

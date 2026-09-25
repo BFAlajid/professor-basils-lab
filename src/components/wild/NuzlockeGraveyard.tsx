@@ -44,10 +44,10 @@ export default function NuzlockeGraveyard({ graveyard }: NuzlockeGraveyardProps)
               <p className="text-[10px] font-pixel text-[#8b9bb4] truncate">
                 {fallen.nickname}
               </p>
-              <p className="text-[8px] text-[#3a4466]">
+              <p className="text-[10px] text-[#3a4466]">
                 Lv.{fallen.level} — {fallen.area}
               </p>
-              <p className="text-[8px] text-[#e8433f]">
+              <p className="text-[10px] text-[#e8433f]">
                 {fallen.causeOfDeath}
               </p>
             </div>

@@ -20,6 +20,26 @@ interface LinkCableProps {
 
 type InputMode = "none" | "create" | "join";
 
+function CableVisual({ isConnected }: { isConnected: boolean }) {
+  return (
+    <div className="flex items-center justify-center gap-2 py-4">
+      <div className="w-8 h-8 rounded-lg bg-[#3a4466] border-2 border-[#8b9bb4] flex items-center justify-center text-[10px] font-pixel text-[#f0f0e8]">
+        P1
+      </div>
+      <div
+        className={`flex-1 max-w-32 h-0.5 border-t-2 transition-colors duration-500 ${
+          isConnected
+            ? "border-solid border-[#38b764]"
+            : "border-dashed border-[#8b9bb4] animate-pulse"
+        }`}
+      />
+      <div className="w-8 h-8 rounded-lg bg-[#3a4466] border-2 border-[#8b9bb4] flex items-center justify-center text-[10px] font-pixel text-[#f0f0e8]">
+        P2
+      </div>
+    </div>
+  );
+}
+
 export default function LinkCable({ online, onBattle, onTrade, onBack }: LinkCableProps) {
   const { state } = online;
   const [inputMode, setInputMode] = useState<InputMode>("none");
@@ -84,25 +104,6 @@ export default function LinkCable({ online, onBattle, onTrade, onBack }: LinkCab
     setInputMode("none");
     setJoinCode("");
   }, [online]);
-
-  /* ─── Link Cable Visual ─── */
-  const CableVisual = ({ isConnected }: { isConnected: boolean }) => (
-    <div className="flex items-center justify-center gap-2 py-4">
-      <div className="w-8 h-8 rounded-lg bg-[#3a4466] border-2 border-[#8b9bb4] flex items-center justify-center text-[10px] font-pixel text-[#f0f0e8]">
-        P1
-      </div>
-      <div
-        className={`flex-1 max-w-32 h-0.5 border-t-2 transition-colors duration-500 ${
-          isConnected
-            ? "border-solid border-[#38b764]"
-            : "border-dashed border-[#8b9bb4] animate-pulse"
-        }`}
-      />
-      <div className="w-8 h-8 rounded-lg bg-[#3a4466] border-2 border-[#8b9bb4] flex items-center justify-center text-[10px] font-pixel text-[#f0f0e8]">
-        P2
-      </div>
-    </div>
-  );
 
   return (
     <div className="rounded-xl border-2 border-[#3a4466] bg-[#262b44] overflow-hidden">
@@ -237,6 +238,12 @@ export default function LinkCable({ online, onBattle, onTrade, onBack }: LinkCab
                 Waiting for player to connect...
               </p>
 
+              {state.error && (
+                <p className="text-[9px] text-[#e8433f] text-center">
+                  {state.error}
+                </p>
+              )}
+
               <button
                 onClick={handleDisconnect}
                 className="px-6 py-2 bg-[#3a4466] hover:bg-[#4a5577] text-[#8b9bb4] text-[10px] font-pixel rounded-lg transition-colors"
@@ -263,6 +270,11 @@ export default function LinkCable({ online, onBattle, onTrade, onBack }: LinkCab
               <p className="text-xs font-pixel text-[#8b9bb4] animate-pulse">
                 Connecting to room...
               </p>
+              {state.error && (
+                <p className="text-[9px] text-[#e8433f] text-center">
+                  {state.error}
+                </p>
+              )}
               <button
                 onClick={handleDisconnect}
                 className="px-6 py-2 bg-[#3a4466] hover:bg-[#4a5577] text-[#8b9bb4] text-[10px] font-pixel rounded-lg transition-colors"

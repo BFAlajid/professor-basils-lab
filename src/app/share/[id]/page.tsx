@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import type { StoredShare } from "@/types/share";
 
 const APP_URL =
@@ -64,12 +65,12 @@ function ErrorPanel({ title, message }: { title: string; message: string }) {
         <p className="text-[#f0f0e8]/70 font-[family-name:var(--font-pixel-body)] text-sm">
           {message}
         </p>
-        <a
+        <Link
           href="/"
           className="mt-6 inline-block border-2 border-[#3a4466] bg-[#1a1c2c] text-[#f0f0e8] font-[family-name:var(--font-pixel)] text-xs px-4 py-2 rounded hover:bg-[#3a4466] transition-colors"
         >
           Back to App
-        </a>
+        </Link>
       </div>
     </main>
   );
@@ -126,12 +127,12 @@ function ReplayView({ share, id }: { share: StoredShare; id: string }) {
           Pokemon: {share.metadata.pokemonNames.join(", ")}
         </p>
       )}
-      <a
+      <Link
         href={`/?tab=battle&replay=${id}`}
         className="border-2 border-[#3a4466] bg-[#1a1c2c] text-[#f0f0e8] font-[family-name:var(--font-pixel)] text-xs px-6 py-3 rounded hover:bg-[#3a4466] transition-colors"
       >
         View in App
-      </a>
+      </Link>
     </div>
   );
 }
@@ -152,12 +153,12 @@ function ChallengeView({ share, id }: { share: StoredShare; id: string }) {
           Team: {share.metadata.pokemonNames.join(", ")}
         </p>
       )}
-      <a
+      <Link
         href={`/?tab=battle&challenge=${id}`}
         className="border-2 border-[#3a4466] bg-[#1a1c2c] text-[#f0f0e8] font-[family-name:var(--font-pixel)] text-xs px-6 py-3 rounded hover:bg-[#3a4466] transition-colors"
       >
         Accept Challenge
-      </a>
+      </Link>
     </div>
   );
 }
@@ -187,12 +188,12 @@ export default async function SharePage({
         {share.type === "challenge" && <ChallengeView share={share} id={id} />}
 
         <div className="mt-6 text-center">
-          <a
+          <Link
             href="/"
             className="text-[#f0f0e8]/50 font-[family-name:var(--font-pixel)] text-[10px] hover:text-[#f0f0e8]/70 transition-colors"
           >
             Pokemon Team Builder
-          </a>
+          </Link>
         </div>
       </div>
     </main>

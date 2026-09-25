@@ -165,9 +165,9 @@ function TrainerCard({
       }`}
     >
       <p className="text-[10px] font-pixel text-[#f0f0e8] truncate">{trainer.name}</p>
-      <p className="text-[8px] text-[#8b9bb4] truncate">{trainer.title}</p>
+      <p className="text-[10px] text-[#8b9bb4] truncate">{trainer.title}</p>
       <ThemeBadge theme={trainer.theme} />
-      {isDefeated && <p className="text-[8px] text-[#e8433f] mt-0.5">Defeated</p>}
+      {isDefeated && <p className="text-[10px] text-[#e8433f] mt-0.5">Defeated</p>}
     </div>
   );
 }
@@ -176,7 +176,7 @@ function ThemeBadge({ theme }: { theme: TypeName | "mixed" }) {
   const color = theme === "mixed" ? "#8b9bb4" : (typeColors[theme] ?? "#8b9bb4");
   return (
     <span
-      className="inline-block text-[8px] px-1.5 py-0.5 rounded capitalize mt-0.5"
+      className="inline-block text-[10px] px-1.5 py-0.5 rounded capitalize mt-0.5"
       style={{ backgroundColor: `${color}30`, color }}
     >
       {theme}

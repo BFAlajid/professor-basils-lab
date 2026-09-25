@@ -1,6 +1,6 @@
 // Shared keybind configuration for all emulators (GBA, NDS, 3DS)
 // Persisted to localStorage so remaps survive page reloads
-import { silentWarn } from "@/utils/silentWarn";
+import { STORAGE_KEYS, readStorageValidated, writeStorage } from "@/utils/persistence";
 
 export type EmulatorButton =
   | "A" | "B" | "X" | "Y"
@@ -31,26 +31,20 @@ export const DEFAULT_KEYBINDS: Record<string, EmulatorButton> = {
   backspace: "SELECT",
 };
 
-const STORAGE_KEY = "emulator-keybinds";
+function validateKeybinds(raw: unknown): Record<string, EmulatorButton> | null {
+  if (raw == null || typeof raw !== "object") return null;
+  const parsed = raw as Record<string, EmulatorButton>;
+  const buttons = new Set(Object.values(parsed));
+  if (ALL_BUTTONS.every((b) => buttons.has(b))) return parsed;
+  return null;
+}
 
 export function loadKeybinds(): Record<string, EmulatorButton> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const buttons = new Set(Object.values(parsed));
-      if (ALL_BUTTONS.every((b) => buttons.has(b))) {
-        return parsed;
-      }
-    }
-  } catch (e) { silentWarn("loadKeybinds", e); }
-  return { ...DEFAULT_KEYBINDS };
+  return readStorageValidated(STORAGE_KEYS.keybinds, { ...DEFAULT_KEYBINDS }, validateKeybinds);
 }
 
 export function saveKeybinds(binds: Record<string, EmulatorButton>): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(binds));
-  } catch (e) { silentWarn("saveKeybinds", e); }
+  writeStorage(STORAGE_KEYS.keybinds, binds);
   window.dispatchEvent(new Event("keybinds-changed"));
 }
 

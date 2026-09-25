@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, memo } from "react";
+import { useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { SafariZoneState, SafariCaughtEntry } from "@/types";
@@ -46,19 +46,16 @@ export default memo(function SafariZone({
   onAddAllToBox,
   onClose,
 }: SafariZoneProps) {
-  const [addedToBox, setAddedToBox] = useState(false);
-
-  // Reset addedToBox when phase changes away from summary
-  useEffect(() => {
-    if (state.phase !== "summary") setAddedToBox(false);
-  }, [state.phase]);
+  // "collected" lives in provider state (useSafariZone reducer), not component
+  // state, so it survives the panel unmounting/remounting via togglePanel and
+  // can't be reset to a re-clickable state while a stale summary is still shown.
+  const addedToBox = state.collected;
 
   const handleAddAllToBox = useCallback(() => {
-    if (state.caughtPokemon.length > 0 && !addedToBox) {
+    if (state.caughtPokemon.length > 0 && !state.collected) {
       onAddAllToBox(state.caughtPokemon);
-      setAddedToBox(true);
     }
-  }, [state.caughtPokemon, addedToBox, onAddAllToBox]);
+  }, [state.caughtPokemon, state.collected, onAddAllToBox]);
 
   const handleLeave = useCallback(() => {
     onReset();

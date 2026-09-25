@@ -65,12 +65,16 @@ describe("GET /api/config", () => {
     );
   });
 
-  it("returns 500 when an unexpected error occurs", async () => {
+  it("returns safe defaults when an unexpected error occurs", async () => {
     mockGetFeatureFlags.mockRejectedValue(new Error("catastrophic"));
     mockGetAnnouncement.mockResolvedValue({ banner: null, bannerType: "info" });
 
-    // The route uses Promise.all, so if either rejects the whole handler throws.
-    // Since the route has no try/catch, the promise rejects.
-    await expect(GET()).rejects.toThrow();
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.features).toEqual({});
+    expect(body.announcement).toBeNull();
+    expect(response.headers.get("Cache-Control")).toBe("no-cache");
   });
 });

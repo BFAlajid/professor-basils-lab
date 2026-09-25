@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { searchHabitat, HabitatEntry } from "@/utils/habitatDex";
+import { capitalize, formatName } from "@/utils/format";
 
 const REGION_COLORS: Record<string, string> = {
   kanto: "#e8433f",
@@ -58,7 +59,7 @@ export default function HabitatDex({ knownPokemon = [] }: HabitatDexProps) {
 
   const handleSelect = (pokemon: { id: number; name: string }) => {
     setSelectedPokemon(pokemon);
-    setQuery(pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1));
+    setQuery(formatName(pokemon.name));
     setShowDropdown(false);
   };
 
@@ -108,7 +109,7 @@ export default function HabitatDex({ knownPokemon = [] }: HabitatDexProps) {
                   className="w-full text-left px-3 py-1.5 text-xs font-pixel text-[#f0f0e8] hover:bg-[#262b44] transition-colors flex items-center gap-2"
                 >
                   <span className="text-[#8b9bb4] text-[9px] w-8">#{p.id}</span>
-                  <span>{p.name.charAt(0).toUpperCase() + p.name.slice(1)}</span>
+                  <span>{formatName(p.name)}</span>
                 </button>
               ))}
             </motion.div>
@@ -130,7 +131,7 @@ export default function HabitatDex({ knownPokemon = [] }: HabitatDexProps) {
             <p className="text-[10px] font-pixel text-[#8b9bb4]">
               Locations for{" "}
               <span className="text-[#f7a838]">
-                {selectedPokemon.name.charAt(0).toUpperCase() + selectedPokemon.name.slice(1)}
+                {formatName(selectedPokemon.name)}
               </span>
             </p>
 
@@ -163,10 +164,10 @@ function HabitatRow({ entry, maxRate }: { entry: HabitatEntry; maxRate: number }
     <div className="bg-[#1a1c2c] border border-[#3a4466] rounded-lg px-3 py-2 flex items-center gap-2">
       {/* Region badge */}
       <span
-        className="text-[8px] font-pixel px-1.5 py-0.5 rounded shrink-0"
+        className="text-[10px] font-pixel px-1.5 py-0.5 rounded shrink-0"
         style={{ backgroundColor: regionColor + "22", color: regionColor, border: `1px solid ${regionColor}44` }}
       >
-        {entry.region.charAt(0).toUpperCase() + entry.region.slice(1)}
+        {capitalize(entry.region)}
       </span>
 
       {/* Area name */}
@@ -185,7 +186,7 @@ function HabitatRow({ entry, maxRate }: { entry: HabitatEntry; maxRate: number }
             }}
           />
         </div>
-        <span className="text-[8px] font-pixel text-[#8b9bb4] w-7 text-right shrink-0">
+        <span className="text-[10px] font-pixel text-[#8b9bb4] w-7 text-right shrink-0">
           {entry.encounterRate}%
         </span>
       </div>

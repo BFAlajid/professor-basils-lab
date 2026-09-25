@@ -1,14 +1,14 @@
 "use client";
 
-import { useReducer, useEffect, useRef, useCallback, useState } from "react";
+import { useReducer, useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { silentWarn } from "@/utils/silentWarn";
-import { DayCareState, DayCareAction, BreedingPair, PCBoxPokemon, BreedingEgg } from "@/types";
+import { DayCareState, DayCareAction, BreedingPair, PCBoxPokemon } from "@/types";
 import { fetchEggGroups, checkCompatibility, getOffspringSpeciesId, createEgg } from "@/utils/breedingWasm";
 import { NATURES } from "@/data/natures";
 import { generateRandomIVs } from "@/utils/wildBattle";
 import { fetchPokemonData } from "@/utils/pokeApiClient";
-
-const STORAGE_KEY = "pokemon-daycare";
+import { STORAGE_KEYS, readStorage, writeStorage } from "@/utils/persistence";
+import { useDebouncedPersist } from "@/hooks/useDebouncedPersist";
 
 const initialState: DayCareState = {
   currentPair: null,
@@ -16,6 +16,12 @@ const initialState: DayCareState = {
   isCompatible: false,
   compatibilityMessage: "Select two Pokemon to check compatibility.",
 };
+
+function pairsEqual(a: BreedingPair | null, b: BreedingPair | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.parent1Index === b.parent1Index && a.parent2Index === b.parent2Index;
+}
 
 function dayCareReducer(state: DayCareState, action: DayCareAction): DayCareState {
   switch (action.type) {
@@ -48,40 +54,42 @@ function dayCareReducer(state: DayCareState, action: DayCareAction): DayCareStat
   }
 }
 
+interface PersistedDayCare {
+  pair: BreedingPair | null;
+  eggs: DayCareState["eggs"];
+}
+
+/** Lazy-load the saved pair/eggs from storage (SSR-safe: window is undefined on the server). */
+function loadInitialState(): DayCareState {
+  const data = readStorage<Partial<PersistedDayCare>>(STORAGE_KEYS.dayCare, {});
+  return { ...initialState, currentPair: data.pair ?? null, eggs: data.eggs ?? [] };
+}
+
 export function useDayCare(box: PCBoxPokemon[]) {
-  const [state, dispatch] = useReducer(dayCareReducer, initialState);
-  const [isCheckingCompat, setIsCheckingCompat] = useState(false);
-  const initialized = useRef(false);
+  const [state, dispatch] = useReducer(dayCareReducer, undefined, loadInitialState);
+  const boxRef = useRef(box);
+  useEffect(() => {
+    boxRef.current = box;
+  });
   const stepInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const data = JSON.parse(raw);
-        dispatch({ type: "LOAD", pair: data.pair ?? null, eggs: data.eggs ?? [] });
-      }
-    } catch (e) {
-      silentWarn("loadDayCare", e);
-    }
-  }, []);
+  // Persist to storage, debounced — eggs tick every 3s while incubating
+  // (see the step interval below), which would otherwise re-serialize the
+  // pair + full egg list on every tick.
+  const persisted = useMemo<PersistedDayCare>(
+    () => ({ pair: state.currentPair, eggs: state.eggs }),
+    [state.currentPair, state.eggs]
+  );
+  useDebouncedPersist(persisted, useCallback((data: PersistedDayCare) => {
+    writeStorage(STORAGE_KEYS.dayCare, data);
+  }, []));
 
-  // Persist to localStorage
-  useEffect(() => {
-    if (!initialized.current) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ pair: state.currentPair, eggs: state.eggs }));
-    } catch (e) {
-      silentWarn("saveDayCare", e);
-    }
-  }, [state.currentPair, state.eggs]);
+  // Stable boolean dep to avoid re-creating interval on every egg state change
+  const hasUnhatchedEggs = useMemo(() => state.eggs.some((e) => !e.isHatched), [state.eggs]);
 
   // Step counter interval — advances eggs every 3 seconds
   useEffect(() => {
-    if (state.eggs.some((e) => !e.isHatched)) {
+    if (hasUnhatchedEggs) {
       stepInterval.current = setInterval(() => {
         dispatch({ type: "ADVANCE_STEPS", steps: 128 });
       }, 3000);
@@ -89,35 +97,47 @@ export function useDayCare(box: PCBoxPokemon[]) {
     return () => {
       if (stepInterval.current) clearInterval(stepInterval.current);
     };
-  }, [state.eggs]);
+  }, [hasUnhatchedEggs]);
 
-  // Check compatibility when pair changes
+  const [compatState, setCompatState] = useState<{ pair: BreedingPair | null; compatible: boolean; message: string }>({
+    pair: null,
+    compatible: false,
+    message: "Select two Pokemon to check compatibility.",
+  });
+
+  // "Checking" is derived rather than a separate setState-in-effect: true whenever
+  // a pair is selected but compatState hasn't caught up to it yet (covers both the
+  // initial fetch and any newer pair superseding an in-flight one).
+  const isCheckingCompat = state.currentPair !== null && !pairsEqual(compatState.pair, state.currentPair);
+
+  // Check compatibility when pair changes (use boxRef to avoid re-running on every box mutation)
   useEffect(() => {
     if (!state.currentPair) return;
-    const p1 = box[state.currentPair.parent1Index];
-    const p2 = box[state.currentPair.parent2Index];
+    const pairAtStart = state.currentPair;
+    const currentBox = boxRef.current;
+    const p1 = currentBox[pairAtStart.parent1Index];
+    const p2 = currentBox[pairAtStart.parent2Index];
     if (!p1 || !p2) return;
 
-    setIsCheckingCompat(true);
+    // Ignore-flag guard: if the pair changes again before this fetch resolves,
+    // the cleanup below flips `ignore` so the stale result can't overwrite the
+    // compatibility state for the newer pair.
+    let ignore = false;
     Promise.all([
       fetchEggGroups(p1.pokemon.id),
       fetchEggGroups(p2.pokemon.id),
     ]).then(([groups1, groups2]) => {
+      if (ignore) return;
       const isDitto1 = p1.pokemon.name === "ditto";
       const isDitto2 = p2.pokemon.name === "ditto";
       const result = checkCompatibility(groups1, groups2, isDitto1, isDitto2);
-      // Mutate state directly through a fresh SET_PAIR won't help, so we use a small hack:
-      // We just update the compatibility fields based on the check
-      dispatch({ type: "SET_PAIR", pair: state.currentPair! });
-      // We store compatibility in local state since it's derived
-      setCompatState(result);
-    }).finally(() => setIsCheckingCompat(false));
-  }, [state.currentPair, box]);
+      setCompatState({ pair: pairAtStart, ...result });
+    });
 
-  const [compatState, setCompatState] = useState<{ compatible: boolean; message: string }>({
-    compatible: false,
-    message: "Select two Pokemon to check compatibility.",
-  });
+    return () => {
+      ignore = true;
+    };
+  }, [state.currentPair]);
 
   const setPair = useCallback((pair: BreedingPair) => {
     dispatch({ type: "SET_PAIR", pair });
@@ -125,13 +145,14 @@ export function useDayCare(box: PCBoxPokemon[]) {
 
   const clearPair = useCallback(() => {
     dispatch({ type: "CLEAR_PAIR" });
-    setCompatState({ compatible: false, message: "Select two Pokemon to check compatibility." });
+    setCompatState({ pair: null, compatible: false, message: "Select two Pokemon to check compatibility." });
   }, []);
 
   const collectEgg = useCallback(async () => {
     if (!state.currentPair || !compatState.compatible) return;
-    const p1 = box[state.currentPair.parent1Index];
-    const p2 = box[state.currentPair.parent2Index];
+    const currentBox = boxRef.current;
+    const p1 = currentBox[state.currentPair.parent1Index];
+    const p2 = currentBox[state.currentPair.parent2Index];
     if (!p1 || !p2) return;
 
     const speciesId = await getOffspringSpeciesId(p1, p2);
@@ -146,7 +167,7 @@ export function useDayCare(box: PCBoxPokemon[]) {
 
     const egg = createEgg(p1, p2, speciesId, speciesName);
     dispatch({ type: "CREATE_EGG", egg });
-  }, [state.currentPair, compatState.compatible, box]);
+  }, [state.currentPair, compatState.compatible]);
 
   const hatchEgg = useCallback(async (index: number) => {
     const egg = state.eggs[index];

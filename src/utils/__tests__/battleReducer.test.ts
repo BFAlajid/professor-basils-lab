@@ -7,7 +7,7 @@ import {
   createMockBattlePokemon,
   createMockBattleState,
 } from "@/test/mocks/pokemon";
-import type { TeamSlot, BattleState, AltFormeData } from "@/types";
+import type { BattleState, AltFormeData } from "@/types";
 
 // Mock dependencies before importing the module under test
 vi.mock("@/utils/battleExecution", () => ({
@@ -57,10 +57,7 @@ import {
   battleReducer,
 } from "../battleReducer";
 import { isMegaStone } from "@/data/megaStones";
-import { getAbilityHooks } from "@/data/abilities";
 import { applyHazardsOnSwitchIn } from "@/utils/battleEffects";
-
-const mockedApplyHazards = vi.mocked(applyHazardsOnSwitchIn);
 
 // --- initBattlePokemon ---
 
@@ -209,7 +206,7 @@ describe("battleReducer", () => {
       });
 
       expect(result.phase).toBe("action_select");
-      expect(result.turn).toBe(1);
+      expect(result.turn).toBe(0);
       expect(result.player1.pokemon).toHaveLength(1);
       expect(result.player2.pokemon).toHaveLength(1);
       expect(result.player1.pokemon[0].isActive).toBe(true);
@@ -352,6 +349,135 @@ describe("battleReducer", () => {
       );
     });
 
+    // Regression (Wave 7 review, MAJOR #4b): a Choice-locked pokemon that
+    // switched out kept its pre-switch lastMoveUsed/choiceLockedMove. If it
+    // switched back in and then failed to move (paralysis, etc.), applyMoveLocks
+    // read the stale lastMoveUsed and re-locked it into a move it never
+    // re-selected this time around.
+    it("clears lastMoveUsed and choiceLockedMove on the outgoing pokemon", () => {
+      const p1Slot1 = createMockTeamSlot(mockCharizard, 0);
+      const p1Slot2 = createMockTeamSlot(mockVenusaur, 1);
+      const p2Slot = createMockTeamSlot(mockBlastoise, 0);
+
+      const state = createMockBattleState();
+      state.player1 = {
+        pokemon: [
+          createMockBattlePokemon(p1Slot1, {
+            isActive: true,
+            lastMoveUsed: "flamethrower",
+            choiceLockedMove: "flamethrower",
+          }),
+          createMockBattlePokemon(p1Slot2, { isActive: false }),
+        ],
+        activePokemonIndex: 0,
+        selectedMechanic: null,
+      };
+      state.player2 = {
+        pokemon: [createMockBattlePokemon(p2Slot)],
+        activePokemonIndex: 0,
+        selectedMechanic: null,
+      };
+
+      const result = battleReducer(state, {
+        type: "FORCE_SWITCH",
+        player: "player1",
+        pokemonIndex: 1,
+      });
+
+      expect(result.player1.pokemon[0].lastMoveUsed).toBeNull();
+      expect(result.player1.pokemon[0].choiceLockedMove).toBeNull();
+    });
+
+    // Regression (Wave 7 re-review MINOR #11): Baton Pass set pendingPivotSwitch
+    // and logged "passed the baton!" but the TODO to actually transfer stat
+    // stages/volatile status to the replacement was never implemented — the
+    // switch-in started completely fresh, same as any other switch.
+    it("Baton Pass transfers statStages/focusEnergy/substituteHp/aquaRing/ingrain to the replacement", () => {
+      const p1Slot1 = createMockTeamSlot(mockCharizard, 0);
+      const p1Slot2 = createMockTeamSlot(mockVenusaur, 1);
+      const p2Slot = createMockTeamSlot(mockBlastoise, 0);
+
+      const passedStages = { attack: 2, defense: 1, spAtk: 0, spDef: 0, speed: 1, accuracy: 0, evasion: 0 };
+
+      const state = createMockBattleState();
+      state.player1 = {
+        pokemon: [
+          createMockBattlePokemon(p1Slot1, {
+            isActive: true,
+            statStages: passedStages,
+            focusEnergy: true,
+            substituteHp: 42,
+            aquaRing: true,
+            ingrain: true,
+          }),
+          createMockBattlePokemon(p1Slot2, { isActive: false }),
+        ],
+        activePokemonIndex: 0,
+        selectedMechanic: null,
+      };
+      state.player2 = {
+        pokemon: [createMockBattlePokemon(p2Slot)],
+        activePokemonIndex: 0,
+        selectedMechanic: null,
+      };
+      state.pendingBatonPass = true;
+
+      const result = battleReducer(state, {
+        type: "FORCE_SWITCH",
+        player: "player1",
+        pokemonIndex: 1,
+      });
+
+      const incoming = result.player1.pokemon[1];
+      expect(incoming.statStages).toEqual(passedStages);
+      expect(incoming.focusEnergy).toBe(true);
+      expect(incoming.substituteHp).toBe(42);
+      expect(incoming.aquaRing).toBe(true);
+      expect(incoming.ingrain).toBe(true);
+
+      // The flag is consumed — a later, unrelated switch must not re-transfer.
+      expect(result.pendingBatonPass).toBe(false);
+
+      // The outgoing Pokemon's own volatile status is still cleared as normal.
+      const outgoing = result.player1.pokemon[0];
+      expect(outgoing.statStages).toEqual({ attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0, accuracy: 0, evasion: 0 });
+      expect(outgoing.focusEnergy).toBe(false);
+    });
+
+    it("an ordinary switch (not Baton Pass) does not transfer stat stages", () => {
+      const p1Slot1 = createMockTeamSlot(mockCharizard, 0);
+      const p1Slot2 = createMockTeamSlot(mockVenusaur, 1);
+      const p2Slot = createMockTeamSlot(mockBlastoise, 0);
+
+      const state = createMockBattleState();
+      state.player1 = {
+        pokemon: [
+          createMockBattlePokemon(p1Slot1, {
+            isActive: true,
+            statStages: { attack: 2, defense: 0, spAtk: 0, spDef: 0, speed: 0, accuracy: 0, evasion: 0 },
+          }),
+          createMockBattlePokemon(p1Slot2, { isActive: false }),
+        ],
+        activePokemonIndex: 0,
+        selectedMechanic: null,
+      };
+      state.player2 = {
+        pokemon: [createMockBattlePokemon(p2Slot)],
+        activePokemonIndex: 0,
+        selectedMechanic: null,
+      };
+      // pendingBatonPass stays at its default (false) — this is an ordinary
+      // switch (e.g. a fainted-mon replacement or a U-turn pivot).
+
+      const result = battleReducer(state, {
+        type: "FORCE_SWITCH",
+        player: "player1",
+        pokemonIndex: 1,
+      });
+
+      expect(result.player1.pokemon[1].statStages).toEqual({ attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0, accuracy: 0, evasion: 0 });
+    });
+
     it("clears waitingForSwitch and sets phase to action_select", () => {
       const p1Slot1 = createMockTeamSlot(mockCharizard, 0);
       const p1Slot2 = createMockTeamSlot(mockVenusaur, 1);
@@ -399,9 +525,41 @@ describe("battleReducer", () => {
   describe("unknown action", () => {
     it("returns state unchanged", () => {
       const state = createMockBattleState();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = battleReducer(state, { type: "UNKNOWN_ACTION" } as any);
 
       expect(result).toBe(state);
+    });
+  });
+
+  // Regression: state.log grew unbounded over a long battle — every turn's entries
+  // were rendered every re-render, so long online PvP battles got progressively slower.
+  describe("EXECUTE_TURN log cap", () => {
+    it("caps state.log at ~200 entries after many turns", () => {
+      const initial = createMockBattleState({ format: "singles" });
+      let state = initial;
+      for (let i = 0; i < 250; i++) {
+        state = battleReducer(state, {
+          type: "EXECUTE_TURN",
+          player1Action: { type: "MOVE", moveIndex: 0 },
+          player2Action: { type: "MOVE", moveIndex: 0 },
+        });
+      }
+      expect(state.turn).toBe(initial.turn + 250);
+      expect(state.log.length).toBeLessThanOrEqual(200);
+    });
+
+    it("keeps the most recent entries when the cap trims older ones", () => {
+      let state = createMockBattleState({ format: "singles" });
+      for (let i = 0; i < 250; i++) {
+        state = battleReducer(state, {
+          type: "EXECUTE_TURN",
+          player1Action: { type: "MOVE", moveIndex: 0 },
+          player2Action: { type: "MOVE", moveIndex: 0 },
+        });
+      }
+      const lastEntry = state.log[state.log.length - 1];
+      expect(lastEntry.message).toBe(`--- Turn ${state.turn} ---`);
     });
   });
 });

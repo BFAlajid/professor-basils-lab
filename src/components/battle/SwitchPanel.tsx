@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Image from "@/components/PokeImage";
 import { BattleTeam } from "@/types";
 import HealthBar from "./HealthBar";
@@ -16,6 +17,11 @@ export default function SwitchPanel({ team, onSwitch, forced, onCancel }: Switch
   const switchOptions = team.pokemon
     .map((p, i) => ({ pokemon: p, index: i }))
     .filter((p) => !p.pokemon.isFainted && p.index !== team.activePokemonIndex);
+
+  const firstButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    firstButtonRef.current?.focus();
+  }, []);
 
   return (
     <div className="rounded-xl border border-[#3a4466] bg-[#262b44] p-4">
@@ -37,14 +43,16 @@ export default function SwitchPanel({ team, onSwitch, forced, onCancel }: Switch
         <p className="text-sm text-[#8b9bb4]">No Pokemon available to switch in</p>
       ) : (
         <div className="space-y-2">
-          {switchOptions.map(({ pokemon, index }) => {
+          {switchOptions.map(({ pokemon, index }, i) => {
             const sprite = pokemon.slot.pokemon.sprites.front_default;
             const hpPercent = Math.round((pokemon.currentHp / pokemon.maxHp) * 100);
 
             return (
               <button
                 key={index}
+                ref={i === 0 ? firstButtonRef : undefined}
                 onClick={() => onSwitch(index)}
+                aria-label={`Switch to ${pokemon.slot.pokemon.name}`}
                 className="flex w-full items-center gap-3 rounded-lg bg-[#1a1c2c] px-3 py-2 text-left hover:bg-[#3a4466] transition-colors"
               >
                 {sprite && (

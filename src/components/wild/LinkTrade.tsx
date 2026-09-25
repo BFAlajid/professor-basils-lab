@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "@/components/PokeImage";
 import { PCBoxPokemon, LinkTradeState, TradeOffer } from "@/types";
+import { capitalize } from "@/utils/format";
 
 interface LinkTradeProps {
   myBox: PCBoxPokemon[];
@@ -21,10 +22,6 @@ interface LinkTradeProps {
 }
 
 /* ---------- tiny helpers ---------- */
-
-function capitalize(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 function ivTotal(ivs: { hp: number; attack: number; defense: number; spAtk: number; spDef: number; speed: number }) {
   return ivs.hp + ivs.attack + ivs.defense + ivs.spAtk + ivs.spDef + ivs.speed;

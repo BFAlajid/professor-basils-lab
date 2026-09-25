@@ -8,7 +8,7 @@ const DEFAULT_FEATURES: Record<string, boolean> = {
   enableLeaderboards: true,
   enableEmulator: true,
   enableCitrine: false,
-  enableMultiplayer: false,
+  enableMultiplayer: true,
   maintenanceMode: false,
 };
 

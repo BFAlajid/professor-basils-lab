@@ -310,6 +310,13 @@ describe("initSideConditions", () => {
       stickyWeb: false,
       reflect: 0,
       lightScreen: 0,
+      tailwind: 0,
+      wishPending: 0,
+      wishAmount: 0,
+      auroraVeil: 0,
+      futureAttackTurn: 0,
+      futureAttackDamage: 0,
+      futureAttackMove: null,
     });
   });
 

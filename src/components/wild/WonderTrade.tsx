@@ -25,11 +25,17 @@ export default function WonderTrade({
 
   const handleExecuteTrade = useCallback(async () => {
     if (state.selectedBoxIndex === null) return;
+    const capturedIndex = state.selectedBoxIndex;
+    const offered = box[capturedIndex];
+    const offeredName = offered?.nickname ?? offered?.pokemon.name ?? "this Pokemon";
+    if (!window.confirm(`Trade away ${offeredName} permanently for a random Pokemon?`)) {
+      return;
+    }
     setError(null);
     try {
-      const received = await executeTrade(box);
+      const received = await executeTrade(box, capturedIndex);
       if (received) {
-        onRemoveFromBox(state.selectedBoxIndex);
+        onRemoveFromBox(capturedIndex);
         onAddToBox(received);
         playCry(received.pokemon);
         onTradeComplete();

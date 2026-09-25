@@ -113,6 +113,7 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
   useEffect(() => {
     if (!state.isRunning || state.isPaused) return;
 
+    const pressedKeys = pressedKeysRef.current;
     let binds = loadKeybinds();
 
     const isTyping = () => {
@@ -125,9 +126,9 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
       const emButton = binds[e.key.toLowerCase()];
       if (emButton) {
         const mgbaBtn = BUTTON_TO_MGBA[emButton];
-        if (mgbaBtn && !pressedKeysRef.current.has(mgbaBtn)) {
+        if (mgbaBtn && !pressedKeys.has(mgbaBtn)) {
           e.preventDefault();
-          pressedKeysRef.current.add(mgbaBtn);
+          pressedKeys.add(mgbaBtn);
           buttonPress(mgbaBtn);
         }
       }
@@ -140,7 +141,7 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
         const mgbaBtn = BUTTON_TO_MGBA[emButton];
         if (mgbaBtn) {
           e.preventDefault();
-          pressedKeysRef.current.delete(mgbaBtn);
+          pressedKeys.delete(mgbaBtn);
           buttonUnpress(mgbaBtn);
         }
       }
@@ -155,8 +156,8 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("keybinds-changed", onKeybindsChanged);
     return () => {
-      pressedKeysRef.current.forEach((btn) => buttonUnpress(btn));
-      pressedKeysRef.current.clear();
+      pressedKeys.forEach((btn) => buttonUnpress(btn));
+      pressedKeys.clear();
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("keybinds-changed", onKeybindsChanged);
@@ -254,21 +255,20 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
     [buttonUnpress]
   );
 
-  if (showImporter && importSaveData) {
-    return (
-      <SaveImporter
-        saveData={importSaveData}
-        onImport={onImportPokemon}
-        onClose={() => {
-          setShowImporter(false);
-          setImportSaveData(null);
-        }}
-      />
-    );
-  }
-
   return (
     <div className="space-y-4">
+      {/* Save Importer overlay — sibling, not a replace, so the canvas stays mounted */}
+      {showImporter && importSaveData && (
+        <SaveImporter
+          saveData={importSaveData}
+          onImport={onImportPokemon}
+          onClose={() => {
+            setShowImporter(false);
+            setImportSaveData(null);
+          }}
+        />
+      )}
+
       {/* Key Remap Dialog */}
       {showRemap && <KeyRemapDialog onClose={handleCloseRemap} />}
 
@@ -321,6 +321,7 @@ export default function GBAEmulatorTab({ initialFile }: GBAEmulatorTabProps) {
             style={{
               imageRendering: "pixelated",
               WebkitImageRendering: "crisp-edges",
+              touchAction: "none",
             } as React.CSSProperties}
             className="block w-full aspect-[3/2]"
           />

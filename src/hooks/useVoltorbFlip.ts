@@ -1,7 +1,7 @@
 "use client";
 
 import { useReducer, useEffect, useCallback, useRef } from "react";
-import { silentWarn } from "@/utils/silentWarn";
+import { STORAGE_KEYS, readStorage, writeStorage } from "@/utils/persistence";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -139,8 +139,6 @@ function voltorbFlipReducer(
       if (value === 0) {
         // Reveal entire board on game over
         const allRevealed = state.board.map((r) => r.map(() => true));
-        // Drop level: lose 1 level (min 1)
-        const newLevel = Math.max(1, state.level - 1);
         return {
           ...state,
           revealed: allRevealed,
@@ -208,10 +206,6 @@ function voltorbFlipReducer(
   }
 }
 
-// ── LocalStorage key ─────────────────────────────────────────────────────
-
-const COINS_KEY = "pokemon-game-corner-coins";
-
 // ── Hook ─────────────────────────────────────────────────────────────────
 
 export function useVoltorbFlip() {
@@ -223,27 +217,14 @@ export function useVoltorbFlip() {
     if (initialized.current) return;
     initialized.current = true;
 
-    try {
-      const saved = localStorage.getItem(COINS_KEY);
-      if (saved) {
-        const parsed = parseInt(saved, 10);
-        if (!isNaN(parsed) && parsed >= 0) {
-          dispatch({ type: "LOAD", totalCoins: parsed });
-        }
-      }
-    } catch (e) {
-      silentWarn("loadVoltorbFlipCoins", e);
-    }
+    const totalCoins = readStorage(STORAGE_KEYS.gameCornerCoins, 0);
+    if (totalCoins >= 0) dispatch({ type: "LOAD", totalCoins });
   }, []);
 
   // Persist totalCoins whenever it changes
   useEffect(() => {
     if (!initialized.current) return;
-    try {
-      localStorage.setItem(COINS_KEY, String(state.totalCoins));
-    } catch (e) {
-      silentWarn("saveVoltorbFlipCoins", e);
-    }
+    writeStorage(STORAGE_KEYS.gameCornerCoins, state.totalCoins);
   }, [state.totalCoins]);
 
   const flipTile = useCallback((row: number, col: number) => {

@@ -133,7 +133,8 @@ export function endDynamax(
     isDynamaxed: false,
     dynamaxTurnsLeft: 0,
     maxHp: originalMaxHp,
-    currentHp: Math.max(1, newCurrentHp),
+    currentHp: newCurrentHp,
+    ...(newCurrentHp <= 0 ? { currentHp: 0, isFainted: true, isActive: false } : {}),
   };
 
   log.push({
@@ -141,6 +142,10 @@ export function endDynamax(
     message: `${active.slot.pokemon.name}'s Dynamax ended!`,
     kind: "dynamax",
   });
+
+  if (updated.isFainted) {
+    log.push({ turn: state.turn, message: `${active.slot.pokemon.name} fainted!`, kind: "faint" });
+  }
 
   return updatePokemon(state, player, team.activePokemonIndex, updated);
 }

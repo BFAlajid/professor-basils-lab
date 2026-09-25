@@ -2,6 +2,8 @@
 export {
   initStatStages,
   getActivePokemon,
+  getActivePokemonBySlot,
+  getActiveDoublesSlots,
   getStatStageMultiplier,
   getEffectiveTypes,
   cacheBattleMove,
@@ -13,4 +15,7 @@ export {
   initBattleTeam,
   battleReducer,
   initialBattleState,
+  SPREAD_MOVES,
+  ALLY_TARGET_MOVES,
+  SPREAD_DAMAGE_MODIFIER,
 } from "./battleReducer";

@@ -1,12 +1,20 @@
 "use client";
 
-import { Nature } from "@/types";
+import { Nature, StatKey } from "@/types";
 import { NATURES, getNatureLabel } from "@/data/natures";
 
 interface NatureSelectorProps {
   value: Nature | null;
   onChange: (nature: Nature) => void;
 }
+
+const STAT_DISPLAY: Record<StatKey, string> = {
+  attack: "Atk",
+  defense: "Def",
+  spAtk: "SpA",
+  spDef: "SpD",
+  speed: "Spe",
+};
 
 export default function NatureSelector({ value, onChange }: NatureSelectorProps) {
   return (
@@ -28,6 +36,19 @@ export default function NatureSelector({ value, onChange }: NatureSelectorProps)
           </option>
         ))}
       </select>
+      {value && (
+        <div className="mt-1 text-[10px] font-pixel" aria-live="polite">
+          {value.increased && value.decreased ? (
+            <span>
+              <span className="text-[#38b764]">+{STAT_DISPLAY[value.increased]}</span>
+              {" / "}
+              <span className="text-[#e8433f]">-{STAT_DISPLAY[value.decreased]}</span>
+            </span>
+          ) : (
+            <span className="text-[#8b9bb4]">(Neutral)</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

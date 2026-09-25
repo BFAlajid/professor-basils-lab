@@ -150,7 +150,7 @@ export default function MoveTutor({ team, heartScales, onTeachMove, onSpendHeart
                 <p className="font-pixel text-[10px] text-[#f0f0e8] capitalize truncate">
                   {slot.pokemon.name.replace(/-/g, " ")}
                 </p>
-                <p className="font-pixel text-[8px] text-[#8b9bb4]">
+                <p className="font-pixel text-[10px] text-[#8b9bb4]">
                   {(slot.selectedMoves ?? []).length}/4 moves
                 </p>
               </button>
@@ -174,7 +174,7 @@ export default function MoveTutor({ team, heartScales, onTeachMove, onSpendHeart
             <button
               onClick={() => { setSelectedPokemon(null); setFilter(""); }}
               aria-label="Back to Pokemon selection"
-              className="font-pixel text-[8px] text-[#8b9bb4] hover:text-[#f0f0e8]"
+              className="font-pixel text-[10px] text-[#8b9bb4] hover:text-[#f0f0e8]"
             >
               Back
             </button>
@@ -183,7 +183,7 @@ export default function MoveTutor({ team, heartScales, onTeachMove, onSpendHeart
           {/* Current moves */}
           <div className="flex gap-1 mb-2 flex-wrap">
             {(team[selectedPokemon]?.selectedMoves ?? []).map((m) => (
-              <span key={m} className="font-pixel text-[7px] text-[#f0f0e8] bg-[#3a4466] px-1.5 py-0.5 rounded capitalize">
+              <span key={m} className="font-pixel text-[10px] text-[#f0f0e8] bg-[#3a4466] px-1.5 py-0.5 rounded capitalize">
                 {m.replace(/-/g, " ")}
               </span>
             ))}
@@ -230,17 +230,17 @@ export default function MoveTutor({ team, heartScales, onTeachMove, onSpendHeart
                           </span>
                           {move.type && (
                             <span
-                              className="font-pixel text-[7px] px-1 rounded text-white"
+                              className="font-pixel text-[10px] px-1 rounded text-white"
                               style={{ backgroundColor: typeColors[move.type] ?? "#888" }}
                             >
                               {move.type}
                             </span>
                           )}
-                          <span className="font-pixel text-[7px] text-[#8b9bb4]">
+                          <span className="font-pixel text-[10px] text-[#8b9bb4]">
                             {move.learnMethod}
                           </span>
                         </div>
-                        <div className="flex gap-2 font-pixel text-[7px] text-[#8b9bb4]">
+                        <div className="flex gap-2 font-pixel text-[10px] text-[#8b9bb4]">
                           {move.power && <span>Pwr: {move.power}</span>}
                           {move.accuracy && <span>Acc: {move.accuracy}</span>}
                           {move.damageClass && <span className="capitalize">{move.damageClass}</span>}
@@ -250,7 +250,7 @@ export default function MoveTutor({ team, heartScales, onTeachMove, onSpendHeart
                         onClick={() => handleTeach(move.name)}
                         disabled={isFull || noScales}
                         aria-label={`Teach move ${move.name.replace(/-/g, " ")}`}
-                        className="px-2 py-0.5 text-[8px] font-pixel rounded bg-[#4a90d9] text-[#f0f0e8] hover:bg-[#3a7dc4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                        className="px-2 py-0.5 text-[10px] font-pixel rounded bg-[#4a90d9] text-[#f0f0e8] hover:bg-[#3a7dc4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                       >
                         {isFull ? "Full" : noScales ? "No Scales" : "Teach (1)"}
                       </button>

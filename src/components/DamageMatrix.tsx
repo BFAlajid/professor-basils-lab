@@ -5,6 +5,7 @@ import { DROPDOWN_BLUR_DELAY } from "@/data/constants";
 import { TeamSlot, Pokemon, Move } from "@/types";
 import { usePokemonList } from "@/hooks/usePokemonList";
 import { fetchPokemon } from "@/hooks/usePokemon";
+import { fetchMoveData } from "@/utils/pokeApiClient";
 import { formatName } from "@/utils/format";
 import LoadingSpinner from "./LoadingSpinner";
 import DamageGrid from "./DamageGrid";
@@ -16,14 +17,6 @@ interface DamageMatrixProps {
 interface ThreatEntry {
   pokemon: Pokemon;
   moves: Move[];
-}
-
-async function fetchMoveData(moveName: string): Promise<Move> {
-  const res = await fetch(
-    `https://pokeapi.co/api/v2/move/${moveName.toLowerCase()}`
-  );
-  if (!res.ok) throw new Error(`Move "${moveName}" not found`);
-  return res.json();
 }
 
 export default function DamageMatrix({ team }: DamageMatrixProps) {

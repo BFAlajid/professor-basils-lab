@@ -1,7 +1,7 @@
 import { TeamSlot, EVSpread, IVSpread, Nature, TypeName } from "@/types";
 import { silentWarn } from "@/utils/silentWarn";
 import { NATURES } from "@/data/natures";
-import { fetchPokemon } from "@/hooks/usePokemon";
+import { fetchPokemonData } from "@/utils/pokeApiClient";
 import { DEFAULT_EVS, DEFAULT_IVS } from "./stats";
 import { capitalize } from "./format";
 import { STAT_KEYS } from "@/data/constants";
@@ -93,10 +93,10 @@ function toMoveApiName(showdownName: string): string {
  * ```
  */
 export function exportToShowdown(team: TeamSlot[]): string {
-  return team.map(exportSlot).join("\n\n");
+  return team.map(exportSlotToShowdown).join("\n\n");
 }
 
-function exportSlot(slot: TeamSlot): string {
+export function exportSlotToShowdown(slot: TeamSlot): string {
   const lines: string[] = [];
 
   // ── Line 1: Species / Nickname @ Item ───────────────────────────────
@@ -136,13 +136,15 @@ function exportSlot(slot: TeamSlot): string {
     lines.push(`${capitalize(slot.nature.name)} Nature`);
   }
 
-  // ── IVs ──────────────────────────────────────────────────────────────
+  // ── IVs (only list non-31 values) ──────────────────────────────────
   const ivs = slot.ivs ?? { ...DEFAULT_IVS };
-  const hasNonMaxIv = STAT_KEYS.some((key) => ivs[key] !== 31);
-  if (hasNonMaxIv) {
-    const ivParts = STAT_KEYS.map(
-      (key) => `${ivs[key]} ${STAT_TO_SHOWDOWN[key]}`
-    );
+  const ivParts: string[] = [];
+  for (const key of STAT_KEYS) {
+    if (ivs[key] !== 31) {
+      ivParts.push(`${ivs[key]} ${STAT_TO_SHOWDOWN[key]}`);
+    }
+  }
+  if (ivParts.length > 0) {
     lines.push(`IVs: ${ivParts.join(" / ")}`);
   }
 
@@ -240,7 +242,7 @@ async function parseBlock(
   // ── Fetch Pokemon from PokeAPI ──────────────────────────────────────
   let pokemon;
   try {
-    pokemon = await fetchPokemon(apiName);
+    pokemon = await fetchPokemonData(apiName);
   } catch (e) {
     silentWarn("importShowdownFetchPokemon", e);
     return null;
@@ -279,11 +281,6 @@ async function parseBlock(
       // Handle regular dash, en-dash, and em-dash prefixes
       const moveName = toMoveApiName(line.replace(/^[-–—]\s*/, ""));
       if (moveName) selectedMoves.push(moveName);
-    } else if (line && selectedMoves.length < 4) {
-      // Lines without a dash prefix are also treated as moves —
-      // Showdown format supports both "- Move" and bare "Move" lines
-      const moveName = toMoveApiName(line);
-      if (moveName) selectedMoves.push(moveName);
     }
   }
 
@@ -321,18 +318,31 @@ function parseSpread<T extends EVSpread | IVSpread>(
   raw: string,
   base: T
 ): T {
+  const isEV = "hp" in base && (base as unknown as EVSpread).hp >= 0;
+  const maxPerStat = isEV ? 252 : 31;
   const spread = { ...base };
   const parts = raw.split("/").map((p) => p.trim());
 
   for (const part of parts) {
     const match = part.match(/^(\d+)\s+(\w+)$/);
     if (match) {
-      const value = parseInt(match[1], 10);
+      const value = Math.min(Math.max(0, parseInt(match[1], 10)), maxPerStat);
       const abbrev = match[2];
       const key = SHOWDOWN_TO_STAT[abbrev];
       if (key) {
         (spread as unknown as Record<string, number>)[key] = value;
       }
+    }
+  }
+
+  // Clamp total EVs to 510
+  if (isEV) {
+    const s = spread as unknown as Record<string, number>;
+    const stats = ["hp", "attack", "defense", "spAtk", "spDef", "speed"];
+    const total = stats.reduce((sum, k) => sum + (s[k] ?? 0), 0);
+    if (total > 510) {
+      const scale = 510 / total;
+      for (const k of stats) s[k] = Math.floor((s[k] ?? 0) * scale);
     }
   }
 

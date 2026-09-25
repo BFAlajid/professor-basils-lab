@@ -1,4 +1,4 @@
-import { type PlayerStats, DEFAULT_STATS } from "@/hooks/useAchievementsReducer";
+import { type PlayerStats, DEFAULT_STATS } from "@/utils/statsReducer";
 
 const VALID_BALL_TYPES = new Set([
   "poke-ball", "great-ball", "ultra-ball", "master-ball",

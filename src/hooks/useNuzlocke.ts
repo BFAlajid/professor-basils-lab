@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { silentWarn } from "@/utils/silentWarn";
+import { useCallback } from "react";
 import { NuzlockeState, NuzlockeGravePokemon, Pokemon } from "@/types";
-
-const NUZLOCKE_KEY = "pokemon-nuzlocke-state";
+import { usePersistedState } from "@/hooks/usePersistedState";
+import { STORAGE_KEYS } from "@/utils/persistence";
 
 const initialState: NuzlockeState = {
   enabled: false,
@@ -13,44 +12,41 @@ const initialState: NuzlockeState = {
   isGameOver: false,
 };
 
+function validateNuzlockeState(raw: unknown): NuzlockeState | null {
+  if (raw == null || typeof raw !== "object") return null;
+  const r = raw as Partial<NuzlockeState>;
+  return {
+    enabled: !!r.enabled,
+    encounteredAreas: Array.isArray(r.encounteredAreas) ? r.encounteredAreas : [],
+    graveyard: Array.isArray(r.graveyard) ? r.graveyard : [],
+    isGameOver: !!r.isGameOver,
+  };
+}
+
 export function useNuzlocke() {
-  const [state, setState] = useState<NuzlockeState>(initialState);
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(NUZLOCKE_KEY);
-      if (saved) {
-        setState(JSON.parse(saved));
-      }
-    } catch (e) {
-      silentWarn("loadNuzlocke", e);
-    }
-  }, []);
-
-  // Persist to localStorage on change
-  useEffect(() => {
-    try {
-      localStorage.setItem(NUZLOCKE_KEY, JSON.stringify(state));
-    } catch (e) {
-      silentWarn("saveNuzlocke", e);
-    }
-  }, [state]);
+  const [state, setState] = usePersistedState<NuzlockeState>(
+    STORAGE_KEYS.nuzlocke,
+    initialState,
+    validateNuzlockeState,
+  );
 
   const enableNuzlocke = useCallback(() => {
     setState((prev) => ({ ...prev, enabled: true }));
-  }, []);
+  }, [setState]);
 
   const disableNuzlocke = useCallback(() => {
     setState(initialState);
-  }, []);
+  }, [setState]);
 
   const markAreaEncountered = useCallback((areaId: string) => {
-    setState((prev) => ({
-      ...prev,
-      encounteredAreas: [...prev.encounteredAreas, areaId],
-    }));
-  }, []);
+    setState((prev) => {
+      if (prev.encounteredAreas.includes(areaId)) return prev;
+      return {
+        ...prev,
+        encounteredAreas: [...prev.encounteredAreas, areaId],
+      };
+    });
+  }, [setState]);
 
   const isAreaEncountered = useCallback(
     (areaId: string) => state.encounteredAreas.includes(areaId),
@@ -71,7 +67,7 @@ export function useNuzlocke() {
         return { ...prev, graveyard: newGraveyard };
       });
     },
-    []
+    [setState]
   );
 
   const checkGameOver = useCallback(
@@ -83,12 +79,12 @@ export function useNuzlocke() {
       }
       return false;
     },
-    []
+    [setState]
   );
 
   const resetNuzlocke = useCallback(() => {
     setState({ ...initialState, enabled: true });
-  }, []);
+  }, [setState]);
 
   return {
     state,

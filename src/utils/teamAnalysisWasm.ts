@@ -1,4 +1,4 @@
-import type { TypeName, TeamSlot, Pokemon } from "@/types";
+import { TypeName, TeamSlot, Pokemon } from "@/types";
 import { silentWarn } from "@/utils/silentWarn";
 import { TYPE_LIST } from "@/data/typeChart";
 import { typeToIndex } from "./typeChartWasm";
@@ -19,8 +19,9 @@ type AnalysisWasmModule = {
 };
 
 const wrapper = createWasmWrapper<AnalysisWasmModule>("pkmn-analysis", async () => {
-  // @ts-ignore — WASM pkg only exists locally after wasm-pack build
-  const mod = await import(/* webpackIgnore: true */ "../../rust/pkmn-analysis/pkg/pkmn_analysis.js");
+  // @ts-ignore -- dynamic WASM import
+  const wasmModulePath = "/wasm/pkmn_analysis.js";
+  const mod = await import(/* webpackIgnore: true */ /* @vite-ignore */ wasmModulePath);
   await mod.default("/wasm/pkmn_analysis_bg.wasm");
   return {
     analyze_team: mod.analyze_team,
@@ -145,7 +146,15 @@ export function analyzeTeam(team: TeamSlot[]): TeamWeaknessReport {
   }
 }
 
-export function analyzeDefensiveCoverage(team: Pokemon[]): CoverageResult[] {
+export function analyzeDefensiveCoverage(
+  team: Pokemon[],
+  moveTypes?: TypeName[]
+): CoverageResult[] {
+  // When move types are provided, use JS path which supports them natively
+  if (moveTypes && moveTypes.length > 0) {
+    return analyzeDefensiveCoverage_JS(team, moveTypes);
+  }
+
   const wasmModule = wrapper.getModule();
   if (!wasmModule || team.length === 0) {
     return analyzeDefensiveCoverage_JS(team);

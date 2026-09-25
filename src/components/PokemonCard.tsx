@@ -10,6 +10,7 @@ import { extractBaseStats } from "@/utils/damageWasm";
 import { getHeldItem } from "@/data/heldItems";
 import { playCry } from "@/utils/cryPlayer";
 import ItemSprite from "@/components/ItemSprite";
+import { isNFE } from "@/data/nfeList";
 
 interface PokemonCardProps {
   slot: TeamSlot;
@@ -47,11 +48,17 @@ export default memo(function PokemonCard({
         boxShadow: `0 0 20px ${glowColor}4D`,
         borderColor: `${glowColor}80`,
       }}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } }}
       className={`relative rounded-xl border bg-[#262b44] p-4 cursor-pointer transition-colors ${
         isExpanded ? "border-[#e8433f]" : "border-[#3a4466]"
       }`}
       onClick={onClick}
     >
+      {isNFE(pokemon.id) && (
+        <span className="absolute top-1 left-1 bg-[#f7a838]/80 text-[#1a1c2c] font-pixel text-[7px] px-1 rounded z-10">NFE</span>
+      )}
       <div className="absolute top-2 right-2 flex gap-1">
         <button
           onClick={(e) => {
@@ -59,7 +66,7 @@ export default memo(function PokemonCard({
             playCry(pokemon);
           }}
           aria-label={`Play ${pokemon.name} cry`}
-          className="flex h-6 w-6 items-center justify-center rounded-full bg-[#3a4466] text-xs text-[#8b9bb4] hover:bg-[#3b82f6] hover:text-[#f0f0e8] transition-colors"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#3a4466] text-xs text-[#8b9bb4] hover:bg-[#3b82f6] hover:text-[#f0f0e8] transition-colors"
           title="Play cry"
         >
           &#9835;
@@ -67,10 +74,12 @@ export default memo(function PokemonCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onRemove(position);
+            if (window.confirm(`Remove ${pokemon.name} from your team? This will discard its configured nature, ability, EVs, IVs, moves, and held item.`)) {
+              onRemove(position);
+            }
           }}
           aria-label={`Remove ${pokemon.name} from team`}
-          className="flex h-6 w-6 items-center justify-center rounded-full bg-[#3a4466] text-xs text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#3a4466] text-xs text-[#8b9bb4] hover:bg-[#e8433f] hover:text-[#f0f0e8] transition-colors"
         >
           X
         </button>

@@ -1,7 +1,15 @@
 use wasm_bindgen::prelude::*;
+use serde::{Deserialize, Serialize};
 
 const NUM_TYPES: usize = 18;
 const MONO_TYPE_SENTINEL: u8 = 255;
+
+/// Type name strings matching the JS TYPE_LIST order (indices 0-17).
+const TYPE_NAMES: [&str; NUM_TYPES] = [
+    "normal", "fire", "water", "electric", "grass", "ice",
+    "fighting", "poison", "ground", "flying", "psychic", "bug",
+    "rock", "ghost", "dragon", "dark", "steel", "fairy",
+];
 
 /// Analyze a team's defensive weaknesses, offensive coverage, and threat score.
 ///
@@ -290,6 +298,226 @@ pub fn analyze_defensive_coverage(team_types: &[u8], team_size: u8) -> Vec<f64> 
     }
 
     result
+}
+
+fn type_name_to_index(name: &str) -> Option<u8> {
+    let lower = name.to_ascii_lowercase();
+    TYPE_NAMES.iter().position(|&n| n == lower).map(|i| i as u8)
+}
+
+#[derive(Deserialize)]
+struct CandidateInput {
+    id: u32,
+    types: Vec<String>,
+    name: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ScoredResult {
+    id: u32,
+    name: String,
+    score: i32,
+    #[serde(rename = "resistsWeaknesses")]
+    resists_weaknesses: Vec<String>,
+    #[serde(rename = "addsOffensiveCoverage")]
+    adds_offensive_coverage: Vec<String>,
+}
+
+/// Suggest team fillers that best patch a team's defensive weaknesses and offensive gaps.
+///
+/// `team_types_json`: JSON array of arrays, e.g. `[["fire","flying"],["water"]]`
+/// `candidates_json`: JSON array of `{id, types: [...], name}` objects
+/// `max_results`: max number of results to return
+///
+/// Returns JSON array of `{id, name, score, resistsWeaknesses, addsOffensiveCoverage}`.
+///
+/// Scoring (matches the JS implementation):
+///   +3 per team weakness the candidate is immune to
+///   +2 per team weakness the candidate resists
+///   +1 per offensive gap the candidate's STAB covers super-effectively
+///   -1 per type weakness the candidate shares with existing team members
+#[wasm_bindgen]
+pub fn suggest_team_fillers(
+    team_types_json: &str,
+    candidates_json: &str,
+    max_results: usize,
+) -> String {
+    let team_types: Vec<Vec<String>> = match serde_json::from_str(team_types_json) {
+        Ok(v) => v,
+        Err(_) => return "[]".to_string(),
+    };
+    let candidates: Vec<CandidateInput> = match serde_json::from_str(candidates_json) {
+        Ok(v) => v,
+        Err(_) => return "[]".to_string(),
+    };
+
+    // Convert team types to index pairs (type1, type2) where type2 = -1 for mono
+    let team_indices: Vec<(u8, i8)> = team_types
+        .iter()
+        .filter_map(|types| {
+            let t1 = type_name_to_index(types.first()?)?;
+            let t2 = if types.len() > 1 {
+                type_name_to_index(&types[1]).map(|v| v as i8).unwrap_or(-1)
+            } else {
+                -1
+            };
+            Some((t1, t2))
+        })
+        .collect();
+
+    // 1. Compute team defensive weaknesses (unresisted)
+    //    A type qualifies if any team member is weak AND no member resists/is immune
+    let mut team_weaknesses: Vec<u8> = Vec::new();
+    for atk in 0..NUM_TYPES as u8 {
+        let mut weak_count = 0u32;
+        let mut resist_or_immune = false;
+        for &(def1, def2) in &team_indices {
+            let mult = pkmn_type_chart::get_defensive_multiplier(atk, def1, def2);
+            if mult > 1.0 {
+                weak_count += 1;
+            }
+            if mult < 1.0 {
+                resist_or_immune = true;
+            }
+        }
+        if weak_count >= 1 && !resist_or_immune {
+            team_weaknesses.push(atk);
+        }
+    }
+    // Empty team: all types are "weaknesses" (matches JS: returns [...TYPE_LIST])
+    if team_indices.is_empty() {
+        for t in 0..NUM_TYPES as u8 {
+            team_weaknesses.push(t);
+        }
+    }
+
+    // 2. Compute offensive gaps (types team can't hit super-effectively via STAB)
+    let mut team_atk_types: Vec<u8> = Vec::new();
+    for &(t1, t2) in &team_indices {
+        if !team_atk_types.contains(&t1) {
+            team_atk_types.push(t1);
+        }
+        if t2 >= 0 {
+            let t2u = t2 as u8;
+            if !team_atk_types.contains(&t2u) {
+                team_atk_types.push(t2u);
+            }
+        }
+    }
+
+    let mut offensive_gaps: Vec<u8> = Vec::new();
+    for def in 0..NUM_TYPES as u8 {
+        let mut covered = false;
+        for &atk in &team_atk_types {
+            if pkmn_type_chart::get_effectiveness(atk, def) > 1.0 {
+                covered = true;
+                break;
+            }
+        }
+        if !covered {
+            offensive_gaps.push(def);
+        }
+    }
+
+    // 3. Collect types the team is already weak to (for shared-weakness penalty)
+    let mut existing_weak_types = [false; NUM_TYPES];
+    for &(def1, def2) in &team_indices {
+        for atk in 0..NUM_TYPES as u8 {
+            let mult = pkmn_type_chart::get_defensive_multiplier(atk, def1, def2);
+            if mult > 1.0 {
+                existing_weak_types[atk as usize] = true;
+            }
+        }
+    }
+
+    // 4. Collect team IDs to exclude
+    // Note: team ID filtering is handled on the JS side before calling this function.
+
+    // 5. Score each candidate
+    let mut scored: Vec<ScoredResult> = Vec::with_capacity(candidates.len());
+
+    for cand in &candidates {
+        let cand_indices: Vec<u8> = cand
+            .types
+            .iter()
+            .filter_map(|t| type_name_to_index(t))
+            .collect();
+        if cand_indices.is_empty() {
+            continue;
+        }
+
+        let def1 = cand_indices[0];
+        let def2: i8 = if cand_indices.len() > 1 {
+            cand_indices[1] as i8
+        } else {
+            -1
+        };
+
+        let mut score: i32 = 0;
+        let mut resists_weaknesses: Vec<String> = Vec::new();
+        let mut adds_offensive_coverage: Vec<String> = Vec::new();
+
+        // Defensive value: how many team weaknesses does this candidate handle?
+        for &weakness in &team_weaknesses {
+            let mult = pkmn_type_chart::get_defensive_multiplier(weakness, def1, def2);
+            if mult == 0.0 {
+                score += 3;
+                resists_weaknesses.push(TYPE_NAMES[weakness as usize].to_string());
+            } else if mult < 1.0 {
+                score += 2;
+                resists_weaknesses.push(TYPE_NAMES[weakness as usize].to_string());
+            }
+        }
+
+        // Offensive value: what gaps does its STAB close?
+        for &gap in &offensive_gaps {
+            let mut covers = false;
+            for &atk in &cand_indices {
+                if pkmn_type_chart::get_effectiveness(atk, gap) > 1.0 {
+                    covers = true;
+                    break;
+                }
+            }
+            if covers {
+                score += 1;
+                adds_offensive_coverage.push(TYPE_NAMES[gap as usize].to_string());
+            }
+        }
+
+        // Penalty: shared weaknesses with existing team
+        for atk in 0..NUM_TYPES as u8 {
+            let mult = pkmn_type_chart::get_defensive_multiplier(atk, def1, def2);
+            if mult > 1.0 && existing_weak_types[atk as usize] {
+                score -= 1;
+            }
+        }
+
+        if score > 0 {
+            scored.push(ScoredResult {
+                id: cand.id,
+                name: cand.name.clone(),
+                score,
+                resists_weaknesses,
+                adds_offensive_coverage,
+            });
+        }
+    }
+
+    // Sort: score desc, then resists count desc, then name asc
+    scored.sort_by(|a, b| {
+        b.score
+            .cmp(&a.score)
+            .then_with(|| {
+                b.resists_weaknesses
+                    .len()
+                    .cmp(&a.resists_weaknesses.len())
+            })
+            .then_with(|| a.name.cmp(&b.name))
+    });
+
+    scored.truncate(max_results);
+
+    serde_json::to_string(&scored).unwrap_or_else(|_| "[]".to_string())
 }
 
 #[cfg(test)]
@@ -747,5 +975,161 @@ mod tests {
         assert_eq!(i, 1.0, "normal is immune to ghost");
         assert_eq!(w, 0.0);
         assert_eq!(r, 0.0);
+    }
+
+    // ==================== suggest_team_fillers tests ====================
+
+    fn parse_results(json: &str) -> Vec<ScoredResult> {
+        serde_json::from_str(json).unwrap()
+    }
+
+    // Test 18: Empty team returns all candidates scored
+    #[test]
+    fn test_suggest_empty_team() {
+        let team = "[]";
+        let candidates = r#"[
+            {"id":6,"types":["fire","flying"],"name":"charizard"},
+            {"id":9,"types":["water"],"name":"blastoise"},
+            {"id":3,"types":["grass","poison"],"name":"venusaur"}
+        ]"#;
+        let result = suggest_team_fillers(team, candidates, 10);
+        let scored = parse_results(&result);
+        // Empty team means all 18 types are "weaknesses" (no resists), so candidates
+        // that resist/are immune to more types score higher. All should appear (score > 0).
+        assert_eq!(scored.len(), 3, "all 3 candidates should have score > 0");
+        for s in &scored {
+            assert!(s.score > 0, "{} should have positive score", s.name);
+        }
+    }
+
+    // Test 19: Single-type team favoring resistors
+    #[test]
+    fn test_suggest_single_fire_team() {
+        // Fire is weak to Water, Ground, Rock (unresisted since nobody else resists)
+        let team = r#"[["fire"]]"#;
+        let candidates = r#"[
+            {"id":9,"types":["water"],"name":"blastoise"},
+            {"id":76,"types":["rock","ground"],"name":"golem"},
+            {"id":3,"types":["grass","poison"],"name":"venusaur"}
+        ]"#;
+        let result = suggest_team_fillers(team, candidates, 10);
+        let scored = parse_results(&result);
+
+        // Water resists Water(+2) => doesn't resist Ground or Rock
+        // Rock/Ground: Ground immune to Electric(not a weakness)... let's check what Water resists:
+        // Team weaknesses for mono-Fire: Water, Ground, Rock (no team member resists any)
+        // Blastoise (Water): vs Water=0.5(+2), vs Ground=1.0, vs Rock=1.0 => defensive +2
+        //   STAB covers: fire(+1) ground(+1) rock(+1) => offensive +3
+        //   Shared weaknesses: Water is weak to Electric, Grass. Fire is also weak to... none of those
+        //   existing_weak_types = {water, ground, rock}
+        //   Water is weak to: Electric(no), Grass(no) => 0 penalty
+        //   Total = 2+3 = 5
+
+        // Golem (Rock/Ground): vs Water: rock/ground vs water = 4x => weak, not resist
+        //   vs Ground: rock/ground vs ground = ground resists? ground vs rock=2.0, ground vs ground=1.0 => 2.0 weak
+        //   vs Rock: rock/ground vs rock = rock vs rock=1.0, rock vs ground=0.5 => 0.5 resist => +2
+        //   Defensive: resists Rock(+2)
+        //   STAB: rock SE against fire(+1), ice(+1), flying(+1), bug(+1); ground SE against fire(covered), electric(+1), poison(+1)
+        //   But offensive gaps are types Fire can't hit SE. Fire hits: Grass, Ice, Bug, Steel
+        //   Gaps: Normal, Fire, Water, Electric, Fighting, Poison, Ground, Flying, Psychic, Rock, Ghost, Dragon, Dark, Fairy (14 types)
+        //   Rock SE: Fire(already covered by fire STAB), Ice(already covered), Flying, Bug(already covered) => Flying(+1)
+        //   Ground SE: Fire(covered), Electric(+1), Poison(+1), Rock(+1), Steel(covered) => Electric, Poison, Rock (+3)
+        //   So offensive = Flying + Electric + Poison + Rock = 4
+        //   Shared weakness: Golem weak to Water, Grass, Fighting, Ground, Steel, Ice
+        //   existing_weak = {water, ground, rock}; Golem weak to Water(-1), Ground(-1) => -2
+        //   Total = 2 + 4 - 2 = 4
+
+        // All candidates should score > 0
+        assert!(!scored.is_empty(), "should have suggestions");
+
+        // Blastoise should appear and have decent score
+        let blastoise = scored.iter().find(|s| s.name == "blastoise");
+        assert!(blastoise.is_some(), "blastoise should be suggested");
+        assert!(blastoise.unwrap().score >= 3, "blastoise should score well against fire team");
+    }
+
+    // Test 20: Score calculation matches expected values
+    #[test]
+    fn test_suggest_score_values() {
+        // Team: 3x Ice (mono). Weaknesses: Fire, Rock, Fighting, Steel (all unresisted)
+        let team = r#"[["ice"],["ice"],["ice"]]"#;
+        // Candidate: Water (mono)
+        // vs Fire: water vs fire = 0.5 => resist => +2
+        // vs Rock: water vs rock = 1.0 => neutral
+        // vs Fighting: water vs fighting = 1.0 => neutral
+        // vs Steel: water vs steel = 1.0 => neutral
+        // Defensive total: +2
+        // Offensive gaps for ice-only team: Ice hits Grass, Ground, Flying, Dragon SE.
+        // Gaps: Normal, Fire, Water, Electric, Fighting, Poison, Psychic, Bug, Rock, Ghost, Dark, Steel, Fairy (13 types)
+        // Water SE: Fire, Ground, Rock => Fire(+1), Ground(already covered by Ice? Ice vs Ground=1.0, not SE)
+        // Wait: Ice SE against: Grass(2.0), Ground(2.0), Flying(2.0), Dragon(2.0)
+        // So covered: Grass, Ground, Flying, Dragon. Gaps = everything else (14 types).
+        // Water SE: Fire(+1), Ground(covered already), Rock(+1) => +2
+        // Shared weakness: Water weak to Electric, Grass. existing_weak = Fire, Rock, Fighting, Steel.
+        // Water weak to Electric(no), Grass(no) => 0 penalty
+        // Total: 2 + 2 = 4
+        let candidates = r#"[{"id":9,"types":["water"],"name":"blastoise"}]"#;
+        let result = suggest_team_fillers(team, candidates, 5);
+        let scored = parse_results(&result);
+        assert_eq!(scored.len(), 1);
+        assert_eq!(scored[0].name, "blastoise");
+        // Water resists Fire(+2), Steel(+2) = 4 defensive
+        // Offensive gaps: Ice covers Grass,Ground,Flying,Dragon. Water SE: Fire,Ground,Rock.
+        // Ground already covered by Ice. So Water adds: Fire(+1), Rock(+1) = 2 offensive
+        // Shared weakness: Water weak to Electric,Grass. Existing weak = Fire,Rock,Fighting,Steel. No overlap => 0
+        // Total = 4 + 2 = 6
+        assert_eq!(scored[0].score, 6, "water vs 3x ice team should score 6");
+        assert!(scored[0].resists_weaknesses.contains(&"fire".to_string()));
+    }
+
+    // Test 21: Candidates with score <= 0 are excluded
+    #[test]
+    fn test_suggest_excludes_negative_scores() {
+        // Team: Water + Ground covers most things well
+        // Candidate: another Water mon shares all weaknesses
+        let team = r#"[["water"],["ground"]]"#;
+        // Team weaknesses:
+        //   Water weak to: Electric, Grass. Ground resists neither => both unresisted
+        //   Ground weak to: Water, Grass, Ice. Water resists Water, not Grass or Ice
+        //     Water: Ground resists Electric but Water doesn't => Electric unresisted? No:
+        //     Electric vs Water = 2.0 (weak), Electric vs Ground = 0.0 (immune) => immune present => NOT unresisted
+        //   So: Grass is unresisted (Water weak, Ground weak, nobody resists)
+        //   Ice: Water resists (0.5) => resisted
+        // Unresisted weaknesses: Grass only
+        // A Grass/Poison candidate would be immune/resist to Grass (+2 or +3)
+        // but also weak to Ice, Psychic, etc. which overlap with existing weaknesses
+        let candidates = r#"[
+            {"id":45,"types":["grass","poison"],"name":"vileplume"},
+            {"id":6,"types":["fire","flying"],"name":"charizard"}
+        ]"#;
+        let result = suggest_team_fillers(team, candidates, 10);
+        let scored = parse_results(&result);
+        // All returned results should have score > 0
+        for s in &scored {
+            assert!(s.score > 0, "{} should not appear with score <= 0", s.name);
+        }
+    }
+
+    // Test 22: max_results limits output
+    #[test]
+    fn test_suggest_max_results() {
+        let team = r#"[["ice"]]"#;
+        let candidates = r#"[
+            {"id":1,"types":["water"],"name":"a"},
+            {"id":2,"types":["fire"],"name":"b"},
+            {"id":3,"types":["ground"],"name":"c"},
+            {"id":4,"types":["steel"],"name":"d"},
+            {"id":5,"types":["fighting"],"name":"e"}
+        ]"#;
+        let result = suggest_team_fillers(team, candidates, 2);
+        let scored = parse_results(&result);
+        assert!(scored.len() <= 2, "should return at most 2 results");
+    }
+
+    // Test 23: Invalid JSON returns empty array
+    #[test]
+    fn test_suggest_invalid_json() {
+        assert_eq!(suggest_team_fillers("not json", "[]", 5), "[]");
+        assert_eq!(suggest_team_fillers("[]", "not json", 5), "[]");
     }
 }

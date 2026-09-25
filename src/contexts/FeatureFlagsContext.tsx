@@ -11,7 +11,7 @@ const FeatureFlagsContext = createContext<FeatureFlagsContextType>({
     enableLeaderboards: true,
     enableEmulator: true,
     enableCitrine: false,
-    enableMultiplayer: false,
+    enableMultiplayer: true,
     maintenanceMode: false,
   },
   announcement: { banner: null, bannerType: "info" },

@@ -234,7 +234,7 @@ export default function ChallengeCode({ team, onAccept }: ChallengeCodeProps) {
                         <p className="text-[10px] font-pixel text-[#f0f0e8]">
                           #{member.pokemonId}
                         </p>
-                        <p className="text-[8px] text-[#8b9bb4]">
+                        <p className="text-[10px] text-[#8b9bb4]">
                           {member.moves.length} moves
                         </p>
                       </div>

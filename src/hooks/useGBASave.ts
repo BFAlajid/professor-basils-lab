@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useCallback } from "react";
-import { storeSave, loadSave } from "@/utils/emulatorStorage";
+import { storeSave } from "@/utils/emulatorStorage";
 
 type mGBAEmulator = {
   getSave(): Uint8Array | null;

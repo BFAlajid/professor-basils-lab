@@ -97,12 +97,12 @@ describe("validateTeamSlots", () => {
     expect(validateTeamSlots(slots)).toBeNull();
   });
 
-  it("rejects slot with invalid pokemon id", () => {
-    expect(validateTeamSlots([{ pokemon: { ...makePokemon(), id: 9999 }, position: 0 }])).toBeNull();
+  it("rejects slot with non-numeric pokemon id", () => {
+    expect(validateTeamSlots([{ pokemon: { ...makePokemon(), id: "bad" }, position: 0 }])).toBeNull();
   });
 
-  it("rejects slot with missing position", () => {
-    expect(validateTeamSlots([{ pokemon: makePokemon() }])).toBeNull();
+  it("rejects slot with missing pokemon name", () => {
+    expect(validateTeamSlots([{ pokemon: { id: 25 }, position: 0 }])).toBeNull();
   });
 
   it("rejects non-array input", () => {

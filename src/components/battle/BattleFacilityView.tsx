@@ -51,6 +51,7 @@ export default function BattleFacilityView({
   const hofLeaderboard = useLeaderboard("hall-of-fame");
   const submittedTowerStreak = useRef<number>(0);
   const submittedHof = useRef(false);
+  const savedHof = useRef(false);
 
   // Auto-submit battle tower streak when a new personal best is achieved (defeat/victory phase)
   useEffect(() => {
@@ -67,6 +68,7 @@ export default function BattleFacilityView({
       timestamp: new Date().toISOString(),
     };
     towerLeaderboard.submitScore(entry).catch((e) => silentWarn("towerLeaderboardSubmit", e));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- depend on the stable submitScore fn, not the whole (re-created) towerLeaderboard object
   }, [isTower, phase, bestStreak, playerTeam, towerLeaderboard.submitScore]);
 
   // Auto-submit hall of fame entry on victory
@@ -93,7 +95,34 @@ export default function BattleFacilityView({
       timestamp: new Date().toISOString(),
     };
     hofLeaderboard.submitScore(entry).catch((e) => silentWarn("hofLeaderboardSubmit", e));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- depend on the stable submitScore fn, not the whole (re-created) hofLeaderboard object
   }, [phase, playerTeam, hofLeaderboard.submitScore]);
+
+  // Auto-save to Hall of Fame on victory
+  useEffect(() => {
+    if (phase !== "victory") {
+      savedHof.current = false;
+      return;
+    }
+    if (savedHof.current) return;
+    savedHof.current = true;
+
+    const teamForHof = playerTeam.map((slot) => ({
+      pokemonId: slot.pokemon.id,
+      name: slot.pokemon.name,
+      spriteUrl: slot.pokemon.sprites.front_default,
+      level: 50,
+    }));
+
+    saveToHallOfFame({
+      id: "",
+      date: new Date().toISOString(),
+      mode: mode as "elite_four" | "battle_tower" | "gym_challenge",
+      team: teamForHof,
+      streak: isTower ? streak : undefined,
+      gymBadges: isGym ? (badges?.length ?? 0) : undefined,
+    });
+  }, [phase, mode, playerTeam, isTower, isGym, streak, badges]);
 
   // Hall of Fame overlay
   if (showHallOfFame) {
@@ -265,7 +294,11 @@ export default function BattleFacilityView({
             {isLoading ? "Loading..." : "Continue"}
           </button>
           <button
-            onClick={onReset}
+            onClick={() => {
+              if (window.confirm("Retire from this run? Your progress will be lost.")) {
+                onReset();
+              }
+            }}
             className="rounded-lg bg-[#3a4466] px-4 py-3 text-xs text-[#8b9bb4] hover:bg-[#4a5577] hover:text-[#f0f0e8] transition-colors"
           >
             Retire
@@ -277,24 +310,6 @@ export default function BattleFacilityView({
 
   // Victory
   if (phase === "victory") {
-    // Auto-save to Hall of Fame
-    const teamForHof = playerTeam.map((slot) => ({
-      pokemonId: slot.pokemon.id,
-      name: slot.pokemon.name,
-      spriteUrl: slot.pokemon.sprites.front_default,
-      level: 50,
-    }));
-
-    // Save once (useEffect pattern not ideal here, so we rely on idempotent save)
-    saveToHallOfFame({
-      id: "",
-      date: new Date().toISOString(),
-      mode: mode as "elite_four" | "battle_tower" | "gym_challenge",
-      team: teamForHof,
-      streak: isTower ? streak : undefined,
-      gymBadges: isGym ? (badges?.length ?? 0) : undefined,
-    });
-
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}

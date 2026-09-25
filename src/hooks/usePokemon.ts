@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Pokemon } from "@/types";
 import { fetchPokemonData } from "@/utils/pokeApiClient";
 
 export function usePokemon(nameOrId: string | number | null) {

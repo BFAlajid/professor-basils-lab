@@ -110,7 +110,7 @@ export default function BerryFarm() {
                   <p className="text-[9px] font-pixel text-[#f0f0e8]">
                     {BERRIES.find((b) => b.name === plot.berryType)?.displayName}
                   </p>
-                  <p className="text-[8px] text-[#8b9bb4]">{stage}</p>
+                  <p className="text-[10px] text-[#8b9bb4]">{stage}</p>
 
                   <div className="w-full h-1.5 rounded-full bg-[#262b44] overflow-hidden">
                     <motion.div
@@ -140,7 +140,7 @@ export default function BerryFarm() {
                       <button
                         onClick={() => water(plot.id)}
                         aria-label={`Water plot ${plot.id + 1}`}
-                        className="rounded bg-[#6390F0] px-2 py-0.5 text-[8px] font-pixel text-[#f0f0e8] hover:opacity-80 transition-opacity"
+                        className="rounded bg-[#6390F0] px-2 py-0.5 text-[10px] font-pixel text-[#f0f0e8] hover:opacity-80 transition-opacity"
                       >
                         Water
                       </button>
@@ -149,7 +149,7 @@ export default function BerryFarm() {
                       <button
                         onClick={() => handlePlotClick(plot)}
                         aria-label={`Harvest plot ${plot.id + 1}`}
-                        className="rounded bg-[#38b764] px-2 py-0.5 text-[8px] font-pixel text-[#f0f0e8] hover:opacity-80 transition-opacity"
+                        className="rounded bg-[#38b764] px-2 py-0.5 text-[10px] font-pixel text-[#f0f0e8] hover:opacity-80 transition-opacity"
                       >
                         Harvest
                       </button>
@@ -166,7 +166,7 @@ export default function BerryFarm() {
                   <div className="w-8 h-8 rounded-lg border-2 border-dashed border-[#3a4466] flex items-center justify-center text-lg">
                     +
                   </div>
-                  <span className="text-[8px] font-pixel">
+                  <span className="text-[10px] font-pixel">
                     {selectedBerry ? "Tap to plant" : "Empty"}
                   </span>
                 </button>
@@ -188,7 +188,7 @@ export default function BerryFarm() {
             <button
               key={cat.key}
               onClick={() => setBerryCategory(cat.key)}
-              className="px-2 py-0.5 text-[7px] font-pixel rounded border transition-colors"
+              className="px-2 py-0.5 text-[10px] font-pixel rounded border transition-colors"
               style={{
                 color: berryCategory === cat.key ? cat.color : "#8b9bb4",
                 borderColor: berryCategory === cat.key ? cat.color : "#3a4466",
@@ -223,7 +223,7 @@ export default function BerryFarm() {
               }}
             >
               <ItemSprite name={berry.name} size={24} fallbackColor={berry.color} className="mx-auto mb-0.5" />
-              <p className="text-[7px] font-pixel text-[#f0f0e8] truncate">
+              <p className="text-[10px] font-pixel text-[#f0f0e8] truncate">
                 {berry.displayName.replace(" Berry", "")}
               </p>
               <p className="text-[6px] text-[#8b9bb4]">
